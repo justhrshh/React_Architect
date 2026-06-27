@@ -1,0 +1,154 @@
+/* ==========================================================================
+   Glass
+   ========================================================================== */
+
+.glass {
+  background: rgba(255, 255, 255, 0.04);
+  backdrop-filter: blur(24px);
+  -webkit-backdrop-filter: blur(24px);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.glass-dark {
+  background: rgba(0, 0, 0, 0.35);
+  backdrop-filter: blur(24px);
+  -webkit-backdrop-filter: blur(24px);
+  border: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+/* ==========================================================================
+   Text
+   ========================================================================== */
+
+.text-gradient {
+  background: linear-gradient(
+    135deg,
+    var(--color-text-primary),
+    var(--color-accent)
+  );
+
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+/* ==========================================================================
+   Glow
+   ========================================================================== */
+
+.glow {
+  box-shadow: 0 0 30px var(--color-accent-glow);
+}
+
+.glow-soft {
+  box-shadow: 0 0 15px var(--color-accent-dim);
+}
+
+/* ==========================================================================
+   Backgrounds
+   ========================================================================== */
+
+.bg-grid {
+  background-image:
+    linear-gradient(var(--color-border-subtle) 1px, transparent 1px),
+    linear-gradient(90deg, var(--color-border-subtle) 1px, transparent 1px);
+
+  background-size: 40px 40px;
+}
+
+.bg-radial {
+  background:
+    radial-gradient(circle at center,
+      rgba(255,255,255,.06),
+      transparent 70%);
+}
+
+.hero-overlay {
+  position: absolute;
+  inset: 0;
+
+  background:
+    radial-gradient(circle at top,
+      rgba(255,255,255,.08),
+      transparent 60%);
+
+  pointer-events: none;
+}
+
+/* ==========================================================================
+   Noise
+   ========================================================================== */
+
+.noise {
+  position: absolute;
+  inset: 0;
+
+  opacity: .035;
+
+  pointer-events: none;
+  mix-blend-mode: soft-light;
+}
+
+/* ==========================================================================
+   Scrollbar
+   ========================================================================== */
+
+.no-scrollbar {
+  scrollbar-width: none;
+}
+
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+
+/* ==========================================================================
+   Mask
+   ========================================================================== */
+
+.mask-fade-bottom {
+  mask-image: linear-gradient(
+    to bottom,
+    black 75%,
+    transparent
+  );
+
+  -webkit-mask-image: linear-gradient(
+    to bottom,
+    black 75%,
+    transparent
+  );
+}
+
+.mask-fade-top {
+  mask-image: linear-gradient(
+    to top,
+    black 75%,
+    transparent
+  );
+
+  -webkit-mask-image: linear-gradient(
+    to top,
+    black 75%,
+    transparent
+  );
+}
+
+/* ==========================================================================
+   Pointer
+   ========================================================================== */
+
+.pointer-none {
+  pointer-events: none;
+}
+
+.select-none {
+  user-select: none;
+}
+
+/* ==========================================================================
+   Overflow
+   ========================================================================== */
+
+.clip {
+  overflow: clip;
+}

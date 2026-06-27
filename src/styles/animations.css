@@ -1,0 +1,85 @@
+/* ==========================================================================
+   React Architect Animation Philosophy
+
+   CSS is only for:
+   • Ambient animations
+   • Infinite loops
+   • Decorative effects
+   • Utility animations
+
+   GSAP is responsible for:
+   • Hero animations
+   • Scene transitions
+   • Camera movement
+   • User interactions
+   • Timelines
+   • Storytelling
+
+   Never animate the same element using both CSS and GSAP.
+   ========================================================================== */
+
+
+/* ==========================================================================
+   Ambient Animations
+   ========================================================================== */
+
+@keyframes pulse {
+  0%, 100% {
+    opacity: 1;
+  }
+
+  50% {
+    opacity: .45;
+  }
+}
+
+@keyframes glowPulse {
+  0%, 100% {
+    box-shadow: 0 0 8px var(--color-accent-glow);
+  }
+
+  50% {
+    box-shadow: 0 0 24px var(--color-accent-dim);
+  }
+}
+
+@keyframes float {
+  0%, 100% {
+    transform: translateY(0px);
+  }
+
+  50% {
+    transform: translateY(-10px);
+  }
+}
+
+@keyframes spin {
+  from {
+    transform: rotate(0deg);
+  }
+
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+
+/* ==========================================================================
+   Utility Classes
+   ========================================================================== */
+
+.animate-pulse {
+  animation: pulse 2s var(--ease-default) infinite;
+}
+
+.animate-glow {
+  animation: glowPulse 3s var(--ease-default) infinite;
+}
+
+.animate-float {
+  animation: float 6s ease-in-out infinite;
+}
+
+.animate-spin {
+  animation: spin 1s linear infinite;
+}
