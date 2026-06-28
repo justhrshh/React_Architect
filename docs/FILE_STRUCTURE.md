@@ -61,16 +61,18 @@ animations/
         └── cursorEffects.js
     
 
-
 components/
-├── common/
-├── ui/
-├── graph/
-├── animation/
-└── three/
+├── ambient/
+│   ├── CursorBlob.jsx
+│   └── Noise.jsx
+├── landing/
+│   ├── HeroBackground.jsx
+│   ├── HeroCopy.jsx
+│   └── LaunchButton.jsx
+├── BootSequence.jsx
+└── Nav.jsx
 
 features/
-├── landing/
 ├── workspace/
 ├── architecture/
 ├── routes/
@@ -112,7 +114,7 @@ services/
 constants/
 
 styles/
-├── globals.css
+├── global.css
 ├── typography.css
 ├── variables.css
 ├── animations.css
