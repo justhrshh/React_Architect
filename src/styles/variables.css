@@ -1,17 +1,17 @@
 :root {
   /* ─── Color ─── */
-  --color-bg:               #080A0F;
+  --color-bg:               #050505;
   --color-bg-elevated:      #0D1017;
   --color-bg-overlay:       #12161E;
 
-  --color-surface:          #161B26;
+  --color-surface:          #0C0C0E;
   --color-surface-hover:    #1C2333;
   --color-border:           #1E2535;
   --color-border-subtle:    #161C2A;
 
-  --color-accent:           #4F6EF7;
-  --color-accent-glow:      rgba(79, 110, 247, 0.15);
-  --color-accent-dim:       rgba(79, 110, 247, 0.4);
+  --color-accent:           #00E5FF;
+  --color-accent-glow:      rgba(0, 229, 255, 0.15);
+  --color-accent-dim:       rgba(0, 229, 255, 0.4);
 
   --color-text-primary:     #E8EBF2;
   --color-text-secondary:   #7A85A3;
@@ -24,8 +24,8 @@
   --color-info:             #60A5FA;
 
   /* ─── Typography ─── */
-  --font-display:   'Inter', system-ui, sans-serif;
-  --font-body:      'Inter', system-ui, sans-serif;
+  --font-display:   'Cabinet Grotesk', 'Satoshi', ui-sans-serif, system-ui, sans-serif;
+  --font-body:      'Satoshi', ui-sans-serif, system-ui, sans-serif;
   --font-mono:      'JetBrains Mono', 'Fira Code', monospace;
 
   --text-xs:    0.75rem;

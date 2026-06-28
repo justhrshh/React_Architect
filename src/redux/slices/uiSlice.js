@@ -10,6 +10,11 @@ const initialState = {
   isCommandPaletteOpen: false,
   isLoading: false,
   notification: null,
+  // States merged from clone project
+  bootActive: false,
+  bootStep: 0,
+  activeRoom: 'architecture',
+  cursorActive: false,
 };
 
 const uiSlice = createSlice({
@@ -42,6 +47,23 @@ const uiSlice = createSlice({
     clearNotification(state) {
       state.notification = null;
     },
+    // Reducers merged from clone project
+    startBoot(state) {
+      state.bootActive = true;
+      state.bootStep = 0;
+    },
+    setBootStep(state, action) {
+      state.bootStep = action.payload;
+    },
+    endBoot(state) {
+      state.bootActive = false;
+    },
+    setActiveRoom(state, action) {
+      state.activeRoom = action.payload;
+    },
+    setCursorActive(state, action) {
+      state.cursorActive = action.payload;
+    },
   },
 });
 
@@ -54,6 +76,12 @@ export const {
   setLoading,
   setNotification,
   clearNotification,
+  // Merged exports
+  startBoot,
+  setBootStep,
+  endBoot,
+  setActiveRoom,
+  setCursorActive,
 } = uiSlice.actions;
 
 export default uiSlice.reducer;
