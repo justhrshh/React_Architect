@@ -1,5 +1,5 @@
 function Workspace() {
-  return null;
+  return "hello";
 }
 
 export default Workspace;

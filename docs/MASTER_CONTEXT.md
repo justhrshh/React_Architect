@@ -13,6 +13,16 @@ designing, analyzing and maintaining React applications. Instead of
 navigating folders, developers navigate architecture through an
 interactive graph.
 
+React Architect is not a website. It is an interactive software experience.
+
+The landing page is not a marketing page.
+
+It is the user's arrival into the world of React Architect.
+
+Every interaction should increase curiosity.
+
+Navigation is experienced as movement through space, not page changes.
+
 ------------------------------------------------------------------------
 
 ## 2. Vision

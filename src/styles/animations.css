@@ -1,85 +1,67 @@
-/* ==========================================================================
-   React Architect Animation Philosophy
+/* Custom CSS Keyframes & Animation classes */
 
-   CSS is only for:
-   • Ambient animations
-   • Infinite loops
-   • Decorative effects
-   • Utility animations
-
-   GSAP is responsible for:
-   • Hero animations
-   • Scene transitions
-   • Camera movement
-   • User interactions
-   • Timelines
-   • Storytelling
-
-   Never animate the same element using both CSS and GSAP.
-   ========================================================================== */
-
-
-/* ==========================================================================
-   Ambient Animations
-   ========================================================================== */
-
-@keyframes pulse {
+@keyframes grain {
   0%, 100% {
-    opacity: 1;
+    transform: translate(0, 0);
   }
-
+  10% {
+    transform: translate(-5%, -5%);
+  }
+  30% {
+    transform: translate(3%, -2%);
+  }
   50% {
-    opacity: .45;
+    transform: translate(-2%, 4%);
+  }
+  70% {
+    transform: translate(4%, 3%);
+  }
+  90% {
+    transform: translate(-3%, -4%);
   }
 }
 
-@keyframes glowPulse {
+.animate-grain {
+  animation: grain 1.6s steps(6) infinite;
+}
+
+@keyframes pulseGlow {
   0%, 100% {
-    box-shadow: 0 0 8px var(--color-accent-glow);
+    opacity: 0.35;
   }
-
   50% {
-    box-shadow: 0 0 24px var(--color-accent-dim);
+    opacity: 0.85;
   }
 }
 
-@keyframes float {
-  0%, 100% {
-    transform: translateY(0px);
-  }
-
-  50% {
-    transform: translateY(-10px);
-  }
+.animate-pulse-glow {
+  animation: pulseGlow 4s ease-in-out infinite;
 }
 
-@keyframes spin {
-  from {
-    transform: rotate(0deg);
+@keyframes scanline {
+  0% {
+    transform: translateY(-100%);
   }
-
-  to {
-    transform: rotate(360deg);
+  100% {
+    transform: translateY(100vh);
   }
 }
 
-
-/* ==========================================================================
-   Utility Classes
-   ========================================================================== */
-
-.animate-pulse {
-  animation: pulse 2s var(--ease-default) infinite;
+.animate-scanline {
+  animation: scanline 8s linear infinite;
 }
 
-.animate-glow {
-  animation: glowPulse 3s var(--ease-default) infinite;
+/* GSAP / Clip-path reveal animations */
+.reveal-char {
+  display: inline-block;
+  transform: translateY(110%);
+  will-change: transform, opacity;
+  opacity: 0;
 }
 
-.animate-float {
-  animation: float 6s ease-in-out infinite;
-}
-
-.animate-spin {
-  animation: spin 1s linear infinite;
+.reveal-mask {
+  display: inline-block;
+  overflow: hidden;
+  line-height: 1;
+  padding-bottom: 0.04em;
 }

@@ -1,154 +1,36 @@
-/* ==========================================================================
-   Glass
-   ========================================================================== */
+/* Reusable visual effects */
+
+.noise-overlay {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 60;
+  mix-blend-mode: overlay;
+  opacity: 0.06;
+  background-image: url(data:image/svg+xml;base64,PHN2ZyB4bWxucz0naHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmcnIHdpZHRoPScxNjAnIGhlaWdodD0nMTYwJz48ZmlsdGVyIGlkPSduJz48ZmVUdXJidWxlbmNlIHR5cGU9J2ZyYWN0YWxOb2lzZScgYmFzZUZyZXF1ZW5jeT0nMC45JyBudW1PY3RhdmVzPScyJyBzdGl0Y2hUaWxlcz0nc3RpdGNoJy8+PGZlQ29sb3JNYXRyaXggdHlwZT0nbWF0cml4JyB2YWx1ZXM9JzAgMCAwIDAgMSAgMCAwIDAgMCAxICAwIDAgMCAwIDEgIDAgMCAwIDAuNiAwJy8+PC9maWx0ZXI+PHJlY3Qgd2lkdGg9JzEwMCUnIGhlaWdodD0nMTAwJScgZmlsdGVyPSd1cmwoI24pJy8+PC9zdmc+);
+}
+
+.grid-bg {
+  background-image:
+    linear-gradient(rgba(255, 255, 255, 0.045) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255, 255, 255, 0.045) 1px, transparent 1px);
+  background-size: 56px 56px;
+  background-position: -1px -1px;
+  mask-image: radial-gradient(ellipse at 50% 40%, rgba(0,0,0,1) 0%, rgba(0,0,0,0.35) 55%, rgba(0,0,0,0) 80%);
+  -webkit-mask-image: radial-gradient(ellipse at 50% 40%, rgba(0,0,0,1) 0%, rgba(0,0,0,0.35) 55%, rgba(0,0,0,0) 80%);
+}
+
+.vignette {
+  background: radial-gradient(120% 80% at 50% 30%, transparent 0%, transparent 50%, rgba(0,0,0,0.7) 100%);
+}
+
+.glow-cyan {
+  box-shadow: 0 0 0 1px rgba(0, 229, 255, 0.25), 0 0 60px rgba(0, 229, 255, 0.18);
+}
 
 .glass {
-  background: rgba(255, 255, 255, 0.04);
-  backdrop-filter: blur(24px);
-  -webkit-backdrop-filter: blur(24px);
+  background: rgba(12, 12, 14, 0.55);
+  backdrop-filter: blur(24px) saturate(140%);
+  -webkit-backdrop-filter: blur(24px) saturate(140%);
   border: 1px solid rgba(255, 255, 255, 0.08);
-}
-
-.glass-dark {
-  background: rgba(0, 0, 0, 0.35);
-  backdrop-filter: blur(24px);
-  -webkit-backdrop-filter: blur(24px);
-  border: 1px solid rgba(255, 255, 255, 0.05);
-}
-
-/* ==========================================================================
-   Text
-   ========================================================================== */
-
-.text-gradient {
-  background: linear-gradient(
-    135deg,
-    var(--color-text-primary),
-    var(--color-accent)
-  );
-
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  background-clip: text;
-}
-
-/* ==========================================================================
-   Glow
-   ========================================================================== */
-
-.glow {
-  box-shadow: 0 0 30px var(--color-accent-glow);
-}
-
-.glow-soft {
-  box-shadow: 0 0 15px var(--color-accent-dim);
-}
-
-/* ==========================================================================
-   Backgrounds
-   ========================================================================== */
-
-.bg-grid {
-  background-image:
-    linear-gradient(var(--color-border-subtle) 1px, transparent 1px),
-    linear-gradient(90deg, var(--color-border-subtle) 1px, transparent 1px);
-
-  background-size: 40px 40px;
-}
-
-.bg-radial {
-  background:
-    radial-gradient(circle at center,
-      rgba(255,255,255,.06),
-      transparent 70%);
-}
-
-.hero-overlay {
-  position: absolute;
-  inset: 0;
-
-  background:
-    radial-gradient(circle at top,
-      rgba(255,255,255,.08),
-      transparent 60%);
-
-  pointer-events: none;
-}
-
-/* ==========================================================================
-   Noise
-   ========================================================================== */
-
-.noise {
-  position: absolute;
-  inset: 0;
-
-  opacity: .035;
-
-  pointer-events: none;
-  mix-blend-mode: soft-light;
-}
-
-/* ==========================================================================
-   Scrollbar
-   ========================================================================== */
-
-.no-scrollbar {
-  scrollbar-width: none;
-}
-
-.no-scrollbar::-webkit-scrollbar {
-  display: none;
-}
-
-/* ==========================================================================
-   Mask
-   ========================================================================== */
-
-.mask-fade-bottom {
-  mask-image: linear-gradient(
-    to bottom,
-    black 75%,
-    transparent
-  );
-
-  -webkit-mask-image: linear-gradient(
-    to bottom,
-    black 75%,
-    transparent
-  );
-}
-
-.mask-fade-top {
-  mask-image: linear-gradient(
-    to top,
-    black 75%,
-    transparent
-  );
-
-  -webkit-mask-image: linear-gradient(
-    to top,
-    black 75%,
-    transparent
-  );
-}
-
-/* ==========================================================================
-   Pointer
-   ========================================================================== */
-
-.pointer-none {
-  pointer-events: none;
-}
-
-.select-none {
-  user-select: none;
-}
-
-/* ==========================================================================
-   Overflow
-   ========================================================================== */
-
-.clip {
-  overflow: clip;
 }

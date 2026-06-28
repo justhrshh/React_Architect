@@ -1,54 +1,23 @@
-h1, h2, h3, h4, h5, h6 {
-  font-family: var(--font-display);
-  font-weight: var(--font-semibold);
-  line-height: var(--line-height-tight);
-  letter-spacing: var(--letter-spacing-snug);
-  color: var(--color-text-primary);
+.font-display {
+  font-family: 'Cabinet Grotesk', 'Satoshi', ui-sans-serif, system-ui, sans-serif;
 }
 
-h1 { font-size: var(--text-6xl); }
-h2 { font-size: var(--text-4xl); }
-h3 { font-size: var(--text-2xl); }
-h4 { font-size: var(--text-xl);  }
-h5 { font-size: var(--text-lg);  }
-h6 { font-size: var(--text-base);}
-
-p {
-  font-size: var(--text-base);
-  line-height: var(--line-height-relaxed);
-  color: var(--color-text-secondary);
+.font-mono {
+  font-family: 'JetBrains Mono', ui-monospace, monospace;
 }
 
-a {
-  color: var(--color-accent);
-  text-decoration: none;
-  transition: opacity var(--duration-fast) var(--ease-default);
+body {
+  font-family: "Satoshi", ui-sans-serif, system-ui, sans-serif;
 }
 
-a:hover {
-  opacity: 0.8;
+.tracking-tightest {
+  letter-spacing: -0.04em;
 }
 
-code,
-pre {
-  font-family: var(--font-mono);
-  font-size: var(--text-sm);
+.tracking-widestest {
+  letter-spacing: 0.32em;
 }
 
-pre {
-  background: var(--color-surface);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-md);
-  padding: var(--space-4);
-  overflow-x: auto;
-}
-
-strong {
-  font-weight: var(--font-semibold);
-  color: var(--color-text-primary);
-}
-
-small {
-  font-size: var(--text-xs);
-  color: var(--color-text-muted);
+.text-balance {
+  text-wrap: balance;
 }
