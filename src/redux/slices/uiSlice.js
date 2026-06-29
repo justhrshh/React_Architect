@@ -13,7 +13,7 @@ const initialState = {
   // States merged from clone project
   bootActive: false,
   bootStep: 0,
-  activeRoom: 'architecture',
+  activeRoom: 'project-brain',
   cursorActive: false,
 };
 

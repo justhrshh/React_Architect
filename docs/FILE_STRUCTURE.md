@@ -61,17 +61,31 @@ animations/
         └── cursorEffects.js
     
 
-
 components/
-├── common/
-├── ui/
-├── graph/
-├── animation/
-└── three/
+├── ambient/
+│   ├── CursorBlob.jsx
+│   └── Noise.jsx
+├── landing/
+│   ├── HeroBackground.jsx
+│   ├── HeroCopy.jsx
+│   └── LaunchButton.jsx
+├── BootSequence.jsx
+└── Nav.jsx
 
 features/
-├── landing/
 ├── workspace/
+│   ├── CameraController.jsx       ← GSAP sweeps + OrbitControls (explore mode only)
+│   ├── CameraPositions.js         ← Static room position/target coordinate configs
+│   ├── WorkspaceScene.jsx         ← R3F Canvas orchestrator; distributes state flags to rooms
+│   ├── WorldLights.jsx            ← Ambient + spot lighting rig for all 6 platforms
+│   ├── WorldEnvironment.jsx       ← Stars, grid floor, wire connections, energy particles
+│   └── rooms/
+│       ├── BrainRoom.jsx          ← Project Brain core; scale/ring/light transitions
+│       ├── ArchitectureRoom.jsx   ← Platform + LocalParticles + wireframe build
+│       ├── RoutesRoom.jsx         ← Platform + LocalParticles + wireframe build
+│       ├── StateRoom.jsx          ← Platform + LocalParticles + wireframe build
+│       ├── ApiRoom.jsx            ← Platform + LocalParticles + wireframe build
+│       └── DocumentationRoom.jsx  ← Platform + LocalParticles + wireframe build
 ├── architecture/
 ├── routes/
 ├── state-flow/
@@ -112,7 +126,7 @@ services/
 constants/
 
 styles/
-├── globals.css
+├── global.css
 ├── typography.css
 ├── variables.css
 ├── animations.css

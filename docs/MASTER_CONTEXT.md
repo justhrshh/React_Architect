@@ -303,51 +303,47 @@ Feature → Build → Review → Commit → Update CHANGELOG.md
 ## 20. Current Progress
 
 ### ✅ Sprint 1 Complete
+The application foundation was completed, setting up React Router, Redux slices, layout files, and CSS design architecture.
 
-The application foundation has been completed.
+### ✅ Sprint 2 Complete
+The product identity was built, incorporating ambient scanlines, trailing cursor blob, Three.js hero network nodes, magnetic launch buttons, and 4-checkpoint BootSequence overlays.
 
-Implemented:
+### ✅ Sprint 3 Complete
+The workspace navigation foundation was completed. Built full-screen R3F `<Canvas>` scene, Redux-driven GSAP camera transition sweeps (`CameraController.jsx`), cosmic stars, grid floor, connecting wire pathways with animated energy flows (`WorldEnvironment.jsx`), global lights rig (`WorldLights.jsx`), and 6 self-contained graybox platform meshes:
+*   `BrainRoom.jsx` (rotating center core sphere and torus rings)
+*   `ArchitectureRoom.jsx` (with anchors for component node maps)
+*   `RoutesRoom.jsx`
+*   `StateRoom.jsx`
+*   `ApiRoom.jsx`
+*   `DocumentationRoom.jsx`
+Integrated HUD HTML menu bar at the top and an elegant sliding/fading room metadata HUD glass card at the bottom.
 
-* Vite + React
-* Tailwind CSS v4
-* Redux Toolkit
-* React Router
-* Layout Architecture
-* Domain-driven Redux Store
-* Global Design System
-* Project Documentation
-* Folder Architecture
-
-The application currently boots successfully with zero console errors.
-
-Landing and Workspace pages are intentionally empty. The UI has not been built yet.
+### ✅ Sprint 3.5 Complete
+Immersive materialization, explore mode, and bug fixes:
+*   Inactive platforms sink below the grid floor (opacity `0.05`, `y: -1.5`). Active platforms rise with a GSAP elastic spring build.
+*   Local `LocalParticles` component inside each room: rising energy sparks active only when platform is focused or in explore mode.
+*   Wireframe symbols scale from `0.01` → `1.0` with `back.out(1.4)` easing (visual "constructing" build effect).
+*   Explore Mode: camera zooms to wide overview, platforms hover at mid-level with distance-based opacity fade.
+*   3D platform `onClick` triggers camera travel from within the explore void.
+*   "Look Around" HUD button visible only when locked in a room.
+*   **Critical infinite loop fixed**: `onArrivalChange` moved into a `useRef` to prevent it from causing `useEffect` to re-fire on every render cycle.
+*   First-mount `isFirstMountRef` bypasses GSAP animation so camera snaps to position on initial load.
 
 ---
 
 ## Current Version
-
-React Architect v0.1.0
-
-Foundation Complete
+React Architect v0.3.5 — Immersive Materialization & Explore Mode Complete
 
 ---
 
 ## Current Milestone
-
-Sprint 2 — Build the Product Identity
-
+Sprint 4 — React Flow Integration
 Focus:
+* Integrate React Flow canvas inside the `Architecture` room overlay.
+* Map mock component nodes and connection edges.
+* Maintain the spatial GSAP camera sweeps, HUD overlays, and materialization animations.
+* Prepare AST analysis pipelines for Sprint 5.
 
-* Landing Experience
-* Hero Scene
-* Boot Sequence
-* Interactive Background
-* GSAP Timelines
-* React Three Fiber Environment
-* Typography System
-* Workspace Transition
-
-No business logic or AI functionality should be added during this sprint.
 
 
 ------------------------------------------------------------------------

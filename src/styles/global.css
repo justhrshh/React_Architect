@@ -13,7 +13,7 @@
 @import "./animations.css";
 @import "./utilities.css";
 
-@theme {
+@theme{
   --color-accent: #00E5FF;
   --color-obsidian: #050505;
   --color-surface: #0C0C0E;
