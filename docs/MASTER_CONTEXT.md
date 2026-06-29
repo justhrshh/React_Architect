@@ -306,80 +306,43 @@ Feature → Build → Review → Commit → Update CHANGELOG.md
 The application foundation was completed, setting up React Router, Redux slices, layout files, and CSS design architecture.
 
 ### ✅ Sprint 2 Complete
-The product identity was fully built.
-Implemented:
-* Ambient scanline grain overlay and trail cursor blob.
-* Three.js interactive network canvas (`HeroBackground.jsx`).
-* GSAP-driven typographic animated hero header (`HeroCopy.jsx`).
-* Magnetic CTA launch button (`LaunchButton.jsx`).
-* Cinematic BootSequence overlay screen (`BootSequence.jsx`) checking workspace environment setup through 4 key checkpoints.
-* Top navigation layout with active underlines and responsive transitions.
-* Lenis smooth scrolling integrated natively into layouts.
-* Tailwind v4 `@theme` integrations for colors, fonts, and letter spacing.
+The product identity was built, incorporating ambient scanlines, trailing cursor blob, Three.js hero network nodes, magnetic launch buttons, and 4-checkpoint BootSequence overlays.
+
+### ✅ Sprint 3 Complete
+The workspace navigation foundation was completed. Built full-screen R3F `<Canvas>` scene, Redux-driven GSAP camera transition sweeps (`CameraController.jsx`), cosmic stars, grid floor, connecting wire pathways with animated energy flows (`WorldEnvironment.jsx`), global lights rig (`WorldLights.jsx`), and 6 self-contained graybox platform meshes:
+*   `BrainRoom.jsx` (rotating center core sphere and torus rings)
+*   `ArchitectureRoom.jsx` (with anchors for component node maps)
+*   `RoutesRoom.jsx`
+*   `StateRoom.jsx`
+*   `ApiRoom.jsx`
+*   `DocumentationRoom.jsx`
+Integrated HUD HTML menu bar at the top and an elegant sliding/fading room metadata HUD glass card at the bottom.
+
+### ✅ Sprint 3.5 Complete
+Immersive materialization, explore mode, and bug fixes:
+*   Inactive platforms sink below the grid floor (opacity `0.05`, `y: -1.5`). Active platforms rise with a GSAP elastic spring build.
+*   Local `LocalParticles` component inside each room: rising energy sparks active only when platform is focused or in explore mode.
+*   Wireframe symbols scale from `0.01` → `1.0` with `back.out(1.4)` easing (visual "constructing" build effect).
+*   Explore Mode: camera zooms to wide overview, platforms hover at mid-level with distance-based opacity fade.
+*   3D platform `onClick` triggers camera travel from within the explore void.
+*   "Look Around" HUD button visible only when locked in a room.
+*   **Critical infinite loop fixed**: `onArrivalChange` moved into a `useRef` to prevent it from causing `useEffect` to re-fire on every render cycle.
+*   First-mount `isFirstMountRef` bypasses GSAP animation so camera snaps to position on initial load.
 
 ---
 
 ## Current Version
-React Architect v0.2.0 — Product Identity Complete
+React Architect v0.3.5 — Immersive Materialization & Explore Mode Complete
 
 ---
 
 ## Current Milestone
-
-### Sprint 3 — Workspace Navigation Foundation
-
-**Objective:** Build the immersive workspace and establish the navigation system before integrating any visualization or parsing engines.
-
-**Focus:**
-
-* Create a single React Three Fiber scene representing the entire workspace.
-* Implement a centralized `CameraController` responsible for all camera movement.
-* Build placeholder ("graybox") rooms for:
-
-  * Architecture
-  * Routes
-  * State Flow
-  * API Flow
-  * Documentation
-* Store the active room in the Redux `uiSlice`.
-* Animate camera transitions using GSAP based on Redux state changes.
-* Define reusable camera positions in a dedicated configuration file.
-* Ensure every room is an independent module that owns its own content and animations.
-
-**Success Criteria:**
-
-* The user can navigate between every room through smooth cinematic camera movement.
-* No room contains production functionality yet; the focus is solely on navigation and architecture.
-
----
-
-### Upcoming Sprint
-
-**Sprint 4 — React Flow Integration**
-
+Sprint 4 — React Flow Integration
 Focus:
-
-* Replace the Architecture placeholder room with a fully functional React Flow canvas.
-* Preserve the existing camera system.
-* Keep all remaining rooms as placeholders.
-
----
-
-### Future Sprints
-
-**Sprint 5 — AST Analysis Engine**
-
-* Parse React projects using Babel.
-* Generate nodes and edges from the parsed architecture.
-* Feed live data into React Flow.
-
-**Sprint 6 — Workspace Modules**
-
-* Implement State Flow.
-* Implement API Flow.
-* Implement Documentation.
-* Implement Project Brain.
-* Add module-specific interactions and animations.
+* Integrate React Flow canvas inside the `Architecture` room overlay.
+* Map mock component nodes and connection edges.
+* Maintain the spatial GSAP camera sweeps, HUD overlays, and materialization animations.
+* Prepare AST analysis pipelines for Sprint 5.
 
 
 
