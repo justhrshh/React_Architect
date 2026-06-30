@@ -65,6 +65,14 @@ components/
 ├── ambient/
 │   ├── CursorBlob.jsx
 │   └── Noise.jsx
+├── hub/
+│   ├── ProjectCard.jsx             ← Detected metadata display (framework, tech flags, build tool)
+│   ├── ImportProjectModal.jsx      ← Smart import: Local Folder, ZIP, GitHub (coming soon)
+│   ├── CreateProjectWizard.jsx     ← 8-step fullscreen creation wizard
+│   ├── AddProjectModal.jsx         ← SUPERSEDED by ImportProjectModal (kept for reference)
+│   ├── RenameModal.jsx
+│   ├── DeleteConfirmModal.jsx
+│   └── ProjectLoadTransition.jsx
 ├── landing/
 │   ├── HeroBackground.jsx
 │   ├── HeroCopy.jsx
@@ -95,9 +103,11 @@ features/
 
 layouts/
 ├── LandingLayout.jsx
+├── HubLayout.jsx               ← Hub ambient wrapper (CursorBlob + Noise)
 └── WorkspaceLayout.jsx
 
 lib/
+├── projectDetector.js          ← Stack detection foundation (framework, TS, Tailwind, Redux...)
 ├── gsap.js
 ├── lenis.js
 ├── reactflow.js
@@ -106,12 +116,13 @@ lib/
 
 pages/
 ├── Landing.jsx
+├── ProjectHub.jsx              ← Multi-project management home screen
 └── Workspace.jsx
 
 redux/
 ├── store.js
 └── slices/
-    ├── projectSlice.js
+    ├── hubSlice.js             ← projects[], selectedProjectId, localStorage persistence
     ├── graphSlice.js
     ├── uiSlice.js
     ├── searchSlice.js

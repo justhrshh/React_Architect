@@ -1,3 +1,102 @@
+# v0.4.2 — Create New Project Wizard
+
+## Added
+* `src/components/hub/CreateProjectWizard.jsx` — fullscreen 8-step project creation wizard:
+  - Step 1: Project Name (text input, Enter to continue)
+  - Step 2: Framework — React + Vite (recommended), Next.js, Remix (coming soon)
+  - Step 3: Language — TypeScript (recommended), JavaScript
+  - Step 4: Styling — Tailwind CSS (recommended), CSS Modules, SCSS, Styled Components
+  - Step 5: State Management — None, Redux Toolkit, Zustand, Context API
+  - Step 6: Routing — React Router, TanStack Router, None
+  - Step 7: Optional Packages — multi-select (GSAP, Framer Motion, TanStack Query, Axios, React Hook Form, Zod, Lucide, date-fns, ESLint, Prettier)
+  - Step 8: Folder Structure — React Architect (recommended), Feature-Based, Basic, Domain-Driven
+  - Left sidebar: animated step tracker with completed (✓), active (accent border), upcoming (muted) states
+  - GSAP entrance animation + slide transition between steps
+  - Smart routing: selecting Next.js auto-sets routing to next-router
+  - Continue button disabled until Step 1 is filled
+  - "Recommended" badge on default selections
+  - "Coming Soon" badge on disabled options
+  - Builds full `DetectedProject`-compatible payload for `addProject`
+  - Pre-generates `crypto.randomUUID()` ID so `selectProject` can fire immediately
+  - On complete: dispatches `addProject` + `selectProject` → calls `onComplete` → cinematic load → workspace
+* `src/pages/ProjectHub.jsx` — rewritten:
+  - Header now has two buttons: `↑ Import` (secondary) and `+ New Project` (primary accent)
+  - Empty state redesigned: dual-path tiles side by side — "Import Existing" and "Create New Project"
+  - Wizard completion triggers cinematic load transition directly to `/workspace`
+* `hubSlice.js` `addProject` — accepts optional pre-generated `id` field, stores full wizard metadata: `language`, `styling`, `stateManagement`, `routing`, `optionalPackages`, `folderStructure`
+
+## Status
+Sprint 4.2 Complete. React Architect now supports both developer journeys — import and create — with the same workspace destination.
+
+---
+
+# v0.4.1 — Sprint 4 Revision: Real Project Import
+
+## Changed
+* Replaced `AddProjectModal` with `ImportProjectModal` — no more manual name/framework entry
+* Import button label: `+ New Project` → `↑ Import Project` everywhere in the hub
+* `ProjectCard.jsx` rewritten to display detected metadata (tech flag pills, build tool, React version, import method)
+* `hubSlice.js` `addProject` extended with full `DetectedProject` shape
+
+## Added
+* `src/lib/projectDetector.js` — detection foundation module:
+  - `detectFromDirectoryHandle(handle)` — File System Access API reads `package.json`
+  - `detectFromZip(file)` — filename-based fallback; full ZIP parsing planned for Sprint 6
+  - `detectFromPackageJson(pkg)` — pure function, framework / buildTool / version / flag detection
+  - Detects: framework, build tool, React version, TypeScript, Tailwind, Redux, React Router
+* `src/components/hub/ImportProjectModal.jsx` — state-machine modal (`idle → detecting → review → confirm`):
+  - Local Folder: `window.showDirectoryPicker()` (Chrome/Edge 86+)
+  - ZIP Archive: drag-and-drop dropzone + file input
+  - GitHub: disabled tile with "Coming Soon" badge
+  - Review screen shows detected name, description, framework, build tool, React version, tech badges
+  - AbortError handled silently; browser-unsupported fallback error state
+
+## Status
+Sprint 4.1 Complete. React Architect now imports real projects and auto-detects their stack.
+
+---
+
+# v0.4.0 — Project Hub
+
+## Added
+* `hubSlice.js` — new Redux slice for project management (`projects[]`, `selectedProjectId`) with full localStorage persistence and `crypto.randomUUID()` ID generation
+* Reducers: `addProject`, `deleteProject`, `renameProject`, `selectProject`, `clearSelectedProject`, `updateLastOpened`
+* Selectors: `selectAllProjects`, `selectSelectedProjectId`, `selectSelectedProject`
+* `HubLayout.jsx` — minimal layout wrapper with `CursorBlob` and `Noise` ambient effects
+* `/hub` route inserted between `/` and `/workspace` in `Router.jsx`
+* `WorkspaceGuard` component — redirects to `/hub` if no project is selected (prevents direct `/workspace` access)
+* `ProjectHub.jsx` — full project management page with:
+  - Entrance GSAP animations on header and card grid
+  - Responsive project card grid sorted by `lastOpenedAt`
+  - `EmptyState` component with animated orb and CTA
+  - Section counter label
+* `ProjectCard.jsx` — premium Linear-inspired card:
+  - Framework badge with per-framework accent colour
+  - Hover lift + framework-colour glow shadow
+  - Meta grid: Last Opened, Arch. Score, Last Analysis, Created
+  - ⋯ context menu with Rename and Delete actions (opacity-0, group-hover reveal)
+  - "Open workspace →" CTA fades in on hover
+* `AddProjectModal.jsx` — glassmorphic modal with Project Name + Framework (select) fields and validation
+* `RenameModal.jsx` — pre-filled rename modal
+* `DeleteConfirmModal.jsx` — danger-styled two-button confirmation
+* `ProjectLoadTransition.jsx` — fullscreen cinematic load overlay:
+  - GSAP-sequenced status lines: `Initialising project...` → `Loading workspace...` → `Architect online`
+  - Animated progress bar fill over 2.2s
+  - Fades out, then triggers `navigate('/workspace')`
+* Workspace HUD now shows active project name + framework badge next to the logo
+* `← Hub` button in workspace header navigates back to `/hub` without clearing session
+
+## Changed
+* `Landing.jsx` — `BootSequence` completion now routes to `/hub` instead of `/workspace`
+* `Landing.jsx` — footer sprint label updated to `Sprint 04`
+* `Router.jsx` — fully replaced; workspace is now guarded
+* `store.js` — `hub` reducer registered
+
+## Status
+Sprint 4 Complete. React Architect is now a multi-project OS. Every workspace session belongs to a selected project.
+
+---
+
 # v0.3.5 — Immersive Materialization & Explore Mode
 
 ## Added

@@ -3,10 +3,10 @@ import { Link, useLocation } from "react-router-dom";
 import { NAV } from "@/constants/testIds";
 
 const links = [
-  { label: "Architecture", to: "/workspace", testid: NAV.linkArchitecture, kbd: "01" },
-  { label: "Workspace",    to: "/workspace", testid: NAV.linkWorkspace,    kbd: "02" },
-  { label: "Modules",      to: "/workspace", testid: NAV.linkModules,      kbd: "03" },
-  { label: "Docs",         to: "/",          testid: NAV.linkDocs,         kbd: "04" },
+  { label: "Architecture", to: "/hub", testid: NAV.linkArchitecture, kbd: "01" },
+  { label: "Workspace",    to: "/hub", testid: NAV.linkWorkspace,    kbd: "02" },
+  { label: "Modules",      to: "/hub", testid: NAV.linkModules,      kbd: "03" },
+  { label: "Docs",         to: "/",    testid: NAV.linkDocs,         kbd: "04" },
 ];
 
 const Nav = () => {
@@ -23,7 +23,7 @@ const Nav = () => {
           React<span className="text-accent">/</span>Architect
         </span>
         <span className="hidden md:inline font-mono text-[10px] uppercase tracking-widestest text-ink-dim">
-          v0.1.0
+          v0.4.2
         </span>
       </Link>
 

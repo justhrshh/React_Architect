@@ -2,6 +2,7 @@ import React, { useState } from "react";
 import { useSelector, useDispatch } from "react-redux";
 import { useNavigate } from "react-router-dom";
 import { setActiveRoom } from "@/redux/slices/uiSlice";
+import { selectSelectedProject, clearSelectedProject } from "@/redux/slices/hubSlice";
 import WorkspaceScene from "@/features/workspace/WorkspaceScene";
 
 const menuItems = [
@@ -56,6 +57,7 @@ const Workspace = () => {
   const navigate = useNavigate();
   
   const activeRoom = useSelector((state) => state.ui.activeRoom);
+  const selectedProject = useSelector(selectSelectedProject);
   
   // local state tracks camera arrival. Null indicates the camera is in-flight.
   const [focusedRoom, setFocusedRoom] = useState("project-brain");
@@ -72,8 +74,9 @@ const Workspace = () => {
     dispatch(setActiveRoom(roomKey));
   };
 
-  const handleExit = () => {
-    navigate("/");
+  /** Return to Project Hub without clearing selection — user can re-enter */
+  const handleReturnToHub = () => {
+    navigate("/hub");
   };
 
   const activeDetail = roomDetails[focusedRoom];
@@ -115,6 +118,18 @@ const Workspace = () => {
           >
             React<span className="text-accent">/</span>Architect
           </div>
+          {/* Active project name */}
+          {selectedProject && (
+            <div className="hidden md:flex items-center gap-2">
+              <span className="w-px h-3 bg-white/15" />
+              <span className="font-mono text-[10px] uppercase tracking-widestest text-ink-faint">
+                {selectedProject.name}
+              </span>
+              <span className="font-mono text-[8px] uppercase tracking-widestest px-1.5 py-0.5 bg-white/5 border border-edge-subtle rounded text-ink-faint">
+                {selectedProject.framework}
+              </span>
+            </div>
+          )}
 
           {/* Navigation Room Selectors */}
           <nav className="hidden lg:flex items-center gap-6">
@@ -135,8 +150,8 @@ const Workspace = () => {
             })}
           </nav>
 
-          <div className="flex items-center gap-4">
-            {/* Explore / Look Around Button (Only visible when LOCKED in some workspace) */}
+          <div className="flex items-center gap-2">
+            {/* Explore / Look Around Button */}
             {activeRoom !== "explore" && (
               <button
                 onClick={() => handleNavClick("explore")}
@@ -146,12 +161,20 @@ const Workspace = () => {
               </button>
             )}
 
-            {/* Exit Workspace */}
+            {/* Exit to Hub */}
             <button
-              onClick={handleExit}
+              onClick={handleReturnToHub}
               className="font-mono text-[10px] md:text-xs uppercase tracking-widestest text-ink-dim hover:text-white border border-edge-subtle hover:border-white/20 px-4 py-2 rounded-lg transition-colors whitespace-nowrap"
             >
-              Exit
+              ← Hub
+            </button>
+
+            {/* Exit to Landing */}
+            <button
+              onClick={() => navigate("/")}
+              className="hidden lg:block font-mono text-[10px] uppercase tracking-widestest text-ink-faint hover:text-white transition-colors whitespace-nowrap"
+            >
+              ← Landing
             </button>
           </div>
         </header>
