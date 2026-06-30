@@ -329,38 +329,42 @@ Immersive materialization, explore mode, and bug fixes:
 *   **Critical infinite loop fixed**: `onArrivalChange` moved into a `useRef` to prevent it from causing `useEffect` to re-fire on every render cycle.
 *   First-mount `isFirstMountRef` bypasses GSAP animation so camera snaps to position on initial load.
 
+### ✅ Sprint 4 Complete
+Project Hub multi-project management layer:
+*   `hubSlice.js` — Redux slice with `projects[]`, `selectedProjectId`, and full localStorage persistence via `crypto.randomUUID()`.
+*   `/hub` route inserted between landing and workspace; workspace is now guarded by `WorkspaceGuard` (redirects to `/hub` if no project selected).
+*   `ProjectHub.jsx` page with responsive card grid, GSAP entrance animations, and empty state CTA.
+*   `ProjectCard.jsx` — Linear-inspired premium card with framework badge (per-framework accent colours), meta grid, hover glow, and context menu (Rename / Delete).
+*   `ProjectLoadTransition.jsx` — fullscreen GSAP cinematic overlay (progress bar + sequenced status lines) fires before navigating to `/workspace`.
+*   `AddProjectModal`, `RenameModal`, `DeleteConfirmModal` — glassmorphic modals for full project CRUD.
+*   Workspace HUD now displays active project name + framework badge; Exit → "← Hub" button.
+*   `BootSequence` on landing now routes to `/hub` instead of `/workspace`.
+### ✅ Sprint 4.2 Complete
+Create New Project wizard:
+*   `CreateProjectWizard.jsx` — fullscreen 8-step wizard with animated sidebar step tracker and GSAP slide transitions.
+*   Steps: Name → Framework → Language → Styling → State → Routing → Optional Packages → Folder Structure.
+*   Declarative step data (options, types, defaults) drives all rendering.
+*   Recommended defaults pre-selected; disabled options show "Coming Soon" badge.
+*   Smart routing: Next.js selection auto-sets routing to `next-router`.
+*   Builds full project data object, pre-generates UUID, dispatches `addProject` + `selectProject`, triggers cinematic load.
+*   `ProjectHub` header redesigned with two distinct CTAs: `↑ Import` (secondary) and `+ New Project` (primary).
+*   Empty state rewritten as dual-path tiles: "Import Existing" vs "Create New Project".
+
 ---
 
 ## Current Version
-React Architect v0.3.5 — Immersive Materialization & Explore Mode Complete
+React Architect v0.4.2 — Create New Project Wizard Complete
 
 ---
 
 ## Current Milestone
-Sprint 4 — React Flow Integration
+Sprint 5 — React Flow Integration
 Focus:
-* Integrate React Flow canvas inside the `Architecture` room overlay.
-* Map mock component nodes and connection edges.
-* Maintain the spatial GSAP camera sweeps, HUD overlays, and materialization animations.
-* Prepare AST analysis pipelines for Sprint 5.
-
-
-
-------------------------------------------------------------------------
-
-## 21. Roadmap
-
-Phase 1: Landing + Workspace
-
-Phase 2: React Flow
-
-Phase 3: AST Analysis
-
-Phase 4: Architecture Graph
-
-Phase 5: Explorer Modules
-
-Phase 6: AI Integration
+*   Integrate React Flow canvas inside the `Architecture` room overlay panel.
+*   Use `selectedProject` as source of truth for what the graph renders.
+*   Map mock component nodes and connection edges.
+*   Maintain spatial GSAP camera sweeps, HUD overlays, and materialization animations.
+*   Prepare AST pipelines for Sprint 6.
 
 ------------------------------------------------------------------------
 

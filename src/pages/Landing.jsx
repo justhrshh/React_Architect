@@ -18,7 +18,7 @@ const Landing = () => {
   const [booting, setBooting] = useState(false);
 
   const handleLaunch = () => setBooting(true);
-  const handleBootComplete = () => navigate("/workspace");
+  const handleBootComplete = () => navigate("/hub");
 
   return (
     <div data-testid={LANDING.root} className="relative">
@@ -123,7 +123,7 @@ const Landing = () => {
         </div>
         <div className="mt-16 flex items-center justify-between font-mono text-[10px] uppercase tracking-widestest text-ink-faint">
           <span>&copy; React/Architect</span>
-          <span>Studio &middot; Sprint 02</span>
+          <span>Studio &middot; Sprint 04</span>
         </div>
       </section>
 

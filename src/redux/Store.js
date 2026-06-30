@@ -6,6 +6,7 @@ import searchReducer from './slices/searchSlice.js';
 import scannerReducer from './slices/scannerSlice.js';
 import settingsReducer from './slices/settingsSlice.js';
 import architectureReducer from './slices/architectureSlice.js';
+import hubReducer from './slices/hubSlice.js';
 
 export const store = configureStore({
   reducer: {
@@ -16,5 +17,6 @@ export const store = configureStore({
     scanner: scannerReducer,
     settings: settingsReducer,
     architecture: architectureReducer,
+    hub: hubReducer,
   },
 });
