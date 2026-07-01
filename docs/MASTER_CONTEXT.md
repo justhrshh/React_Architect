@@ -173,10 +173,11 @@ Opening a project:
 ## 12. Routing
 
 -   /
+-   /hub
 -   /workspace
 
 Workspace contains multiple immersive modes instead of traditional
-pages.
+pages, launched from the project selection hub.
 
 ------------------------------------------------------------------------
 
@@ -339,26 +340,27 @@ Project Hub multi-project management layer:
 *   `AddProjectModal`, `RenameModal`, `DeleteConfirmModal` — glassmorphic modals for full project CRUD.
 *   Workspace HUD now displays active project name + framework badge; Exit → "← Hub" button.
 *   `BootSequence` on landing now routes to `/hub` instead of `/workspace`.
-### ✅ Sprint 4.2 Complete
-Create New Project wizard:
-*   `CreateProjectWizard.jsx` — fullscreen 8-step wizard with animated sidebar step tracker and GSAP slide transitions.
-*   Steps: Name → Framework → Language → Styling → State → Routing → Optional Packages → Folder Structure.
-*   Declarative step data (options, types, defaults) drives all rendering.
-*   Recommended defaults pre-selected; disabled options show "Coming Soon" badge.
-*   Smart routing: Next.js selection auto-sets routing to `next-router`.
-*   Builds full project data object, pre-generates UUID, dispatches `addProject` + `selectProject`, triggers cinematic load.
-*   `ProjectHub` header redesigned with two distinct CTAs: `↑ Import` (secondary) and `+ New Project` (primary).
-*   Empty state rewritten as dual-path tiles: "Import Existing" vs "Create New Project".
+### ✅ Sprint 5 Complete
+Holographic Orb exploration space:
+*   Built prototype 3D project orbs in the space void representing individual project files.
+*   (Superseded by Sprint 6 unified environment for improved usability).
+
+### ✅ Sprint 6 Complete
+Unified Hub & Workspace Decoupling:
+*   Decoupled the Hub dashboard from the Workspace operating surface.
+*   Created a separate `/hub` page route (`Hub.jsx`) for project list management, drag carousel, and modal popups.
+*   Created a separate `/workspace` page route (`Workspace.jsx`) containing the immersive 3D spatial room constructs, custom HUD navigation panels, and metadata cards.
+*   Retained Three.js canvas optimizations (`WorkspaceScene.jsx`) with dynamic scene controllers, ensuring loading overlays transition smoothly between states.
 
 ---
 
 ## Current Version
-React Architect v0.4.2 — Create New Project Wizard Complete
+React Architect v1.4 — Decoupled Hub & Workspace Architecture Complete
 
 ---
 
 ## Current Milestone
-Sprint 5 — React Flow Integration
+Sprint 7 — React Flow Integration
 Focus:
 *   Integrate React Flow canvas inside the `Architecture` room overlay panel.
 *   Use `selectedProject` as source of truth for what the graph renders.

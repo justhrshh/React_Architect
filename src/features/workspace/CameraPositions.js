@@ -4,6 +4,10 @@
  * - target: Center coordinate of the room platform (lookAt target).
  */
 export const CAMERA_POSITIONS = {
+  hub: {
+    position: { x: 0, y: 2.0, z: 4.2 },
+    target: { x: 0, y: 0, z: 0 },
+  },
   brain: {
     position: { x: 0, y: 2.2, z: 5.5 },
     target: { x: 0, y: 0, z: 0 },

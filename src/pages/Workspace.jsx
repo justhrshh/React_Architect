@@ -1,24 +1,18 @@
-import React, { useState } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import { useSelector, useDispatch } from "react-redux";
 import { useNavigate } from "react-router-dom";
-import { setActiveRoom } from "@/redux/slices/uiSlice";
-import { selectSelectedProject, clearSelectedProject } from "@/redux/slices/hubSlice";
+import { setActiveRoom, setAppMode } from "@/redux/slices/uiSlice";
+import {
+  selectSelectedProject,
+  clearSelectedProject,
+} from "@/redux/slices/hubSlice";
 import WorkspaceScene from "@/features/workspace/WorkspaceScene";
-
-const menuItems = [
-  { key: "project-brain", label: "00 Brain" },
-  { key: "architecture", label: "01 Architecture" },
-  { key: "routes", label: "02 Routes" },
-  { key: "state-flow", label: "03 State" },
-  { key: "api-flow", label: "04 API" },
-  { key: "documentation", label: "05 Docs" },
-];
 
 const roomDetails = {
   "project-brain": {
     title: "Project Brain",
     type: "Core Analysis Hub",
-    desc: "Architectural health scores, AI-assisted refactoring, and codebases statistics will plug in here in future sprints.",
+    desc: "Architectural health scores, AI-assisted refactoring, and codebase statistics will plug in here in future sprints.",
   },
   "architecture": {
     title: "Architecture",
@@ -52,15 +46,33 @@ const roomDetails = {
   },
 };
 
+const menuItems = [
+  { key: "project-brain", label: "00 Brain" },
+  { key: "architecture", label: "01 Architecture" },
+  { key: "routes", label: "02 Routes" },
+  { key: "state-flow", label: "03 State" },
+  { key: "api-flow", label: "04 API" },
+  { key: "documentation", label: "05 Docs" },
+];
+
+// ── Main Workspace Component ─────────────────────────────────────────────────
 const Workspace = () => {
   const dispatch = useDispatch();
   const navigate = useNavigate();
-  
+
   const activeRoom = useSelector((state) => state.ui.activeRoom);
   const selectedProject = useSelector(selectSelectedProject);
-  
-  // local state tracks camera arrival. Null indicates the camera is in-flight.
+
   const [focusedRoom, setFocusedRoom] = useState("project-brain");
+
+  // Redirect to Hub if no project is selected
+  useEffect(() => {
+    if (!selectedProject) {
+      navigate("/hub");
+    } else {
+      dispatch(setAppMode("workspace"));
+    }
+  }, [selectedProject, navigate, dispatch]);
 
   const handleArrivalChange = (room) => {
     setFocusedRoom(room);
@@ -74,21 +86,31 @@ const Workspace = () => {
     dispatch(setActiveRoom(roomKey));
   };
 
-  /** Return to Project Hub without clearing selection — user can re-enter */
+  // Return to Dashboard Hub
   const handleReturnToHub = () => {
+    dispatch(clearSelectedProject());
+    dispatch(setAppMode("hub"));
+    dispatch(setActiveRoom("project-brain"));
     navigate("/hub");
   };
 
   const activeDetail = roomDetails[focusedRoom];
   const isFlying = focusedRoom === null;
 
+  if (!selectedProject) {
+    return null; // Let the redirect trigger in useEffect
+  }
+
   return (
-    <div className="relative w-screen h-screen overflow-hidden bg-obsidian select-none">
+    <div className="relative w-screen h-screen overflow-hidden bg-obsidian select-none text-slate-100 flex flex-col font-sans">
       
       {/* 3D spatial scene background */}
       <WorkspaceScene 
         onArrivalChange={handleArrivalChange} 
         onSelectRoom={handlePlatformSelect}
+        onSelectProject={() => {}}
+        onAddClick={() => navigate("/hub")}
+        onContextMenu={() => {}}
       />
 
       {/* Explore Mode Instructions Overlay HUD */}
@@ -106,7 +128,7 @@ const Workspace = () => {
       {/* Premium HUD UI overlays */}
       <div className="relative z-10 w-full h-full pointer-events-none flex flex-col justify-between p-6 md:p-10">
         
-        {/* Top Header Panel (Slides out of screen when camera is flying) */}
+        {/* Top Header Panel */}
         <header 
           className={`w-full flex items-center justify-between pointer-events-auto bg-obsidian/30 backdrop-blur-md border border-edge-subtle p-4 rounded-xl shadow-lg gap-4 transition-all duration-500 transform ${
             !isFlying ? "opacity-100 translate-y-0" : "opacity-0 -translate-y-6 pointer-events-none"
@@ -118,6 +140,7 @@ const Workspace = () => {
           >
             React<span className="text-accent">/</span>Architect
           </div>
+          
           {/* Active project name */}
           {selectedProject && (
             <div className="hidden md:flex items-center gap-2">
@@ -168,14 +191,6 @@ const Workspace = () => {
             >
               ← Hub
             </button>
-
-            {/* Exit to Landing */}
-            <button
-              onClick={() => navigate("/")}
-              className="hidden lg:block font-mono text-[10px] uppercase tracking-widestest text-ink-faint hover:text-white transition-colors whitespace-nowrap"
-            >
-              ← Landing
-            </button>
           </div>
         </header>
 
@@ -201,7 +216,7 @@ const Workspace = () => {
           })}
         </div>
 
-        {/* Bottom Info Details panel (fades out when camera is moving, fades in on target focus) */}
+        {/* Bottom Info Details panel */}
         <footer className="w-full flex items-end justify-between mt-auto">
           <div className="w-full max-w-md pointer-events-auto">
             <div
@@ -242,7 +257,7 @@ const Workspace = () => {
               !isFlying ? "opacity-100" : "opacity-0"
             }`}
           >
-            Workspace Mode // HUD_v0.3.5
+            Workspace Mode // HUD_v0.5.3
           </div>
         </footer>
 

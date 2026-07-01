@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import HeroBackground from "@/components/landing/HeroBackground";
 import HeroCopy from "@/components/landing/HeroCopy";
@@ -6,8 +6,11 @@ import LaunchButton from "@/components/landing/LaunchButton";
 import BootSequence from "@/components/BootSequence";
 import { LANDING } from "@/constants/testIds";
 
-const FootnoteRow = ({ k, label }) => (
-  <div className="border-l border-edge-subtle pl-4">
+const FootnoteRow = ({ k, label, delay }) => (
+  <div 
+    className="border-l border-edge-subtle pl-4 scroll-reveal" 
+    style={{ transitionDelay: `${delay}ms` }}
+  >
     <div className="font-mono text-[10px] uppercase tracking-widestest text-ink-faint mb-1">{k}</div>
     <div className="text-ink text-sm">{label}</div>
   </div>
@@ -20,8 +23,45 @@ const Landing = () => {
   const handleLaunch = () => setBooting(true);
   const handleBootComplete = () => navigate("/hub");
 
+  // Intersection Observer scroll-trigger animation setup
+  useEffect(() => {
+    const observer = new IntersectionObserver(
+      (entries) => {
+        entries.forEach((entry) => {
+          if (entry.isIntersecting) {
+            entry.target.classList.add("revealed");
+            observer.unobserve(entry.target);
+          }
+        });
+      },
+      { threshold: 0.08, rootMargin: "0px 0px -40px 0px" }
+    );
+
+    const elements = document.querySelectorAll(".scroll-reveal");
+    elements.forEach((el) => observer.observe(el));
+
+    return () => {
+      elements.forEach((el) => observer.unobserve(el));
+    };
+  }, []);
+
   return (
     <div data-testid={LANDING.root} className="relative">
+      
+      {/* Scroll Reveal Style Injection */}
+      <style>{`
+        .scroll-reveal {
+          opacity: 0;
+          transform: translateY(24px);
+          transition: opacity 1200ms cubic-bezier(0.16, 1, 0.3, 1), transform 1200ms cubic-bezier(0.16, 1, 0.3, 1);
+          will-change: transform, opacity;
+        }
+        .scroll-reveal.revealed {
+          opacity: 1;
+          transform: translateY(0);
+        }
+      `}</style>
+
       {/* HERO */}
       <section className="relative min-h-[100svh] overflow-hidden">
         <HeroBackground />
@@ -50,12 +90,12 @@ const Landing = () => {
       {/* PHILOSOPHY SECTION */}
       <section className="relative py-24 md:py-32 max-w-[1800px] mx-auto px-6 md:px-12">
         <div className="grid grid-cols-1 md:grid-cols-12 gap-10">
-          <div className="md:col-span-4">
+          <div className="md:col-span-4 scroll-reveal">
             <p className="font-mono text-[10px] uppercase tracking-widestest text-ink-dim mb-6">
               /01 — Philosophy
             </p>
           </div>
-          <div className="md:col-span-8">
+          <div className="md:col-span-8 scroll-reveal" style={{ transitionDelay: "100ms" }}>
             <p className="font-display text-3xl md:text-5xl leading-[1.05] tracking-tightest text-white text-balance">
               Developers spend more time <span className="text-ink-dim">understanding code</span> than writing it. Replace folder exploration with <span className="text-accent">architecture visualisation</span>.
             </p>
@@ -63,22 +103,22 @@ const Landing = () => {
         </div>
 
         <div className="grid grid-cols-2 md:grid-cols-4 gap-10 mt-20">
-          <FootnoteRow k="01" label="Architecture first" />
-          <FootnoteRow k="02" label="Visual first" />
-          <FootnoteRow k="03" label="Premium UX" />
-          <FootnoteRow k="04" label="Every motion communicates" />
+          <FootnoteRow k="01" label="Architecture first" delay={0} />
+          <FootnoteRow k="02" label="Visual first" delay={80} />
+          <FootnoteRow k="03" label="Premium UX" delay={160} />
+          <FootnoteRow k="04" label="Every motion communicates" delay={240} />
         </div>
       </section>
 
       {/* MODULES PREVIEW */}
       <section className="relative pb-28 md:pb-40 max-w-[1800px] mx-auto px-6 md:px-12">
         <div className="grid grid-cols-1 md:grid-cols-12 gap-10 mb-12 md:mb-16">
-          <div className="md:col-span-4">
+          <div className="md:col-span-4 scroll-reveal">
             <p className="font-mono text-[10px] uppercase tracking-widestest text-ink-dim mb-6">
               /02 — Rooms
             </p>
           </div>
-          <div className="md:col-span-8">
+          <div className="md:col-span-8 scroll-reveal" style={{ transitionDelay: "100ms" }}>
             <h2 className="font-display text-3xl md:text-5xl leading-[1.05] tracking-tightest text-white text-balance">
               The workspace is one immersive environment. Modules feel like <span className="italic font-[500] text-ink-dim">rooms</span>.
             </h2>
@@ -93,8 +133,12 @@ const Landing = () => {
             { idx: "04", name: "APIs",          desc: "Map every request, response, and endpoint surface." },
             { idx: "05", name: "Documentation", desc: "Interactive docs generated from your codebase." },
             { idx: "06", name: "Score",         desc: "Architecture health & refactor suggestions." },
-          ].map((r) => (
-            <div key={r.idx} className="group relative bg-obsidian p-8 md:p-10 min-h-[220px] overflow-hidden">
+          ].map((r, idx) => (
+            <div 
+              key={r.idx} 
+              className="group relative bg-obsidian p-8 md:p-10 min-h-[220px] overflow-hidden scroll-reveal"
+              style={{ transitionDelay: `${idx * 80}ms` }}
+            >
               <div className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-700"
                    style={{ background: "radial-gradient(60% 80% at 30% 0%, rgba(0,229,255,0.10), transparent 70%)" }} />
               <div className="relative">
@@ -113,15 +157,17 @@ const Landing = () => {
       {/* CTA TAIL */}
       <section className="relative pb-32 md:pb-40 max-w-[1800px] mx-auto px-6 md:px-12">
         <div className="border-t border-edge-subtle pt-16 md:pt-24 flex flex-col md:flex-row md:items-end justify-between gap-10">
-          <div>
+          <div className="scroll-reveal">
             <p className="font-mono text-[10px] uppercase tracking-widestest text-ink-dim mb-6">/03 — Enter</p>
             <h2 className="font-display text-4xl md:text-6xl tracking-tightest leading-[0.95] text-white text-balance max-w-3xl">
               The architect is ready. <span className="text-ink-dim">Open the door.</span>
             </h2>
           </div>
-          <LaunchButton onClick={handleLaunch} />
+          <div className="scroll-reveal" style={{ transitionDelay: "150ms" }}>
+            <LaunchButton onClick={handleLaunch} />
+          </div>
         </div>
-        <div className="mt-16 flex items-center justify-between font-mono text-[10px] uppercase tracking-widestest text-ink-faint">
+        <div className="mt-16 flex items-center justify-between font-mono text-[10px] uppercase tracking-widestest text-ink-faint select-none">
           <span>&copy; React/Architect</span>
           <span>Studio &middot; Sprint 04</span>
         </div>

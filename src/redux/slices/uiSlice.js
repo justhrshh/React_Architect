@@ -15,6 +15,7 @@ const initialState = {
   bootStep: 0,
   activeRoom: 'project-brain',
   cursorActive: false,
+  appMode: 'hub', // 'hub' or 'workspace'
 };
 
 const uiSlice = createSlice({
@@ -64,6 +65,9 @@ const uiSlice = createSlice({
     setCursorActive(state, action) {
       state.cursorActive = action.payload;
     },
+    setAppMode(state, action) {
+      state.appMode = action.payload;
+    },
   },
 });
 
@@ -82,6 +86,7 @@ export const {
   endBoot,
   setActiveRoom,
   setCursorActive,
+  setAppMode,
 } = uiSlice.actions;
 
 export default uiSlice.reducer;

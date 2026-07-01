@@ -1,3 +1,158 @@
+# v1.4 — Decoupled Hub & Workspace Architecture
+
+## Added
+* **Decoupled Hub & Workspace pages**:
+  - Re-introduced `/hub` route mapping to `src/pages/Hub.jsx` to serve as a standalone, lightweight project management command console.
+  - Dedicated `/workspace` route mapping to `src/pages/Workspace.jsx` to serve as the standalone spatial 3D room constructs, custom HUD navigation panels, and metadata cards.
+  - Landing page's `BootSequence` completion now redirects to `/hub` instead of going directly to the workspace void.
+  - Implemented automatic redirection guards on `/workspace` that send users back to `/hub` if they attempt to load the workspace without selecting an active project.
+* **Refined Premium 3D Interaction Styles**:
+  - Baseline project carousel cards elevated in a persistent, shallow arch curve.
+  - Dynamic local hover tilt gestures append extra translation offsets (`translateY(-20px) translateZ(40px) scale(1.03)`) and shift shadow spreads.
+  - Redesigned the Import Modal layout to feature a soft, off-white container frame (`bg-neutral-50/65`) that makes white option cards pop out with maximum contrast.
+
+---
+
+# v0.5.3 — Sequential Holographic Surface Construct Animation
+
+## Merged
+* Implemented the detailed sequential powering-on construct animation sequence when the Operating Surface mounts, exactly as defined in the product specification.
+
+## Added
+* **Powering-On Animation Sequence**:
+  - Step 1: Faint blueprint grid (`gridHelper`) activates and fades in from `0` to `0.05` opacity (0.5s).
+  - Step 2: Concentric blueprint circles (`innerRingRef`, `outerRingRef`) draw themselves into existence (0.5s).
+  - Step 3: Thick metallic slab and glowing neon border lines fade in under the grid (0.5s).
+  - Step 4: Crosshair axis lines expand outwards along their axes (0.4s).
+  - Step 5: Command point light glow stabilizes (0.6s).
+  - Step 6: Cyber scanning line ring expansion ripple scans the surface (0.7s).
+  - Step 7: Projects (glass towers) emerge from below the table surface, rising into place with a subtle spring bounce (`ease: "back.out(1.1)"`) (0.8s).
+* **Workspace Mode Snapping**: When the app mounts directly in active project Workspace Mode, the animation timeline is bypassed and snaps immediately to its final stabilized rendering state.
+
+---
+
+# v0.5.2 — 3D Stacked Glass Towers & Blueprint HUD
+
+## Merged
+* Replaced flat 3D nodes with vertical **stacked glass towers** representing projects, mimicking the high-fidelity 3D map console layout in reference images.
+
+## Added
+* **Project Glass Towers**: Each project is rendered as a stylized vertical glass-stacked pillar:
+  - Solid neon base plate glowing in framework-specific colors (React = cyan, Vite = purple, etc.).
+  - 3 stacked physical glass segments (`boxGeometry` with metallic reflections, roughness `0.05`, and transparency `0.3`) forming a detailed architectural tower.
+  - Glowing internal laser beam running straight up the tower core.
+  - Alternating staggered depth coordinates (`z` offset oscillates slightly forward/backward) to provide a rich 3D layout.
+* **Blueprint Leader Lines**: Hovering a tower spawns a horizontal/diagonal cyber pointer line bracket (`LeaderLine`) pointing to a floating metadata tag with details (name, and "Click to Select") styled in futuristic Orbitron fonts.
+* **Command surface base block**: Added a thick, reflective 3D metallic command console slab (`boxGeometry`) underneath the circular blueprint lines with glowing neon border accents.
+
+---
+
+# v0.5.1 — 3D Holographic Command Surface Redesign
+
+## Added
+* **3D Project Strip**: Renders projects directly along the top edge of the circular blueprint console (`z = -1.8` on table) as flat horizontal nodes (`ProjectNode` and `AddNode`):
+  - Spaced horizontally, with framework-specific cyan accent colors.
+  - Hovering a 3D node scales it, makes its name slide up, and glows cyan.
+  - Clicking a project node triggers the loading sequence directly inside the canvas.
+* **3D Loading Sequence**:
+  - The clicked project node moves to console center (`[0, 0.1, 0]`) and scales up, while other nodes fade out.
+  - Spawns representative files (e.g. `App.jsx`, `Navbar.jsx`, `routes.js`) as circular floating nodes rising from the console table.
+  - Files hover and spin slowly, then accelerate inward and compress into center.
+  - Emits a glowing concentric energy wave ripple expanding across the circular glass console.
+  - Centered holographic titles animate: displaying `/00_LOADING_SPAWNING_FILES`, `/00_LOADING_COMPRESSING`, and finally setting the project active.
+
+## Removed
+* `src/features/hub/` directory and `HubInterface.jsx` (HTML dock slider) — all visual overlays are now handled natively inside the Three.js scene.
+
+---
+
+# v0.5.0 — Unified Hub & Workspace Redesign
+
+## Critical Design Corrections
+* **BrainRoom Sphere Replacement**: Removed the placeholder prototype sphere, core glow, and orbit rings. Evolved `BrainRoom.jsx` into `HubSurface` — a flat 3D holographic engineering console console plate:
+  - Concentric circular ticks lines with counter-rotations.
+  - Thin cyan crosshair ticks and tick axes.
+  - Horizontally oriented circular glass console surface and concentric divisions grid lines.
+  - Futuristic floating holographic typography using Orbitron fonts.
+  - Table console scales up dynamically (1.35x) to occupy the center stage in Hub mode.
+* Hub and Workspace are now a single persistent environment on `/workspace`. 
+* The `/hub` route is eliminated and redirects directly to `/workspace`.
+* Boot sequence redirects to `/workspace`.
+* The camera controller tracks both modes within the same scene.
+
+## Changed
+* `src/pages/Workspace.jsx` — Now drives both `hub` and `workspace` modes:
+  - Hub Mode: Renders only the core BrainRoom sphere (text label: "PROJECT HUB", subtext: "/00_SELECT_PROJECT") and the holographic project list dock at the bottom of the viewport.
+  - Workspace Mode: Renders the active room details, workstation platforms, workspace navigation controls, and project details (name, framework badge).
+  - Transition (Hub → Workspace): Cinematic load transition overlay blocks interaction while camera sweeps close (zoom in to brain) and other platforms fade in.
+  - Return (Workspace → Hub): Camera sweeps back (zooms out slightly) and unloads/clears the active project while displaying the picker dock again.
+* `src/features/workspace/rooms/BrainRoom.jsx` — Dynamic text titles, subtext labels, and core scale targets. In Hub mode, it expands by 1.35x to fill more of the screen.
+* `src/features/workspace/CameraController.jsx` — Maps camera positions based on `appMode` state in Redux. Adds `hub` camera coordinates config to `CameraPositions.js`.
+* `src/components/Nav.jsx` — Updated link targets to point to `/workspace` instead of `/hub`. Bumped version label to `v0.5.0`.
+
+## Removed
+* `src/pages/ProjectHub.jsx` — replaced by Workspace state orchestration.
+* `src/layouts/HubLayout.jsx` — no longer routed to.
+* Unused 3D orb files under `src/features/hub/` (`HubScene.jsx`, `HubCamera.jsx`, `ProjectOrb.jsx`, `AddOrb.jsx`, `ProjectOrbGroup.jsx`, `HubHUD.jsx`).
+* `src/components/hub/ProjectCard.jsx` — metadata card display component.
+
+---
+
+# v0.4.2 — Create New Project Wizard
+
+## Philosophy
+The Hub is no longer a page. It is an environment. Same void, same stars, same world as the Workspace.
+
+## Removed
+* `ProjectHub.jsx` (dashboard layout) — completely replaced
+* `HubLayout.jsx` (padded container) — replaced with full-viewport wrapper
+* Project cards, grids, headers, sidebars — all gone
+
+## Added
+* `src/features/hub/HubScene.jsx` — full R3F Canvas scene for the Hub:
+  - Reuses `WorldEnvironment` (stars, void, blueprint grid) from workspace
+  - Reuses `WorldLights`
+  - Phase state machine: `arriving → idle → selecting`
+  - Orbs appear only after camera arrival animation completes
+* `src/features/hub/HubCamera.jsx` — locked camera controller:
+  - Arrival: `[0,5,18] → [0,3,10]` over 2s on mount (cinematic entry)
+  - Selection: zooms forward `z:10 → z:-10` over 1s (GSAP power3.in)
+  - Always `lookAt(0,0,0)` via `useFrame` — no drift, no orbit
+* `src/features/hub/ProjectOrb.jsx` — holographic project icon:
+  - Thin cyan torus ring (`torusGeometry`) + translucent inner disc
+  - Entrance: rises from y=-5 to y=0 with staggered GSAP delay
+  - Idle: subtle rotation drift via `useFrame`
+  - Hover: scale 1.12, emissive 1.6, HTML label brightens (lerp via `useFrame`)
+  - Click: GSAP scale to 3.0 + emissive flash → `onSelect` fires at 430ms
+  - Label: project name only (no metadata)
+  - Right-click: fires `onContextMenu` for rename/delete
+* `src/features/hub/AddOrb.jsx` — "+" holographic orb:
+  - Grey ring + slow spin to distinguish from project orbs
+  - Cross geometry in centre, turns cyan on hover
+  - Same entrance animation as ProjectOrb
+  - Click: fires `onAddClick` (no workspace transition)
+* `src/features/hub/ProjectOrbGroup.jsx` — horizontal arc layout:
+  - Projects + Add orb centred at x=0, spaced 2.8 units apart
+  - Entrance stagger: 0.1s per orb left-to-right
+* `src/features/hub/HubHUD.jsx` — minimal HTML overlay:
+  - `← Landing` link (top-left)
+  - Version label (top-right)
+  - Environment identifier (bottom-centre)
+  - Hidden during transitions
+* `src/pages/ProjectHub.jsx` — thin orchestrator (no visual rendering):
+  - `AddChooserOverlay`: blurred void overlay with Import/Create tiles
+  - `ContextMenu`: right-click HTML menu for rename/delete on orbs
+  - All modals (Import, Wizard, Rename, Delete) work unchanged
+  - Project selection → `selectProject` dispatch → `ProjectLoadTransition` → `/workspace`
+
+## Changed
+* `HubLayout.jsx` — `fixed inset-0`, zero padding, zero overflow
+
+## Status
+Sprint 5 Complete. The Hub is now an immersive environment, not a dashboard.
+
+---
+
 # v0.4.2 — Create New Project Wizard
 
 ## Added
