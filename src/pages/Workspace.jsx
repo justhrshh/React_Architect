@@ -94,8 +94,23 @@ const Workspace = () => {
     navigate("/hub");
   };
 
+  const handlePortalComplete = useCallback((roomKey) => {
+    const routes = {
+      "architecture": "/architecture",
+      "routes": "/routes",
+      "state-flow": "/state",
+      "api-flow": "/api",
+      "documentation": "/docs",
+    };
+    const targetRoute = routes[roomKey];
+    if (targetRoute) {
+      navigate(targetRoute);
+    }
+  }, [navigate]);
+
   const activeDetail = roomDetails[focusedRoom];
   const isFlying = focusedRoom === null;
+  const showHUD = !isFlying && (activeRoom === "project-brain");
 
   if (!selectedProject) {
     return null; // Let the redirect trigger in useEffect
@@ -111,6 +126,7 @@ const Workspace = () => {
         onSelectProject={() => {}}
         onAddClick={() => navigate("/hub")}
         onContextMenu={() => {}}
+        onPortalComplete={handlePortalComplete}
       />
 
       {/* Explore Mode Instructions Overlay HUD */}
@@ -131,7 +147,7 @@ const Workspace = () => {
         {/* Top Header Panel */}
         <header 
           className={`w-full flex items-center justify-between pointer-events-auto bg-obsidian/30 backdrop-blur-md border border-edge-subtle p-4 rounded-xl shadow-lg gap-4 transition-all duration-500 transform ${
-            !isFlying ? "opacity-100 translate-y-0" : "opacity-0 -translate-y-6 pointer-events-none"
+            showHUD ? "opacity-100 translate-y-0" : "opacity-0 -translate-y-6 pointer-events-none"
           }`}
         >
           <div 
@@ -197,7 +213,7 @@ const Workspace = () => {
         {/* Floating Mobile Nav bar (visible on small viewports) */}
         <div 
           className={`lg:hidden w-full overflow-x-auto flex items-center gap-4 py-2 pointer-events-auto mt-4 bg-obsidian/50 backdrop-blur border border-edge-subtle p-3 rounded-lg transition-all duration-500 ${
-            !isFlying ? "opacity-100 translate-y-0" : "opacity-0 -translate-y-4 pointer-events-none"
+            showHUD ? "opacity-100 translate-y-0" : "opacity-0 -translate-y-4 pointer-events-none"
           }`}
         >
           {menuItems.map((item) => {
@@ -221,7 +237,7 @@ const Workspace = () => {
           <div className="w-full max-w-md pointer-events-auto">
             <div
               className={`glass p-6 md:p-8 rounded-2xl border border-edge-subtle shadow-2xl transition-all duration-500 transform ${
-                focusedRoom 
+                (showHUD && focusedRoom) 
                   ? "opacity-100 translate-y-0" 
                   : "opacity-0 translate-y-6 scale-95"
               }`}
@@ -254,7 +270,7 @@ const Workspace = () => {
           
           <div 
             className={`hidden md:block font-mono text-[10px] text-ink-faint uppercase tracking-widestest p-4 transition-opacity duration-500 ${
-              !isFlying ? "opacity-100" : "opacity-0"
+              showHUD ? "opacity-100" : "opacity-0"
             }`}
           >
             Workspace Mode // HUD_v0.5.3

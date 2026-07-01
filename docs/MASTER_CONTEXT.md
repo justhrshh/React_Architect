@@ -352,21 +352,28 @@ Unified Hub & Workspace Decoupling:
 *   Created a separate `/workspace` page route (`Workspace.jsx`) containing the immersive 3D spatial room constructs, custom HUD navigation panels, and metadata cards.
 *   Retained Three.js canvas optimizations (`WorkspaceScene.jsx`) with dynamic scene controllers, ensuring loading overlays transition smoothly between states.
 
+### ✅ Sprint 7 Complete
+Decoupled Workspace Portals & Tool Studios:
+*   Implemented a reusable 3D R3F `<Portal />` component rendered at the center of all platform rooms.
+*   **Sequence Mechanics**: When a platform is focused, the rotating wireframe collapses, 8 white vertex spheres scatter outwards and implode back to the center to spin out a glowing white torus ring and energy disk.
+*   **Simulated Camera Zoop**: The portal group sweeps forward past the camera view while scaling up to cover the screen in a solid white screen flash, avoiding camera position mutations.
+*   **Unified Tool Routes & Dedicated Studio Pages**: Registered routes `/architecture`, `/routes`, `/state`, `/api`, and `/docs` under the Workspace router. Created standalone dark placeholder studio pages featuring a `gsap.fromTo` background fade transition on mounting to blend seamlessly from the white portal zoop flash.
+*   **Workspace HUD Overlay Auto-Hiding**: Configured top navigation header, mobile selector bar, and bottom info cards to instantly slide and fade away when a portal destination is selected, or when entering **Look Around (explore)** mode.
+
 ---
 
 ## Current Version
-React Architect v1.4 — Decoupled Hub & Workspace Architecture Complete
+React Architect v1.5 — Decoupled Workspace Portals & Tool Studios Complete
 
 ---
 
 ## Current Milestone
-Sprint 7 — React Flow Integration
+Sprint 8 — React Flow AST Integration
 Focus:
-*   Integrate React Flow canvas inside the `Architecture` room overlay panel.
+*   Integrate React Flow canvas inside the `Architecture` room.
 *   Use `selectedProject` as source of truth for what the graph renders.
 *   Map mock component nodes and connection edges.
 *   Maintain spatial GSAP camera sweeps, HUD overlays, and materialization animations.
-*   Prepare AST pipelines for Sprint 6.
 
 ------------------------------------------------------------------------
 

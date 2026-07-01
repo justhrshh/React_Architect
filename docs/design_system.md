@@ -101,3 +101,9 @@ Wizards and modals enter the screen with a perspective sweep animation:
 Interactive action buttons drag slightly toward the cursor on hover:
 * **Math**: Translates coordinates by `dx * 0.18` and `dy * 0.22` relative to the button center.
 * **Transition**: Reset transition uses `transform 350ms cubic-bezier(0.2, 0.7, 0.1, 1)` to bounce smoothly back to center.
+
+### 4.5 Cinematic 3D Portal Transition (White Light-Flash Continuity)
+Redirection into standalone 2D tool pages (like `/architecture`) is bridged through a high-contrast white light portal:
+* **Construct Sequence**: Implosion of 8 white vertex spheres collapses the platform's rotating wireframe and forms a vertical white torus ring & energy disk.
+* **Zoop Zoom-past**: The portal group position moves forward past the camera viewport (`z: 0.05 → z: 8.0` over `650ms`, `ease: power3.in`) while the energy disk scales to `18x` to cover the screen.
+* **Mount Fade-in**: The destination page mounts with a `gsap.fromTo` background animation fading from solid white (`#ffffff`) back to obsidian `#06070b` over `800ms` with `ease: power2.out`. This creates seamless visual continuity across routes.

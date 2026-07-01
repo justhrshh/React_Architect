@@ -1,3 +1,21 @@
+# v1.5 — Decoupled Workspace Portals & Tool Studios
+
+## Added
+* **Cinematic Portal Construction Sequence**:
+  - Implemented a reusable 3D R3F `<Portal />` component rendered at the center of all platform rooms.
+  - **Sequence Mechanics**: When a platform is focused, the rotating wireframe collapses, 8 white vertex spheres scatter outwards and implode back to the center to spin out a glowing white torus ring and energy disk.
+  - **Simulated Camera Zoop**: The portal group sweeps forward past the camera view while scaling up to cover the screen in a solid white screen flash, avoiding camera position mutations.
+* **Unified Tool Routes & Dedicated Studio Pages**:
+  - Registered routes `/architecture`, `/routes`, `/state`, `/api`, and `/docs` under the Workspace router.
+  - Created standalone dark placeholder studio pages: `Architecture.jsx`, `Routes.jsx`, `StateFlow.jsx`, `ApiFlow.jsx`, and `Documentation.jsx`.
+  - Added a `gsap.fromTo` background fade transition on mounting to blend seamlessly from the white portal zoop flash back to the dark workspace panels.
+  - Integrated `← Command Center` back buttons on all studio pages that safely reset the active room state back to `"project-brain"` to prevent infinite redirect loops.
+* **Workspace HUD Overlay Auto-Hiding**:
+  - Configured top navigation header, mobile selector bar, and bottom info cards to instantly slide and fade away when a portal destination is selected, or when entering **Look Around (explore)** mode.
+  - HUD elements animate back into view seamlessly when the camera settles back on the main Project Brain platform.
+
+---
+
 # v1.4 — Decoupled Hub & Workspace Architecture
 
 ## Added

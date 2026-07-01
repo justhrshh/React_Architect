@@ -17,7 +17,7 @@ import DocumentationRoom from "./rooms/DocumentationRoom";
  * - Manages the environment, lights, camera sweep controller, and rooms.
  * - Triggers state variables to control local room platform animations.
  */
-const WorkspaceScene = ({ onArrivalChange, onSelectRoom, onSelectProject, onAddClick, onContextMenu }) => {
+const WorkspaceScene = ({ onArrivalChange, onSelectRoom, onSelectProject, onAddClick, onContextMenu, onPortalComplete }) => {
   const activeRoom = useSelector((state) => state.ui.activeRoom);
   const appMode = useSelector((state) => state.ui.appMode);
   const selectedProject = useSelector(selectSelectedProject);
@@ -74,6 +74,7 @@ const WorkspaceScene = ({ onArrivalChange, onSelectRoom, onSelectProject, onAddC
               focused={focusedRoom === "architecture"}
               exploreMode={exploreMode}
               onSelect={() => onSelectRoom && onSelectRoom("architecture")} 
+              onPortalComplete={onPortalComplete}
             />
             
             <RoutesRoom 
@@ -81,6 +82,7 @@ const WorkspaceScene = ({ onArrivalChange, onSelectRoom, onSelectProject, onAddC
               focused={focusedRoom === "routes"}
               exploreMode={exploreMode}
               onSelect={() => onSelectRoom && onSelectRoom("routes")} 
+              onPortalComplete={onPortalComplete}
             />
             
             <StateRoom 
@@ -88,6 +90,7 @@ const WorkspaceScene = ({ onArrivalChange, onSelectRoom, onSelectProject, onAddC
               focused={focusedRoom === "state-flow"}
               exploreMode={exploreMode}
               onSelect={() => onSelectRoom && onSelectRoom("state-flow")} 
+              onPortalComplete={onPortalComplete}
             />
             
             <ApiRoom 
@@ -95,6 +98,7 @@ const WorkspaceScene = ({ onArrivalChange, onSelectRoom, onSelectProject, onAddC
               focused={focusedRoom === "api-flow"}
               exploreMode={exploreMode}
               onSelect={() => onSelectRoom && onSelectRoom("api-flow")} 
+              onPortalComplete={onPortalComplete}
             />
             
             <DocumentationRoom 
@@ -102,6 +106,7 @@ const WorkspaceScene = ({ onArrivalChange, onSelectRoom, onSelectProject, onAddC
               focused={focusedRoom === "documentation"}
               exploreMode={exploreMode}
               onSelect={() => onSelectRoom && onSelectRoom("documentation")} 
+              onPortalComplete={onPortalComplete}
             />
           </>
         )}
