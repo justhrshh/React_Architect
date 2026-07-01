@@ -42,34 +42,13 @@ assets/
 ├── models/
 └── shaders/
 
-animations/
-    ├── landing/
-    |   ├── heroTimeline.js
-        ├── bootSequence.js
-        ├── titleReveal.js
-    |   └── backgroundTimeline.js
-    |
-    ├── workspace/
-    |   ├── cameraTimeline.js
-        ├── roomTransition.ja
-        ├── panelTimeline.js
-    |   └── menuTimeline.js
-    |
-    └── common/
-        ├── pageTransition.js
-        ├── sharedTimelines.js
-        └── cursorEffects.js
-    
-
 components/
 ├── ambient/
 │   ├── CursorBlob.jsx
 │   └── Noise.jsx
 ├── hub/
-│   ├── ProjectCard.jsx             ← Detected metadata display (framework, tech flags, build tool)
 │   ├── ImportProjectModal.jsx      ← Smart import: Local Folder, ZIP, GitHub (coming soon)
 │   ├── CreateProjectWizard.jsx     ← 8-step fullscreen creation wizard
-│   ├── AddProjectModal.jsx         ← SUPERSEDED by ImportProjectModal (kept for reference)
 │   ├── RenameModal.jsx
 │   ├── DeleteConfirmModal.jsx
 │   └── ProjectLoadTransition.jsx
@@ -88,12 +67,13 @@ features/
 │   ├── WorldLights.jsx            ← Ambient + spot lighting rig for all 6 platforms
 │   ├── WorldEnvironment.jsx       ← Stars, grid floor, wire connections, energy particles
 │   └── rooms/
-│       ├── BrainRoom.jsx          ← Project Brain core; scale/ring/light transitions
-│       ├── ArchitectureRoom.jsx   ← Platform + LocalParticles + wireframe build
-│       ├── RoutesRoom.jsx         ← Platform + LocalParticles + wireframe build
-│       ├── StateRoom.jsx          ← Platform + LocalParticles + wireframe build
-│       ├── ApiRoom.jsx            ← Platform + LocalParticles + wireframe build
-│       └── DocumentationRoom.jsx  ← Platform + LocalParticles + wireframe build
+│       ├── Portal.jsx             ← Reusable 3D Portal Gateway (white node-scattering implosion)
+│       ├── BrainRoom.jsx          ← Holographic operating table console; concentric division lines, crosshairs, dynamic scale/glow transitions
+│       ├── ArchitectureRoom.jsx   ← Platform + LocalParticles + wireframe build + Portal Integration
+│       ├── RoutesRoom.jsx         ← Platform + LocalParticles + wireframe build + Portal Integration
+│       ├── StateRoom.jsx          ← Platform + LocalParticles + wireframe build + Portal Integration
+│       ├── ApiRoom.jsx            ← Platform + LocalParticles + wireframe build + Portal Integration
+│       └── DocumentationRoom.jsx  ← Platform + LocalParticles + wireframe build + Portal Integration
 ├── architecture/
 ├── routes/
 ├── state-flow/
@@ -103,7 +83,6 @@ features/
 
 layouts/
 ├── LandingLayout.jsx
-├── HubLayout.jsx               ← Hub ambient wrapper (CursorBlob + Noise)
 └── WorkspaceLayout.jsx
 
 lib/
@@ -116,8 +95,13 @@ lib/
 
 pages/
 ├── Landing.jsx
-├── ProjectHub.jsx              ← Multi-project management home screen
-└── Workspace.jsx
+├── Hub.jsx                     ← Decoupled project command console & drag carousel
+├── Workspace.jsx               ← Decoupled spatial 3D room operating surface
+├── Architecture.jsx            ← Decoupled Architecture Studio Page (AST Node Tree)
+├── Routes.jsx                  ← Decoupled Route Studio Page (Router Map)
+├── StateFlow.jsx               ← Decoupled State Studio Page (Store Flow)
+├── ApiFlow.jsx                 ← Decoupled API Studio Page (Endpoints Graph)
+└── Documentation.jsx           ← Decoupled Documentation Studio Page (Markdown View)
 
 redux/
 ├── store.js

@@ -65,3 +65,30 @@
   line-height: 1;
   padding-bottom: 0.04em;
 }
+
+/* ── Hub Interface animations ─────────────────────────────────────────────── */
+
+/* Skiper6-style: project name slides up from below on hover */
+@keyframes slideUpLabel {
+  from {
+    transform: translateY(100%);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0%);
+    opacity: 1;
+  }
+}
+
+/* Enter button / detail content fade up inside expanded card */
+@keyframes fadeInUp {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+

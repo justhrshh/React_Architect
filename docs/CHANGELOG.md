@@ -1,3 +1,134 @@
+# v3.0 — Centralized Knowledge Graph Engine & Refactored Studio Pages
+
+## Added
+* **Centralized Knowledge Graph (KG) Engine**:
+  - Modularized the parsing and analysis pipeline into framework-agnostic node (`nodeFactory.js`) and standardized relationship edge (`edgeFactory.js`) constructors.
+  - Implemented structured validation (`graphValidator.js`) detecting duplicates, orphan elements, large components, and circular rendering loops.
+  - Deployed a standalone layout engine (`layoutEngine.js`) to compute node coordinate properties separate from React Flow adapters.
+  - Created modular extractor scripts under `src/engines/parser/extractors/` (component, hook, import, export, context, redux, route, api).
+* **Refactored Exploration Studios**:
+  - Updated Component Architecture, Routes, State Flow, API, and Documentation studio pages to consume data directly from the unified Redux `knowledgeGraph` state database.
+  - Standardized stable node identifiers (`component:file:name`) to maintain persistent selections across workspace views.
+
+---
+
+# v2.0 — Real AST analysis & Interactive Workspace Explorer Studios
+
+## Added
+* **Dynamic AST Scanner Engine**:
+  - Implemented recursive directory scanning (File System Access API) and JSZip archives unpackers inside `scanner.js`.
+  - Added Babel AST visitors inside `parser.js` that extract component names, hooks, props, imports, and exports.
+  - Linked parent-child render edges inside `graphBuilder.js` and layered nodes inside `reactFlowAdapter.js`.
+* **Component Architecture Studio Improvements**:
+  - Implemented solid off-white high-contrast sidebar to replace translucent dark themes for maximum readability.
+  - Added "Nesting Hierarchy" context badges.
+  - Added app-level collapsible sidebar/inspector panels fullscreen toggle, auto-fitting the layout to the viewport on toggle.
+* **Interactive Route Studio (`/routes`)**:
+  - Created `routeParser.js` to dynamically extract URL patterns from Next.js (`app/**/page.tsx`) and React Router formats.
+  - Deployed route endpoint nodes, parameters, and targets inside `@xyflow/react` routing trees.
+* **Interactive State Studio (`/state`)**:
+  - Plotted Redux Slices (e.g. `authSlice`, `uiSlice`) and state variables.
+  - Drew dependency edges linking state slices to useSelector consumer components.
+* **Interactive API Studio (`/api`)**:
+  - Visualized Network Gateway Client objects, HTTP route operations (`POST /auth/login`, `GET /projects`), and mapped them to the triggering components.
+* **Interactive Documentation Studio (`/docs`)**:
+  - Indexed `.md` files during scans and bypassed AST parsing.
+  - Rendered select markdown documents inside a custom reader component supporting headers, quotes, lists, and code blocks.
+* **Persisted Handles**:
+  - Cached folder handles in IndexedDB (`projectStore.js`) to restore user access rights on page refresh via workspace re-grant prompts.
+* **Simulated Fetch Delay**:
+  - Implemented a 1.8-second indexing loading screen on project imports.
+
+---
+
+# v1.5 — Decoupled Workspace Portals & Tool Studios
+
+## Added
+* **Cinematic Portal Construction Sequence**:
+  - Implemented a reusable 3D R3F `<Portal />` component rendered at the center of all platform rooms.
+  - **Sequence Mechanics**: When a platform is focused, the rotating wireframe collapses, 8 white vertex spheres scatter outwards and implode back to the center to spin out a glowing white torus ring and energy disk.
+  - **Simulated Camera Zoop**: The portal group sweeps forward past the camera view while scaling up to cover the screen in a solid white screen flash, avoiding camera position mutations.
+* **Unified Tool Routes & Dedicated Studio Pages**:
+  - Registered routes `/architecture`, `/routes`, `/state`, `/api`, and `/docs` under the Workspace router.
+  - Created standalone dark placeholder studio pages: `Architecture.jsx`, `Routes.jsx`, `StateFlow.jsx`, `ApiFlow.jsx`, and `Documentation.jsx`.
+  - Added a `gsap.fromTo` background fade transition on mounting to blend seamlessly from the white portal zoop flash back to the dark workspace panels.
+  - Integrated `← Command Center` back buttons on all studio pages that safely reset the active room state back to `"project-brain"` to prevent infinite redirect loops.
+* **Workspace HUD Overlay Auto-Hiding**:
+  - Configured top navigation header, mobile selector bar, and bottom info cards to instantly slide and fade away when a portal destination is selected, or when entering **Look Around (explore)** mode.
+  - HUD elements animate back into view seamlessly when the camera settles back on the main Project Brain platform.
+
+---
+
+# v1.4 — Decoupled Hub & Workspace Architecture
+
+## Added
+* **Decoupled Hub & Workspace pages**:
+  - Re-introduced `/hub` route mapping to `src/pages/Hub.jsx` to serve as a standalone, lightweight project management command console.
+  - Dedicated `/workspace` route mapping to `src/pages/Workspace.jsx` to serve as the standalone spatial 3D room constructs, custom HUD navigation panels, and metadata cards.
+  - Landing page's `BootSequence` completion now redirects to `/hub` instead of going directly to the workspace void.
+  - Implemented automatic redirection guards on `/workspace` that send users back to `/hub` if they attempt to load the workspace without selecting an active project.
+* **Refined Premium 3D Interaction Styles**:
+  - Baseline project carousel cards elevated in a persistent, shallow arch curve.
+  - Dynamic local hover tilt gestures append extra translation offsets (`translateY(-20px) translateZ(40px) scale(1.03)`) and shift shadow spreads.
+  - Redesigned the Import Modal layout to feature a soft, off-white container frame (`bg-neutral-50/65`) that makes white option cards pop out with maximum contrast.
+
+---
+
+# v0.4.2 — Create New Project Wizard
+
+## Philosophy
+The Hub is no longer a page. It is an environment. Same void, same stars, same world as the Workspace.
+
+## Removed
+* `ProjectHub.jsx` (dashboard layout) — completely replaced
+* `HubLayout.jsx` (padded container) — replaced with full-viewport wrapper
+* Project cards, grids, headers, sidebars — all gone
+
+## Added
+* `src/features/hub/HubScene.jsx` — full R3F Canvas scene for the Hub:
+  - Reuses `WorldEnvironment` (stars, void, blueprint grid) from workspace
+  - Reuses `WorldLights`
+  - Phase state machine: `arriving → idle → selecting`
+  - Orbs appear only after camera arrival animation completes
+* `src/features/hub/HubCamera.jsx` — locked camera controller:
+  - Arrival: `[0,5,18] → [0,3,10]` over 2s on mount (cinematic entry)
+  - Selection: zooms forward `z:10 → z:-10` over 1s (GSAP power3.in)
+  - Always `lookAt(0,0,0)` via `useFrame` — no drift, no orbit
+* `src/features/hub/ProjectOrb.jsx` — holographic project icon:
+  - Thin cyan torus ring (`torusGeometry`) + translucent inner disc
+  - Entrance: rises from y=-5 to y=0 with staggered GSAP delay
+  - Idle: subtle rotation drift via `useFrame`
+  - Hover: scale 1.12, emissive 1.6, HTML label brightens (lerp via `useFrame`)
+  - Click: GSAP scale to 3.0 + emissive flash → `onSelect` fires at 430ms
+  - Label: project name only (no metadata)
+  - Right-click: fires `onContextMenu` for rename/delete
+* `src/features/hub/AddOrb.jsx` — "+" holographic orb:
+  - Grey ring + slow spin to distinguish from project orbs
+  - Cross geometry in centre, turns cyan on hover
+  - Same entrance animation as ProjectOrb
+  - Click: fires `onAddClick` (no workspace transition)
+* `src/features/hub/ProjectOrbGroup.jsx` — horizontal arc layout:
+  - Projects + Add orb centred at x=0, spaced 2.8 units apart
+  - Entrance stagger: 0.1s per orb left-to-right
+* `src/features/hub/HubHUD.jsx` — minimal HTML overlay:
+  - `← Landing` link (top-left)
+  - Version label (top-right)
+  - Environment identifier (bottom-centre)
+  - Hidden during transitions
+* `src/pages/ProjectHub.jsx` — thin orchestrator (no visual rendering):
+  - `AddChooserOverlay`: blurred void overlay with Import/Create tiles
+  - `ContextMenu`: right-click HTML menu for rename/delete on orbs
+  - All modals (Import, Wizard, Rename, Delete) work unchanged
+  - Project selection → `selectProject` dispatch → `ProjectLoadTransition` → `/workspace`
+
+## Changed
+* `HubLayout.jsx` — `fixed inset-0`, zero padding, zero overflow
+
+## Status
+Sprint 5 Complete. The Hub is now an immersive environment, not a dashboard.
+
+---
+
 # v0.4.2 — Create New Project Wizard
 
 ## Added

@@ -2,6 +2,7 @@ import React, { useRef, useEffect } from "react";
 import { useFrame } from "@react-three/fiber";
 import { Text } from "@react-three/drei";
 import gsap from "gsap";
+import Portal from "./Portal";
 
 // Rising particle sparks when platform is materializing or active
 const LocalParticles = ({ active, exploreMode }) => {
@@ -51,7 +52,7 @@ const LocalParticles = ({ active, exploreMode }) => {
 /**
  * Architecture Room Platform.
  */
-const ArchitectureRoom = ({ active, focused, exploreMode, onSelect, children }) => {
+const ArchitectureRoom = ({ active, focused, exploreMode, onSelect, onPortalComplete, children }) => {
   const groupRef = useRef();
   const platformRef = useRef();
   const borderRef = useRef();
@@ -144,6 +145,12 @@ const ArchitectureRoom = ({ active, focused, exploreMode, onSelect, children }) 
       duration: 1.2,
     });
 
+    // Brighten wireframe symbol when active
+    gsap.to(wireframeRef.current.material, {
+      emissiveIntensity: active ? 1.8 : 0.2,
+      duration: 1.2,
+    });
+
     // Animate floating text label opacity
     if (titleRef.current) {
       gsap.to(titleRef.current, {
@@ -188,6 +195,14 @@ const ArchitectureRoom = ({ active, focused, exploreMode, onSelect, children }) 
 
       {/* Particle Build Spatter */}
       <LocalParticles active={active} exploreMode={exploreMode} />
+
+      {/* Circular Energy Portal Gateway */}
+      <Portal 
+        active={active && focused} 
+        color="#00E5FF" 
+        wireframe={wireframeRef}
+        onComplete={() => onPortalComplete && onPortalComplete("architecture")} 
+      />
 
       {/* Base Platform Cylinder */}
       <mesh ref={platformRef} position={[0, -0.4, 0]} className="cursor-pointer">

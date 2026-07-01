@@ -1,6 +1,7 @@
 import React, { useState, useCallback } from "react";
 import { Canvas } from "@react-three/fiber";
 import { useSelector } from "react-redux";
+import { selectSelectedProject, selectAllProjects } from "@/redux/slices/hubSlice";
 import CameraController from "./CameraController";
 import WorldLights from "./WorldLights";
 import WorldEnvironment from "./WorldEnvironment";
@@ -16,8 +17,12 @@ import DocumentationRoom from "./rooms/DocumentationRoom";
  * - Manages the environment, lights, camera sweep controller, and rooms.
  * - Triggers state variables to control local room platform animations.
  */
-const WorkspaceScene = ({ onArrivalChange, onSelectRoom }) => {
+const WorkspaceScene = ({ onArrivalChange, onSelectRoom, onSelectProject, onAddClick, onContextMenu, onPortalComplete }) => {
   const activeRoom = useSelector((state) => state.ui.activeRoom);
+  const appMode = useSelector((state) => state.ui.appMode);
+  const selectedProject = useSelector(selectSelectedProject);
+  const projects = useSelector(selectAllProjects);
+  
   const [focusedRoom, setFocusedRoom] = useState("project-brain");
 
   const handleArrival = useCallback((room) => {
@@ -28,6 +33,7 @@ const WorkspaceScene = ({ onArrivalChange, onSelectRoom }) => {
   }, [onArrivalChange]);
 
   const exploreMode = activeRoom === "explore";
+  const hubMode = appMode === "hub";
 
   return (
     <div className="absolute inset-0 z-0 bg-obsidian w-full h-full">
@@ -53,42 +59,57 @@ const WorkspaceScene = ({ onArrivalChange, onSelectRoom }) => {
           focused={focusedRoom === "project-brain"}
           exploreMode={exploreMode}
           onSelect={() => onSelectRoom && onSelectRoom("project-brain")} 
+          hubMode={hubMode}
+          projectName={selectedProject?.name}
+          projects={projects}
+          onSelectProject={onSelectProject}
+          onAddClick={onAddClick}
+          onContextMenu={onContextMenu}
         />
         
-        <ArchitectureRoom 
-          active={activeRoom === "architecture"}
-          focused={focusedRoom === "architecture"}
-          exploreMode={exploreMode}
-          onSelect={() => onSelectRoom && onSelectRoom("architecture")} 
-        />
-        
-        <RoutesRoom 
-          active={activeRoom === "routes"}
-          focused={focusedRoom === "routes"}
-          exploreMode={exploreMode}
-          onSelect={() => onSelectRoom && onSelectRoom("routes")} 
-        />
-        
-        <StateRoom 
-          active={activeRoom === "state-flow"}
-          focused={focusedRoom === "state-flow"}
-          exploreMode={exploreMode}
-          onSelect={() => onSelectRoom && onSelectRoom("state-flow")} 
-        />
-        
-        <ApiRoom 
-          active={activeRoom === "api-flow"}
-          focused={focusedRoom === "api-flow"}
-          exploreMode={exploreMode}
-          onSelect={() => onSelectRoom && onSelectRoom("api-flow")} 
-        />
-        
-        <DocumentationRoom 
-          active={activeRoom === "documentation"}
-          focused={focusedRoom === "documentation"}
-          exploreMode={exploreMode}
-          onSelect={() => onSelectRoom && onSelectRoom("documentation")} 
-        />
+        {!hubMode && (
+          <>
+            <ArchitectureRoom 
+              active={activeRoom === "architecture"}
+              focused={focusedRoom === "architecture"}
+              exploreMode={exploreMode}
+              onSelect={() => onSelectRoom && onSelectRoom("architecture")} 
+              onPortalComplete={onPortalComplete}
+            />
+            
+            <RoutesRoom 
+              active={activeRoom === "routes"}
+              focused={focusedRoom === "routes"}
+              exploreMode={exploreMode}
+              onSelect={() => onSelectRoom && onSelectRoom("routes")} 
+              onPortalComplete={onPortalComplete}
+            />
+            
+            <StateRoom 
+              active={activeRoom === "state-flow"}
+              focused={focusedRoom === "state-flow"}
+              exploreMode={exploreMode}
+              onSelect={() => onSelectRoom && onSelectRoom("state-flow")} 
+              onPortalComplete={onPortalComplete}
+            />
+            
+            <ApiRoom 
+              active={activeRoom === "api-flow"}
+              focused={focusedRoom === "api-flow"}
+              exploreMode={exploreMode}
+              onSelect={() => onSelectRoom && onSelectRoom("api-flow")} 
+              onPortalComplete={onPortalComplete}
+            />
+            
+            <DocumentationRoom 
+              active={activeRoom === "documentation"}
+              focused={focusedRoom === "documentation"}
+              exploreMode={exploreMode}
+              onSelect={() => onSelectRoom && onSelectRoom("documentation")} 
+              onPortalComplete={onPortalComplete}
+            />
+          </>
+        )}
       </Canvas>
     </div>
   );

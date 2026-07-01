@@ -8,7 +8,70 @@ const STORAGE_KEY = 'react-architect:projects';
 function loadFromStorage() {
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
-    return raw ? JSON.parse(raw) : [];
+    if (raw) {
+      return JSON.parse(raw);
+    }
+    // Seed default projects to showcase the dashboard beautifully on first run
+    const defaultProjects = [
+      {
+        id: "portfolio-id",
+        name: "Portfolio",
+        framework: "React",
+        buildTool: "Vite",
+        reactVersion: "React 19",
+        hasTypeScript: true,
+        hasTailwind: true,
+        hasRedux: true,
+        hasRouter: true,
+        createdAt: new Date(Date.now() - 86400000 * 5).toISOString(),
+        lastOpenedAt: new Date().toISOString(),
+        architectureScore: 94,
+      },
+      {
+        id: "dashboard-id",
+        name: "SaaS Dashboard",
+        framework: "Next.js",
+        buildTool: "Webpack",
+        reactVersion: "React 19",
+        hasTypeScript: true,
+        hasTailwind: true,
+        hasRedux: false,
+        hasRouter: true,
+        createdAt: new Date(Date.now() - 86400000 * 10).toISOString(),
+        lastOpenedAt: new Date(Date.now() - 86400000 * 2).toISOString(),
+        architectureScore: 88,
+      },
+      {
+        id: "gsap-landing-id",
+        name: "GSAP Creative Room",
+        framework: "React",
+        buildTool: "Vite",
+        reactVersion: "React 18",
+        hasTypeScript: false,
+        hasTailwind: false,
+        hasRedux: false,
+        hasRouter: false,
+        createdAt: new Date(Date.now() - 86400000 * 20).toISOString(),
+        lastOpenedAt: new Date(Date.now() - 86400000 * 4).toISOString(),
+        architectureScore: 91,
+      },
+      {
+        id: "test-app-id",
+        name: "Legacy App",
+        framework: "React",
+        buildTool: "Create React App",
+        reactVersion: "React 17",
+        hasTypeScript: false,
+        hasTailwind: false,
+        hasRedux: true,
+        hasRouter: true,
+        createdAt: new Date(Date.now() - 86400000 * 50).toISOString(),
+        lastOpenedAt: new Date(Date.now() - 86400000 * 12).toISOString(),
+        architectureScore: 72,
+      }
+    ];
+    saveToStorage(defaultProjects);
+    return defaultProjects;
   } catch {
     return [];
   }

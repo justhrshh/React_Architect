@@ -2,6 +2,7 @@ import React, { useRef, useEffect } from "react";
 import { useFrame } from "@react-three/fiber";
 import { Text } from "@react-three/drei";
 import gsap from "gsap";
+import Portal from "./Portal";
 
 const LocalParticles = ({ active, exploreMode }) => {
   const groupRef = useRef();
@@ -49,7 +50,7 @@ const LocalParticles = ({ active, exploreMode }) => {
 /**
  * State Room Platform.
  */
-const StateRoom = ({ active, focused, exploreMode, onSelect, children }) => {
+const StateRoom = ({ active, focused, exploreMode, onSelect, onPortalComplete, children }) => {
   const groupRef = useRef();
   const platformRef = useRef();
   const borderRef = useRef();
@@ -137,6 +138,12 @@ const StateRoom = ({ active, focused, exploreMode, onSelect, children }) => {
       duration: 1.2,
     });
 
+    // Brighten wireframe symbol when active
+    gsap.to(wireframeRef.current.material, {
+      emissiveIntensity: active ? 1.8 : 0.2,
+      duration: 1.2,
+    });
+
     if (titleRef.current) {
       gsap.to(titleRef.current, {
         fillOpacity: targetTextOpacity,
@@ -176,7 +183,16 @@ const StateRoom = ({ active, focused, exploreMode, onSelect, children }) => {
     >
       <pointLight ref={lightRef} position={[0, 3, 0]} intensity={1.5} distance={10} color="#00E5FF" />
 
+      {/* Particle Build Spatter */}
       <LocalParticles active={active} exploreMode={exploreMode} />
+
+      {/* Circular Energy Portal Gateway */}
+      <Portal 
+        active={active && focused} 
+        color="#00E5FF" 
+        wireframe={wireframeRef}
+        onComplete={() => onPortalComplete && onPortalComplete("state-flow")} 
+      />
 
       <mesh ref={platformRef} position={[0, -0.4, 0]} className="cursor-pointer">
         <cylinderGeometry args={[3.2, 3.2, 0.2, 32]} />

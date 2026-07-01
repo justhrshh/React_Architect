@@ -26,6 +26,7 @@ const roomKeyMapping = {
 const CameraController = ({ onArrivalChange }) => {
   const { camera } = useThree();
   const activeRoom = useSelector((state) => state.ui.activeRoom);
+  const appMode = useSelector((state) => state.ui.appMode);
 
   const controlsRef = useRef();
   const activeTimelineRef = useRef(null);
@@ -43,9 +44,10 @@ const CameraController = ({ onArrivalChange }) => {
     }
   });
 
-  // Only re-runs when activeRoom changes — NOT when onArrivalChange changes
+  // Re-runs when activeRoom or appMode changes
   useEffect(() => {
-    const internalKey = roomKeyMapping[activeRoom] || "brain";
+    const isHub = appMode === "hub" && activeRoom === "project-brain";
+    const internalKey = isHub ? "hub" : (roomKeyMapping[activeRoom] || "brain");
     const config = CAMERA_POSITIONS[internalKey];
 
     if (!config || !controlsRef.current) return;
@@ -124,7 +126,7 @@ const CameraController = ({ onArrivalChange }) => {
     return () => {
       activeTimelineRef.current?.kill();
     };
-  }, [activeRoom, camera]); // onArrivalChange intentionally excluded — use ref above
+  }, [activeRoom, appMode, camera]); // onArrivalChange intentionally excluded — use ref above
 
   return (
     <OrbitControls

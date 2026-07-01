@@ -1,9 +1,9 @@
 import { createSlice } from '@reduxjs/toolkit';
 
 const initialState = {
-  nodes: [],
-  edges: [],
-  selectedNode: null,
+  knowledgeGraph: null, // Central Knowledge Graph: { version, project, nodes, edges, validation, rawFiles }
+  files: [],            // Scanned path strings
+  selectedNodeId: "",   // Selected node identifier
   viewport: { x: 0, y: 0, zoom: 1 },
 };
 
@@ -11,17 +11,17 @@ const graphSlice = createSlice({
   name: 'graph',
   initialState,
   reducers: {
-    setNodes(state, action) {
-      state.nodes = action.payload;
+    setKnowledgeGraph(state, action) {
+      state.knowledgeGraph = action.payload;
     },
-    setEdges(state, action) {
-      state.edges = action.payload;
+    setFiles(state, action) {
+      state.files = action.payload;
     },
-    selectNode(state, action) {
-      state.selectedNode = action.payload;
+    selectNodeId(state, action) {
+      state.selectedNodeId = action.payload;
     },
     clearSelection(state) {
-      state.selectedNode = null;
+      state.selectedNodeId = "";
     },
     setViewport(state, action) {
       state.viewport = action.payload;
@@ -33,9 +33,9 @@ const graphSlice = createSlice({
 });
 
 export const {
-  setNodes,
-  setEdges,
-  selectNode,
+  setKnowledgeGraph,
+  setFiles,
+  selectNodeId,
   clearSelection,
   setViewport,
   resetGraph,

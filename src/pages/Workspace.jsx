@@ -1,24 +1,171 @@
-import React, { useState } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import { useSelector, useDispatch } from "react-redux";
 import { useNavigate } from "react-router-dom";
-import { setActiveRoom } from "@/redux/slices/uiSlice";
-import { selectSelectedProject, clearSelectedProject } from "@/redux/slices/hubSlice";
+import { Layers } from "lucide-react";
+import { setActiveRoom, setAppMode } from "@/redux/slices/uiSlice";
+import { setFiles, setKnowledgeGraph } from "@/redux/slices/graphSlice";
+import {
+  selectSelectedProject,
+  clearSelectedProject,
+} from "@/redux/slices/hubSlice";
 import WorkspaceScene from "@/features/workspace/WorkspaceScene";
+import { getProjectHandle } from "@/lib/analysis/projectStore";
+import { buildKnowledgeGraph } from "@/engines/graph/buildKnowledgeGraph";
 
-const menuItems = [
-  { key: "project-brain", label: "00 Brain" },
-  { key: "architecture", label: "01 Architecture" },
-  { key: "routes", label: "02 Routes" },
-  { key: "state-flow", label: "03 State" },
-  { key: "api-flow", label: "04 API" },
-  { key: "documentation", label: "05 Docs" },
-];
+const MOCK_FILES_CONTENT = {
+  "README.md": `# Project Guide
+Welcome to the React Architect workspace documentation.
+
+## Getting Started
+To view your project structure in real time:
+- Enter the **Architecture Studio** to see components.
+- Enter the **Route Studio** to examine endpoint mapping trees.
+- Browse slices in the **State Studio**.
+
+---
+*Generated dynamically by the React Architect scanner engine.*`,
+
+  "docs/CHANGELOG.md": `# Changelog
+All notable changes to this project will be documented in this file.
+
+## [3.0.0] - Centralized Knowledge Graph Engine
+- Integrated unified AST parsing extractor.
+- Decoupled visual layout calculation coordinates.`,
+
+  "src/App.jsx": `import React from 'react';
+import Router from './app/router';
+export default function App() {
+  return <Router />;
+}`,
+
+  "src/app/router.jsx": `import React from 'react';
+import { createBrowserRouter, RouterProvider } from 'react-router-dom';
+import App from '../App';
+import Login from '../pages/Login';
+import Dashboard from '../pages/Dashboard';
+
+const router = createBrowserRouter([
+  { path: '/', element: <App /> },
+  { path: '/login', element: <Login /> },
+  { path: '/dashboard', element: <Dashboard /> }
+]);
+
+export default function Router() {
+  return <RouterProvider router={router} />;
+}`,
+
+  "src/pages/Login.jsx": `import React, { useState } from 'react';
+import { useDispatch } from 'react-redux';
+import FormInput from '../components/FormInput';
+import api from '../services/api';
+
+export default function Login() {
+  const dispatch = useDispatch();
+  const [email, setEmail] = useState('');
+  
+  const handleLogin = () => {
+    api.post('/auth/login', { email });
+  };
+
+  return <FormInput value={email} onChange={setEmail} onSubmit={handleLogin} />;
+}`,
+
+  "src/pages/Dashboard.jsx": `import React from 'react';
+import Sidebar from '../components/Sidebar';
+
+export default function Dashboard() {
+  return (
+    <div>
+      <Sidebar />
+      <h1>Welcome to Dashboard</h1>
+    </div>
+  );
+}`,
+
+  "src/components/Sidebar.jsx": `import React from 'react';
+export default function Sidebar() {
+  return <aside>Navigation links</aside>;
+}`,
+
+  "src/components/FormInput.jsx": `import React from 'react';
+export default function FormInput({ value, onChange, onSubmit }) {
+  return (
+    <form onSubmit={onSubmit}>
+      <input value={value} onChange={e => onChange(e.target.value)} />
+    </form>
+  );
+}`,
+
+  "src/redux/store.js": `import { configureStore } from '@reduxjs/toolkit';
+import authReducer from './authSlice';
+import uiReducer from './uiSlice';
+
+export const store = configureStore({
+  reducer: {
+    auth: authReducer,
+    ui: uiReducer
+  }
+});`,
+
+  "src/redux/authSlice.js": `import { createSlice } from '@reduxjs/toolkit';
+export const authSlice = createSlice({
+  name: 'auth',
+  initialState: {
+    currentUser: null,
+    users: []
+  },
+  reducers: {}
+});
+export default authSlice.reducer;`,
+
+  "src/redux/uiSlice.js": `import { createSlice } from '@reduxjs/toolkit';
+export const uiSlice = createSlice({
+  name: 'ui',
+  initialState: {
+    appMode: 'dark',
+    sidebarOpen: true
+  },
+  reducers: {}
+});
+export default uiSlice.reducer;`,
+
+  "src/services/api.js": `import axios from 'axios';
+export const api = axios.create({
+  baseURL: 'api.domain.com'
+});`,
+
+  "src/services/endpoints.js": `import { api } from './api';
+export const login = (data) => api.post('/auth/login', data);
+export const signup = (data) => api.post('/auth/signup', data);
+export const getProjects = () => api.get('/projects');`
+};
+
+function generateMockContentForPath(path) {
+  const cleanPath = path.replace(/\\/g, "/");
+  if (MOCK_FILES_CONTENT[cleanPath]) {
+    return MOCK_FILES_CONTENT[cleanPath];
+  }
+  const parts = cleanPath.split("/");
+  const fileName = parts.pop();
+  const name = fileName.split(".")[0];
+  
+  if (cleanPath.endsWith(".md")) {
+    return `# ${name}\nMock document contents for ${cleanPath}.`;
+  }
+  
+  if (cleanPath.includes("/components/") || cleanPath.includes("/pages/") || cleanPath.includes("page.jsx") || cleanPath.includes("layout.jsx") || cleanPath.includes("providers")) {
+    const componentName = name.charAt(0).toUpperCase() + name.slice(1);
+    return `import React from 'react';\nexport default function ${componentName}() {\n  return <div>${componentName} content</div>;\n}`;
+  }
+  
+  return "";
+}
 
 const roomDetails = {
   "project-brain": {
     title: "Project Brain",
     type: "Core Analysis Hub",
-    desc: "Architectural health scores, AI-assisted refactoring, and codebases statistics will plug in here in future sprints.",
+    desc: "Architectural health scores, AI-assisted refactoring, and codebase statistics will plug in here in future sprints.",
   },
   "architecture": {
     title: "Architecture",
@@ -52,15 +199,126 @@ const roomDetails = {
   },
 };
 
+const menuItems = [
+  { key: "project-brain", label: "00 Brain" },
+  { key: "architecture", label: "01 Architecture" },
+  { key: "routes", label: "02 Routes" },
+  { key: "state-flow", label: "03 State" },
+  { key: "api-flow", label: "04 API" },
+  { key: "documentation", label: "05 Docs" },
+];
+
+// ── Main Workspace Component ─────────────────────────────────────────────────
 const Workspace = () => {
   const dispatch = useDispatch();
   const navigate = useNavigate();
-  
+
   const activeRoom = useSelector((state) => state.ui.activeRoom);
   const selectedProject = useSelector(selectSelectedProject);
-  
-  // local state tracks camera arrival. Null indicates the camera is in-flight.
+
   const [focusedRoom, setFocusedRoom] = useState("project-brain");
+
+  // Redirect to Hub if no project is selected
+  useEffect(() => {
+    if (!selectedProject) {
+      navigate("/hub");
+    } else {
+      dispatch(setAppMode("workspace"));
+    }
+  }, [selectedProject, navigate, dispatch]);
+
+  const [needsPermission, setNeedsPermission] = useState(false);
+  const [cachedHandle, setCachedHandle] = useState(null);
+
+  // Dynamic project scanning and graph loading
+  useEffect(() => {
+    if (!selectedProject) return;
+
+    const projectId = selectedProject.id;
+    let dirHandle = window.projectHandles?.[projectId];
+    let zipFile = window.projectZipFiles?.[projectId];
+
+    async function loadAndScan() {
+      // 1. Load from IndexedDB if not in memory
+      if (!dirHandle && !zipFile) {
+        const persisted = await getProjectHandle(projectId);
+        if (persisted) {
+          if (persisted instanceof File) {
+            zipFile = persisted;
+            if (!window.projectZipFiles) window.projectZipFiles = {};
+            window.projectZipFiles[projectId] = zipFile;
+          } else {
+            dirHandle = persisted;
+            if (!window.projectHandles) window.projectHandles = {};
+            window.projectHandles[projectId] = dirHandle;
+          }
+        }
+      }
+
+      // 2. Check permissions for folders
+      if (dirHandle) {
+        const permission = await dirHandle.queryPermission({ mode: "read" });
+        if (permission !== "granted") {
+          setCachedHandle(dirHandle);
+          setNeedsPermission(true);
+          return;
+        }
+        setNeedsPermission(false);
+      }
+
+      // 3. Trigger Scanning
+      if (dirHandle || zipFile) {
+        const { analyzeProject } = await import("@/engines/analyzer");
+        analyzeProject(selectedProject, dirHandle, zipFile)
+          .then((kg) => {
+            dispatch(setKnowledgeGraph(kg));
+            dispatch(setFiles(kg.files));
+            window.projectFiles = kg.rawFiles;
+          })
+          .catch(err => {
+            console.error("Failed to analyze dynamic project", err);
+          });
+      } else {
+        // Showcase seed fallback
+        const { getGraphDataForProject } = await import("@/lib/analysis/mockDataGenerator");
+        const { nodes, edges, files } = getGraphDataForProject(selectedProject);
+
+        const mockFiles = files.map(f => ({
+          path: f,
+          content: generateMockContentForPath(f)
+        }));
+        const kg = buildKnowledgeGraph(mockFiles, selectedProject);
+        dispatch(setKnowledgeGraph(kg));
+        dispatch(setFiles(kg.files));
+        window.projectFiles = kg.rawFiles;
+      }
+    }
+
+    loadAndScan().catch(err => {
+      console.error("Error in loadAndScan", err);
+    });
+  }, [selectedProject, dispatch]);
+
+  const handleRequestPermission = async () => {
+    if (!cachedHandle) return;
+    try {
+      const permission = await cachedHandle.requestPermission({ mode: "read" });
+      if (permission === "granted") {
+        setNeedsPermission(false);
+        const projectId = selectedProject.id;
+        if (!window.projectHandles) window.projectHandles = {};
+        window.projectHandles[projectId] = cachedHandle;
+
+        const { analyzeProject } = await import("@/engines/analyzer");
+        const kg = await analyzeProject(selectedProject, cachedHandle, null);
+        dispatch(setKnowledgeGraph(kg));
+        dispatch(setFiles(kg.files));
+        window.projectFiles = kg.rawFiles;
+      }
+    } catch (err) {
+      console.error("Failed to request permission", err);
+    }
+  };
 
   const handleArrivalChange = (room) => {
     setFocusedRoom(room);
@@ -74,21 +332,47 @@ const Workspace = () => {
     dispatch(setActiveRoom(roomKey));
   };
 
-  /** Return to Project Hub without clearing selection — user can re-enter */
+  // Return to Dashboard Hub
   const handleReturnToHub = () => {
+    dispatch(clearSelectedProject());
+    dispatch(setAppMode("hub"));
+    dispatch(setActiveRoom("project-brain"));
     navigate("/hub");
   };
 
+  const handlePortalComplete = useCallback((roomKey) => {
+    const routes = {
+      "architecture": "/architecture",
+      "routes": "/routes",
+      "state-flow": "/state",
+      "api-flow": "/api",
+      "documentation": "/docs",
+    };
+    const targetRoute = routes[roomKey];
+    if (targetRoute) {
+      navigate(targetRoute);
+    }
+  }, [navigate]);
+
   const activeDetail = roomDetails[focusedRoom];
   const isFlying = focusedRoom === null;
+  const showHUD = !isFlying && (activeRoom === "project-brain");
+
+  if (!selectedProject) {
+    return null; // Let the redirect trigger in useEffect
+  }
 
   return (
-    <div className="relative w-screen h-screen overflow-hidden bg-obsidian select-none">
+    <div className="relative w-screen h-screen overflow-hidden bg-obsidian select-none text-slate-100 flex flex-col font-sans">
       
       {/* 3D spatial scene background */}
       <WorkspaceScene 
         onArrivalChange={handleArrivalChange} 
         onSelectRoom={handlePlatformSelect}
+        onSelectProject={() => {}}
+        onAddClick={() => navigate("/hub")}
+        onContextMenu={() => {}}
+        onPortalComplete={handlePortalComplete}
       />
 
       {/* Explore Mode Instructions Overlay HUD */}
@@ -106,10 +390,10 @@ const Workspace = () => {
       {/* Premium HUD UI overlays */}
       <div className="relative z-10 w-full h-full pointer-events-none flex flex-col justify-between p-6 md:p-10">
         
-        {/* Top Header Panel (Slides out of screen when camera is flying) */}
+        {/* Top Header Panel */}
         <header 
           className={`w-full flex items-center justify-between pointer-events-auto bg-obsidian/30 backdrop-blur-md border border-edge-subtle p-4 rounded-xl shadow-lg gap-4 transition-all duration-500 transform ${
-            !isFlying ? "opacity-100 translate-y-0" : "opacity-0 -translate-y-6 pointer-events-none"
+            showHUD ? "opacity-100 translate-y-0" : "opacity-0 -translate-y-6 pointer-events-none"
           }`}
         >
           <div 
@@ -118,6 +402,7 @@ const Workspace = () => {
           >
             React<span className="text-accent">/</span>Architect
           </div>
+          
           {/* Active project name */}
           {selectedProject && (
             <div className="hidden md:flex items-center gap-2">
@@ -168,21 +453,13 @@ const Workspace = () => {
             >
               ← Hub
             </button>
-
-            {/* Exit to Landing */}
-            <button
-              onClick={() => navigate("/")}
-              className="hidden lg:block font-mono text-[10px] uppercase tracking-widestest text-ink-faint hover:text-white transition-colors whitespace-nowrap"
-            >
-              ← Landing
-            </button>
           </div>
         </header>
 
         {/* Floating Mobile Nav bar (visible on small viewports) */}
         <div 
           className={`lg:hidden w-full overflow-x-auto flex items-center gap-4 py-2 pointer-events-auto mt-4 bg-obsidian/50 backdrop-blur border border-edge-subtle p-3 rounded-lg transition-all duration-500 ${
-            !isFlying ? "opacity-100 translate-y-0" : "opacity-0 -translate-y-4 pointer-events-none"
+            showHUD ? "opacity-100 translate-y-0" : "opacity-0 -translate-y-4 pointer-events-none"
           }`}
         >
           {menuItems.map((item) => {
@@ -201,12 +478,12 @@ const Workspace = () => {
           })}
         </div>
 
-        {/* Bottom Info Details panel (fades out when camera is moving, fades in on target focus) */}
+        {/* Bottom Info Details panel */}
         <footer className="w-full flex items-end justify-between mt-auto">
           <div className="w-full max-w-md pointer-events-auto">
             <div
               className={`glass p-6 md:p-8 rounded-2xl border border-edge-subtle shadow-2xl transition-all duration-500 transform ${
-                focusedRoom 
+                (showHUD && focusedRoom) 
                   ? "opacity-100 translate-y-0" 
                   : "opacity-0 translate-y-6 scale-95"
               }`}
@@ -239,14 +516,43 @@ const Workspace = () => {
           
           <div 
             className={`hidden md:block font-mono text-[10px] text-ink-faint uppercase tracking-widestest p-4 transition-opacity duration-500 ${
-              !isFlying ? "opacity-100" : "opacity-0"
+              showHUD ? "opacity-100" : "opacity-0"
             }`}
           >
-            Workspace Mode // HUD_v0.3.5
+            Workspace Mode // HUD_v0.5.3
           </div>
         </footer>
 
       </div>
+
+      {/* Directory Access Permission Modal Overlay */}
+      {needsPermission && (
+        <div className="absolute inset-0 z-[8000] bg-obsidian/96 backdrop-blur-md flex flex-col items-center justify-center text-center p-6 select-none pointer-events-auto">
+          <div className="w-14 h-14 rounded-full border border-blue-500/20 bg-blue-500/5 flex items-center justify-center text-blue-400 mb-6 shadow-[0_0_15px_rgba(59,130,246,0.1)]">
+            <Layers size={22} className="animate-pulse" />
+          </div>
+          <h3 className="font-display text-xl font-[800] text-white tracking-tightest mb-2">
+            Local Directory Access Required
+          </h3>
+          <p className="font-mono text-[9px] text-slate-400 max-w-sm leading-relaxed mb-8 uppercase tracking-widest">
+            React Architect needs permission to scan your local folder to construct the component architecture graph.
+          </p>
+          <div className="flex gap-4">
+            <button
+              onClick={handleReturnToHub}
+              className="px-6 py-3.5 rounded-xl border border-white/10 hover:border-white/20 text-slate-400 hover:text-white font-mono text-xs uppercase tracking-wider transition-all duration-300 font-bold"
+            >
+              Back to Hub
+            </button>
+            <button
+              onClick={handleRequestPermission}
+              className="px-6 py-3.5 rounded-xl bg-accent text-slate-900 font-mono text-xs uppercase tracking-wider font-bold hover:shadow-[0_0_20px_rgba(0,229,255,0.3)] transition-all duration-300 shadow-[0_4px_12px_rgba(0,229,255,0.15)]"
+            >
+              Grant Folder Access
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

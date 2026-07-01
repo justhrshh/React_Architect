@@ -49,12 +49,6 @@ const WorldEnvironment = () => {
         speed={1.5}
       />
 
-      {/* Grid Floor */}
-      <gridHelper
-        args={[120, 60, "rgba(255, 255, 255, 0.08)", "rgba(255, 255, 255, 0.02)"]}
-        position={[0, -2.5, 0]}
-      />
-
       {/* Energy Wires and Animate Particles */}
       {connections.map((c) => (
         <group key={c.name}>
