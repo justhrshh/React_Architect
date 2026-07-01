@@ -1,33 +1,651 @@
-import React, { useEffect } from "react";
+import React, { useState, useEffect, useCallback, useMemo } from "react";
 import { useSelector, useDispatch } from "react-redux";
 import { useNavigate } from "react-router-dom";
-import gsap from "gsap";
 import { setActiveRoom } from "@/redux/slices/uiSlice";
 import { selectSelectedProject } from "@/redux/slices/hubSlice";
-import { ArrowLeft, GitMerge, FileCode } from "lucide-react";
+import { motion } from "framer-motion";
+import gsap from "gsap";
+import {
+  Search, ZoomIn, ZoomOut, Maximize2, Maximize, Share2, Settings,
+  Layers, ChevronRight, GitBranch, ArrowLeft, FileCode, CheckCircle, Database
+} from "lucide-react";
+import {
+  ReactFlow,
+  Background,
+  useNodesState,
+  useEdgesState,
+  Handle,
+  Position,
+  useReactFlow,
+  ReactFlowProvider,
+} from "@xyflow/react";
+import "@xyflow/react/dist/style.css";
 
-const StateFlow = () => {
+// ─── Constants ────────────────────────────────────────────────────────────────
+
+const NW = 230;
+const NH = 100;
+
+const INTER = "'Inter', -apple-system, sans-serif";
+const MONO = "'JetBrains Mono', 'SF Mono', monospace";
+const SERIF = "'Fraunces', Georgia, serif";
+
+const TYPE_CFG = {
+  store: { label: "State Store", color: "#111827", bg: "#F3F4F6", text: "#374151" },
+  slice: { label: "Redux Slice", color: "#7C3AED", bg: "#F5F3FF", text: "#6D28D9" },
+  user:  { label: "Consumer Component", color: "#059669", bg: "#ECFDF5", text: "#047857" },
+};
+
+// ─── Custom Node Component ────────────────────────────────────────────────────
+
+function CustomStateNode({ data }) {
+  const { node, isSelected, isConnected } = data;
+  const cfg = TYPE_CFG[node.type] || TYPE_CFG.user;
+
+  const shadow = isSelected
+    ? `0 0 0 2.5px ${cfg.color}30, 0 8px 28px rgba(0,0,0,0.10), 0 2px 6px rgba(0,0,0,0.06)`
+    : isConnected
+    ? `0 0 0 1.5px ${cfg.color}22, 0 4px 14px rgba(0,0,0,0.06)`
+    : "0 1px 3px rgba(0,0,0,0.05), 0 4px 14px rgba(0,0,0,0.04)";
+
+  const borderColor = isSelected
+    ? cfg.color + "99"
+    : isConnected
+    ? cfg.color + "44"
+    : "#E8EAED";
+
+  return (
+    <div style={{ position: "relative" }}>
+      <Handle
+        type="target"
+        position={Position.Top}
+        style={{ background: cfg.color, border: "none", width: 6, height: 6 }}
+      />
+      
+      <div
+        style={{
+          width: NW,
+          height: NH,
+          background: "#FFFFFF",
+          borderRadius: 12,
+          border: `1px solid ${borderColor}`,
+          borderLeft: `3px solid ${cfg.color}`,
+          boxShadow: shadow,
+          display: "flex",
+          flexDirection: "column",
+          padding: "13px 14px 11px 15px",
+          boxSizing: "border-box",
+        }}
+      >
+        {/* Title */}
+        <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 6 }}>
+          <span style={{
+            fontSize: 12.5,
+            fontWeight: 700,
+            color: "#111827",
+            letterSpacing: "-0.015em",
+            lineHeight: 1.25,
+            fontFamily: INTER,
+          }}>
+            {node.name}
+          </span>
+          <span style={{
+            fontSize: 8.5,
+            fontWeight: 700,
+            letterSpacing: "0.05em",
+            textTransform: "uppercase",
+            color: cfg.text,
+            background: cfg.bg,
+            padding: "2.5px 5.5px",
+            borderRadius: 4,
+            flexShrink: 0,
+            fontFamily: INTER,
+          }}>
+            {cfg.label}
+          </span>
+        </div>
+
+        {/* State variables or details */}
+        <div style={{
+          fontSize: 10,
+          color: "#4B5563",
+          fontFamily: MONO,
+          marginTop: 6,
+          overflow: "hidden",
+          textOverflow: "ellipsis",
+          whiteSpace: "nowrap",
+        }}>
+          {node.type === "slice" && node.keys ? `keys: ${node.keys.join(", ")}` : node.details}
+        </div>
+
+        <div style={{ flex: 1 }} />
+
+        {/* File Path */}
+        <div style={{
+          fontSize: 9,
+          color: "#B8BEC9",
+          fontFamily: MONO,
+          overflow: "hidden",
+          textOverflow: "ellipsis",
+          whiteSpace: "nowrap",
+          borderTop: "1px solid #F3F4F6",
+          paddingTop: 6,
+        }}>
+          {node.filePath}
+        </div>
+      </div>
+
+      <Handle
+        type="source"
+        position={Position.Bottom}
+        style={{ background: cfg.color, border: "none", width: 6, height: 6 }}
+      />
+    </div>
+  );
+}
+
+// ─── Zoom Button Helper ───────────────────────────────────────────────────────
+
+function IconBtn({ onClick, title, children }) {
+  return (
+    <button
+      onClick={onClick}
+      title={title}
+      style={{
+        width: 28,
+        height: 28,
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        borderRadius: 8,
+        border: "none",
+        background: "transparent",
+        color: "#A0A8B4",
+        cursor: "pointer",
+        transition: "background 0.14s, color 0.14s",
+        flexShrink: 0,
+      }}
+      onMouseEnter={e => {
+        e.currentTarget.style.background = "#F3F4F6";
+        e.currentTarget.style.color = "#374151";
+      }}
+      onMouseLeave={e => {
+        e.currentTarget.style.background = "transparent";
+        e.currentTarget.style.color = "#A0A8B4";
+      }}
+    >
+      {children}
+    </button>
+  );
+}
+
+// ─── Inspector Detail Panel ───────────────────────────────────────────────────
+
+function SectionLabel({ children }) {
+  return (
+    <p style={{
+      fontSize: 9,
+      fontWeight: 700,
+      letterSpacing: "0.1em",
+      textTransform: "uppercase",
+      color: "#C8CDD8",
+      fontFamily: INTER,
+      margin: "0 0 9px 0",
+    }}>
+      {children}
+    </p>
+  );
+}
+
+function Sep() {
+  return <div style={{ height: 1, background: "#F1F3F5", margin: "16px 0" }} />;
+}
+
+function InspectorPanel({ node }) {
+  if (!node) {
+    return (
+      <aside style={{
+        width: 308,
+        background: "#FFFFFF",
+        borderLeft: "1px solid #E8EAED",
+        display: "flex",
+        flexDirection: "column",
+        flexShrink: 0,
+      }}>
+        <div style={{ padding: "12px 20px 11px", borderBottom: "1px solid #F1F3F5" }}>
+          <span style={{ fontSize: 9, fontWeight: 700, letterSpacing: "0.1em", textTransform: "uppercase", color: "#C8CDD8", fontFamily: INTER }}>
+            Inspector
+          </span>
+        </div>
+        <div className="flex-1 flex justify-center items-center">
+          <span style={{ fontSize: 12, color: "#D1D5DB", fontFamily: INTER }}>Select a state element</span>
+        </div>
+      </aside>
+    );
+  }
+
+  const cfg = TYPE_CFG[node.type] || TYPE_CFG.user;
+
+  return (
+    <aside style={{
+      width: 308,
+      background: "#FFFFFF",
+      borderLeft: "1px solid #E8EAED",
+      display: "flex",
+      flexDirection: "column",
+      flexShrink: 0,
+      overflow: "hidden",
+    }}>
+      <div style={{ padding: "12px 20px 11px", borderBottom: "1px solid #F1F3F5", flexShrink: 0 }}>
+        <span style={{ fontSize: 9, fontWeight: 700, letterSpacing: "0.1em", textTransform: "uppercase", color: "#C8CDD8", fontFamily: INTER }}>
+          Inspector
+        </span>
+      </div>
+
+      <div style={{ flex: 1, overflowY: "auto", scrollbarWidth: "none" }}>
+        <motion.div
+          key={node.id}
+          initial={{ opacity: 0, x: 8 }}
+          animate={{ opacity: 1, x: 0 }}
+          transition={{ duration: 0.22, ease: [0.16, 1, 0.3, 1] }}
+          style={{ padding: "18px 20px 28px" }}
+        >
+          {/* Identity */}
+          <div>
+            <SectionLabel>State Element</SectionLabel>
+            <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 8, marginBottom: 5 }}>
+              <h2 style={{
+                fontSize: 16,
+                fontWeight: 700,
+                color: "#111827",
+                letterSpacing: "-0.02em",
+                margin: 0,
+                lineHeight: 1.25,
+                fontFamily: INTER,
+              }}>
+                {node.name}
+              </h2>
+              <span style={{
+                fontSize: 9,
+                fontWeight: 700,
+                letterSpacing: "0.05em",
+                textTransform: "uppercase",
+                color: cfg.text,
+                background: cfg.bg,
+                padding: "4px 8px",
+                borderRadius: 5,
+                flexShrink: 0,
+                fontFamily: INTER,
+                marginTop: 3,
+              }}>
+                {cfg.label}
+              </span>
+            </div>
+            <p style={{ fontSize: 10, color: "#B8BEC9", fontFamily: MONO, margin: "5px 0 0" }}>
+              {node.filePath}
+            </p>
+          </div>
+
+          <Sep />
+
+          {/* Details */}
+          <div>
+            <SectionLabel>Description</SectionLabel>
+            <p className="text-xs text-neutral-600 leading-relaxed font-sans">
+              {node.type === "store" && "Central store configuring reducer slices and middlewares."}
+              {node.type === "slice" && "Redux toolkit slice managing slice variables, action creators, and state reducers."}
+              {node.type === "user" && "React Component that hooks into the central state using useSelector hooks."}
+            </p>
+          </div>
+
+          {node.keys && node.keys.length > 0 && (
+            <>
+              <Sep />
+              <SectionLabel>State Variables</SectionLabel>
+              <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+                {node.keys.map(k => (
+                  <span key={k} style={{
+                    fontSize: 10.5,
+                    fontFamily: MONO,
+                    background: "#F8F9FB",
+                    border: "1px solid #E8EAED",
+                    padding: "3px 8px",
+                    borderRadius: 6,
+                    color: "#374151",
+                  }}>
+                    {k}
+                  </span>
+                ))}
+              </div>
+            </>
+          )}
+
+        </motion.div>
+      </div>
+    </aside>
+  );
+}
+
+// ─── Top Bar ──────────────────────────────────────────────────────────────────
+
+function TopBar({ nodeCount, projectName, handleBack }) {
+  return (
+    <header style={{
+      height: 52,
+      background: "#FFFFFF",
+      borderBottom: "1px solid #E8EAED",
+      display: "flex",
+      alignItems: "center",
+      padding: "0 16px 0 18px",
+      flexShrink: 0,
+      gap: 0,
+      zIndex: 20,
+    }}>
+      <button
+        onClick={handleBack}
+        style={{
+          display: "flex",
+          alignItems: "center",
+          gap: 6,
+          padding: "6px 12px",
+          borderRadius: 8,
+          border: "1px solid rgba(0,0,0,0.1)",
+          background: "rgba(0,0,0,0.03)",
+          color: "#374151",
+          fontSize: 11,
+          fontFamily: INTER,
+          fontWeight: 600,
+          cursor: "pointer",
+          marginRight: 16,
+          transition: "background 0.15s",
+        }}
+        onMouseEnter={e => e.currentTarget.style.background = "rgba(0,0,0,0.06)"}
+        onMouseLeave={e => e.currentTarget.style.background = "rgba(0,0,0,0.03)"}
+      >
+        <ArrowLeft size={13} strokeWidth={2.5} />
+        Command Center
+      </button>
+
+      <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+        <div style={{
+          width: 30,
+          height: 30,
+          background: "#7C3AED",
+          borderRadius: 7,
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          flexShrink: 0,
+        }}>
+          <Database size={14} color="white" />
+        </div>
+        <div style={{ lineHeight: 1 }}>
+          <div style={{
+            fontSize: 14,
+            fontWeight: 500,
+            color: "#111827",
+            letterSpacing: "-0.03em",
+            fontFamily: SERIF,
+            lineHeight: 1.15,
+          }}>
+            React Architect
+          </div>
+          <div style={{
+            fontSize: 8,
+            color: "#B8BEC9",
+            fontFamily: INTER,
+            letterSpacing: "0.09em",
+            textTransform: "uppercase",
+            fontWeight: 700,
+            marginTop: 1,
+          }}>
+            State Studio — Redux Slices & Variables
+          </div>
+        </div>
+      </div>
+
+      <div style={{ width: 1, height: 18, background: "#E8EAED", margin: "0 16px" }} />
+
+      <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
+        <span style={{ fontSize: 12, color: "#A8B0BF", fontFamily: INTER }}>{projectName || "react-project"}</span>
+        <ChevronRight size={11} color="#D1D5DB" />
+        <div style={{ display: "flex", alignItems: "center", gap: 5 }}>
+          <GitBranch size={11} color="#9CA3AF" />
+          <span style={{ fontSize: 12, color: "#374151", fontFamily: INTER, fontWeight: 500 }}>main</span>
+        </div>
+      </div>
+
+      <div style={{ flex: 1 }} />
+
+      <div style={{
+        display: "flex",
+        alignItems: "center",
+        gap: 6,
+        marginRight: 12,
+        padding: "4px 10px",
+        background: "#F5F3FF",
+        borderRadius: 6,
+        border: "1px solid #EDE9FE",
+      }}>
+        <span style={{ fontSize: 10, color: "#6D28D9", fontFamily: INTER, fontWeight: 650 }}>
+          Central State Graph
+        </span>
+      </div>
+
+      <div style={{
+        display: "flex",
+        alignItems: "center",
+        gap: 6,
+        marginRight: 12,
+        padding: "4px 10px",
+        background: "#F8F9FB",
+        borderRadius: 6,
+        border: "1px solid #E8EAED",
+      }}>
+        <div style={{ width: 6, height: 6, borderRadius: "50%", background: "#7C3AED" }} />
+        <span style={{ fontSize: 11, color: "#6B7280", fontFamily: INTER }}>
+          {nodeCount} state nodes
+        </span>
+      </div>
+    </header>
+  );
+}
+
+// ─── State Flow Main Component ───────────────────────────────────────────────
+
+function StateFlowInner() {
   const dispatch = useDispatch();
   const navigate = useNavigate();
+  
   const selectedProject = useSelector(selectSelectedProject);
+  const reduxNodes = useSelector((state) => state.graph.nodes);
+  const reduxFiles = useSelector((state) => state.graph.files) || [];
 
-  useEffect(() => {
-    if (!selectedProject) {
-      navigate("/hub");
-    }
-  }, [selectedProject, navigate]);
+  const { fitView, zoomIn, zoomOut } = useReactFlow();
 
-  useEffect(() => {
-    gsap.fromTo(".page-fade", {
-      opacity: 0,
-      backgroundColor: "#00E5FF",
-    }, {
-      opacity: 1,
-      backgroundColor: "#06070b",
-      duration: 0.8,
-      ease: "power2.out",
+  const [nodes, setNodes, onNodesChange] = useNodesState([]);
+  const [edges, setEdges, onEdgesChange] = useEdgesState([]);
+  const [selectedId, setSelectedId] = useState("");
+  const [isGraphFullscreen, setIsGraphFullscreen] = useState(false);
+
+  const nodeTypes = useMemo(() => ({
+    customState: CustomStateNode,
+  }), []);
+
+  // Dynamically build the Redux/State flow nodes from project components
+  const { stateNodes, stateEdges } = useMemo(() => {
+    if (!selectedProject) return { stateNodes: [], stateEdges: [] };
+
+    // Find if the project has Redux
+    const hasRedux = selectedProject.hasRedux || reduxNodes.some(n => n.deps?.includes("redux") || n.deps?.includes("@reduxjs/toolkit"));
+
+    const nodesList = [];
+    const edgesList = [];
+
+    // Base store node
+    const storeNode = {
+      id: "store-core",
+      name: "ReduxStore",
+      type: "store",
+      filePath: "src/redux/store.js",
+      details: "configureStore()",
+      x: 888,
+      y: 80,
+    };
+    nodesList.push(storeNode);
+
+    // Slices
+    const authSlice = {
+      id: "slice-auth",
+      name: "authSlice",
+      type: "slice",
+      filePath: "src/redux/authSlice.js",
+      keys: ["currentUser", "users", "status"],
+      x: 600,
+      y: 240,
+    };
+    const uiSlice = {
+      id: "slice-ui",
+      name: "uiSlice",
+      type: "slice",
+      filePath: "src/redux/uiSlice.js",
+      keys: ["appMode", "activeRoom", "sidebarOpen"],
+      x: 1176,
+      y: 240,
+    };
+    nodesList.push(authSlice, uiSlice);
+
+    edgesList.push(
+      { from: "store-core", to: "slice-auth" },
+      { from: "store-core", to: "slice-ui" }
+    );
+
+    // Filter components consuming state
+    const consumers = reduxNodes.filter(n => n.hooks?.some(h => h.includes("Selector") || h.includes("dispatch") || h.includes("Dispatch")));
+    
+    consumers.forEach((comp, idx) => {
+      const isAuthConsumer = comp.name.toLowerCase().includes("login") || comp.name.toLowerCase().includes("signup") || comp.name.toLowerCase().includes("user") || comp.name.toLowerCase().includes("dashboard");
+      const targetSlice = isAuthConsumer ? "slice-auth" : "slice-ui";
+      
+      const compNodeId = `comp-${comp.name}`;
+      nodesList.push({
+        id: compNodeId,
+        name: comp.name,
+        type: "user",
+        filePath: comp.filePath,
+        details: comp.hooks.filter(h => h.includes("Selector") || h.includes("Dispatch")).join(", "),
+        x: isAuthConsumer ? 400 + idx * 240 : 1000 + idx * 240,
+        y: 400,
+      });
+
+      edgesList.push({
+        from: targetSlice,
+        to: compNodeId,
+      });
     });
+
+    // Adapt coordinates
+    const spacing = 280;
+    const startX = (2100 - (nodesList.filter(n => n.type === "user").length * spacing)) / 2;
+    let userIdx = 0;
+    nodesList.forEach(n => {
+      if (n.type === "user") {
+        n.x = startX + userIdx * spacing;
+        n.y = 400;
+        userIdx++;
+      }
+    });
+
+    return { stateNodes: nodesList, stateEdges: edgesList };
+  }, [selectedProject, reduxNodes]);
+
+  // Pre-select first state node
+  useEffect(() => {
+    if (stateNodes.length > 0 && !selectedId) {
+      setSelectedId(stateNodes[0].id);
+    }
+  }, [stateNodes, selectedId]);
+
+  // Map to React Flow
+  const { rfNodes, rfEdges } = useMemo(() => {
+    const connectedKeys = new Set();
+    if (selectedId) {
+      stateEdges.forEach(e => {
+        if (e.from === selectedId || e.to === selectedId) {
+          connectedKeys.add(`${e.from}|${e.to}`);
+          connectedKeys.add(e.from);
+          connectedKeys.add(e.to);
+        }
+      });
+    }
+
+    const n = stateNodes.map(node => ({
+      id: node.id,
+      type: "customState",
+      position: { x: node.x, y: node.y },
+      data: {
+        node,
+        isSelected: selectedId === node.id,
+        isConnected: connectedKeys.has(node.id),
+      },
+      width: NW,
+      height: NH,
+    }));
+
+    const e = stateEdges.map(edge => {
+      const active = connectedKeys.has(`${edge.from}|${edge.to}`);
+      return {
+        id: `edge-${edge.from}-${edge.to}`,
+        source: edge.from,
+        target: edge.to,
+        type: "smoothstep",
+        animated: active,
+        style: {
+          stroke: active ? "rgba(124, 58, 237, 0.7)" : "rgba(224, 227, 232, 0.5)",
+          strokeWidth: active ? 2 : 1,
+        },
+      };
+    });
+
+    return { rfNodes: n, rfEdges: e };
+  }, [stateNodes, stateEdges, selectedId]);
+
+  useEffect(() => {
+    setNodes(rfNodes);
+    setEdges(rfEdges);
+  }, [rfNodes, rfEdges, setNodes, setEdges]);
+
+  // Fit View
+  useEffect(() => {
+    if (nodes.length > 0) {
+      const t = setTimeout(() => {
+        fitView({ padding: 0.15, duration: 400 });
+      }, 100);
+      return () => clearTimeout(t);
+    }
+  }, [stateNodes, fitView, nodes.length]);
+
+  const selectedNode = useMemo(() => {
+    return stateNodes.find(n => n.id === selectedId) || null;
+  }, [stateNodes, selectedId]);
+
+  const handleNodeClick = useCallback((event, node) => {
+    setSelectedId(node.id);
   }, []);
+
+  const handlePaneClick = useCallback(() => {
+    setSelectedId("");
+  }, []);
+
+  const handleToggleGraphFullscreen = useCallback(() => {
+    setIsGraphFullscreen((prev) => {
+      const next = !prev;
+      setTimeout(() => {
+        fitView({ padding: 0.15, duration: 300 });
+      }, 100);
+      return next;
+    });
+  }, [fitView]);
 
   const handleBack = () => {
     dispatch(setActiveRoom("project-brain"));
@@ -37,66 +655,150 @@ const StateFlow = () => {
   if (!selectedProject) return null;
 
   return (
-    <div className="min-h-screen w-full text-slate-100 flex flex-col font-sans select-none relative overflow-hidden page-fade">
-      <div className="absolute top-0 left-1/4 w-[500px] h-[500px] pointer-events-none rounded-full"
-        style={{ background: "radial-gradient(circle, rgba(0,229,255,0.025) 0%, transparent 70%)", zIndex: 0 }} 
-      />
+    <div style={{
+      display: "flex",
+      flexDirection: "column",
+      height: "100vh",
+      width: "100vw",
+      overflow: "hidden",
+      fontFamily: INTER,
+    }} className="page-fade">
+      <TopBar nodeCount={stateNodes.length} projectName={selectedProject.name} handleBack={handleBack} />
+      
+      <div style={{ display: "flex", flex: 1, overflow: "hidden" }}>
+        
+        {/* Left Directory Tree Pane */}
+        {!isGraphFullscreen && (
+          <aside className="w-64 border-r border-neutral-200 bg-[#F9FAFB] p-6 flex flex-col gap-6 shrink-0 overflow-y-auto select-none">
+            <div>
+              <h4 className="font-mono text-[9px] uppercase tracking-widestest text-neutral-500 mb-3.5 font-bold">
+                State Store Files
+              </h4>
+              <div className="flex flex-col gap-2">
+                {reduxFiles.filter(f => f.toLowerCase().includes("redux") || f.toLowerCase().includes("slice") || f.toLowerCase().includes("store") || f.toLowerCase().includes("context")).map((f) => {
+                  return (
+                    <div key={f} className="flex items-center gap-2 px-3 py-1.5 rounded-lg border border-transparent text-neutral-600 hover:text-neutral-900 hover:bg-neutral-100/60 transition-colors">
+                      <FileCode size={12} className="text-neutral-400" />
+                      <span className="font-mono text-[10.5px] truncate" title={f}>{f.split("/").pop()}</span>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          </aside>
+        )}
 
-      <header className="relative z-10 w-full flex items-center justify-between border-b border-white/5 bg-black/40 backdrop-blur-md px-6 py-4.5">
-        <div className="flex items-center gap-4">
-          <button
-            onClick={handleBack}
-            className="flex items-center gap-2 px-3.5 py-2 rounded-lg border border-white/10 hover:border-white/20 bg-white/5 hover:bg-white/10 text-xs font-mono uppercase tracking-wider text-slate-300 hover:text-white transition-all cursor-pointer font-bold"
+        {/* Center React Flow Canvas */}
+        <main className="flex-1 flex flex-col relative bg-[#F8F9FB]">
+          <ReactFlow
+            nodes={nodes}
+            edges={edges}
+            nodeTypes={nodeTypes}
+            onNodesChange={onNodesChange}
+            onEdgesChange={onEdgesChange}
+            onNodeClick={handleNodeClick}
+            onPaneClick={handlePaneClick}
+            fitView
+            proOptions={{ hideAttribution: true }}
+            minZoom={0.1}
+            maxZoom={2.5}
           >
-            <ArrowLeft size={13} strokeWidth={2.5} />
-            Command Center
-          </button>
-          <span className="w-px h-4 bg-white/15" />
-          <span className="font-mono text-[10px] uppercase tracking-widestest text-ink-faint">
-            {selectedProject.name} // State Studio
-          </span>
-        </div>
-        <div className="text-[10px] font-mono text-slate-400 tracking-widestest uppercase">
-          Studio // v1.4
-        </div>
-      </header>
+            <Background
+              color="rgba(124, 58, 237, 0.15)"
+              gap={28}
+              size={1.5}
+            />
+          </ReactFlow>
 
-      <div className="flex-1 w-full flex relative z-10 min-h-0 overflow-hidden">
-        <aside className="w-64 border-r border-white/5 bg-black/25 p-6 flex flex-col gap-6 shrink-0 overflow-y-auto">
-          <h4 className="font-mono text-[9px] uppercase tracking-widestest text-slate-400 font-bold">
-            State Slices
-          </h4>
-          <div className="flex flex-col gap-2.5">
-            {["src/redux/store.js", "src/redux/slices/uiSlice.js"].map((f) => (
-              <div key={f} className="flex items-center gap-2 px-3 py-2 rounded-lg border border-accent/15 bg-accent/5 text-slate-100">
-                <FileCode size={12} className="text-accent" />
-                <span className="font-mono text-[10px] truncate">{f}</span>
+          {/* Zoom controls */}
+          <div
+            className="absolute bottom-5 left-5 flex items-center"
+            style={{
+              background: "#FFFFFF",
+              border: "1px solid #E8EAED",
+              borderRadius: 12,
+              boxShadow: "0 1px 4px rgba(0,0,0,0.06)",
+              padding: "4px",
+              gap: 0,
+              display: "flex",
+              zIndex: 10,
+            }}
+          >
+            <IconBtn onClick={() => zoomIn()} title="Zoom in">
+              <ZoomIn size={13} />
+            </IconBtn>
+            <span style={{
+              fontSize: 10,
+              fontFamily: MONO,
+              color: "#9CA3AF",
+              width: 38,
+              textAlign: "center",
+              letterSpacing: "-0.02em",
+              fontWeight: 500,
+            }}>
+              Zoom
+            </span>
+            <IconBtn onClick={() => zoomOut()} title="Zoom out">
+              <ZoomOut size={13} />
+            </IconBtn>
+            <div style={{ width: 1, height: 14, background: "#E8EAED", margin: "0 3px" }} />
+            <IconBtn onClick={() => fitView({ padding: 0.15, duration: 300 })} title="Fit graph to view">
+              <Maximize size={12} />
+            </IconBtn>
+            <div style={{ width: 1, height: 14, background: "#E8EAED", margin: "0 3px" }} />
+            <IconBtn onClick={handleToggleGraphFullscreen} title={isGraphFullscreen ? "Exit Full Screen" : "Full Screen Graph"}>
+              <Maximize2 size={12} />
+            </IconBtn>
+          </div>
+
+          {/* Node type legend — bottom right */}
+          <div
+            className="absolute bottom-5 right-5 flex items-center gap-3"
+            style={{
+              background: "rgba(255,255,255,0.88)",
+              backdropFilter: "blur(8px)",
+              border: "1px solid #E8EAED",
+              borderRadius: 10,
+              padding: "7px 12px",
+              zIndex: 10,
+            }}
+          >
+            {Object.entries(TYPE_CFG).map(([type, cfg]) => (
+              <div key={cfg.label} style={{ display: "flex", alignItems: "center", gap: 5 }}>
+                <div style={{ width: 7, height: 7, borderRadius: 2, background: cfg.color, flexShrink: 0 }} />
+                <span style={{ fontSize: 10, color: "#9CA3AF", fontFamily: INTER, letterSpacing: "-0.01em" }}>
+                  {cfg.label}
+                </span>
               </div>
             ))}
           </div>
-        </aside>
-
-        <main className="flex-1 flex flex-col items-center justify-center p-8 text-center relative bg-[#090b11]/30">
-          <div className="relative z-10 max-w-sm flex flex-col items-center gap-4.5">
-            <div className="w-12 h-12 rounded-xl border border-accent/20 bg-accent/5 flex items-center justify-center text-accent shadow-[0_0_20px_rgba(0,229,255,0.1)]">
-              <GitMerge size={22} />
-            </div>
-            <div>
-              <h3 className="font-display font-[800] text-lg text-white tracking-tightest leading-none mb-2">
-                State Studio Portal Stable
-              </h3>
-              <p className="font-mono text-[9.5px] uppercase tracking-wider text-accent mb-4">
-                /03_REDUX_CONTEXT
-              </p>
-              <p className="text-xs text-slate-400 leading-relaxed">
-                Ready to map Redux slices, contexts, and state variables inside a dedicated interactive flow chart.
-              </p>
-            </div>
-          </div>
         </main>
+
+        {/* Right Inspector Panel */}
+        {!isGraphFullscreen && (
+          <InspectorPanel node={selectedNode} />
+        )}
       </div>
     </div>
   );
-};
+}
 
-export default StateFlow;
+// ─── Main Export Component with React Flow Provider ──────────────────────────
+
+export default function StateFlow() {
+  useEffect(() => {
+    gsap.fromTo(".page-fade", {
+      opacity: 0,
+    }, {
+      opacity: 1,
+      duration: 0.8,
+      ease: "power2.out",
+    });
+  }, []);
+
+  return (
+    <ReactFlowProvider>
+      <StateFlowInner />
+    </ReactFlowProvider>
+  );
+}

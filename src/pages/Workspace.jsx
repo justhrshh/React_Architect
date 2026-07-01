@@ -1,12 +1,16 @@
 import React, { useState, useEffect, useCallback } from "react";
 import { useSelector, useDispatch } from "react-redux";
 import { useNavigate } from "react-router-dom";
+import { Layers } from "lucide-react";
 import { setActiveRoom, setAppMode } from "@/redux/slices/uiSlice";
+import { setNodes, setEdges, setFiles, setRouteNodes, setRouteEdges } from "@/redux/slices/graphSlice";
 import {
   selectSelectedProject,
   clearSelectedProject,
 } from "@/redux/slices/hubSlice";
 import WorkspaceScene from "@/features/workspace/WorkspaceScene";
+import { getProjectHandle } from "@/lib/analysis/projectStore";
+import { buildRouteGraph } from "@/lib/analysis/routeParser";
 
 const roomDetails = {
   "project-brain": {
@@ -73,6 +77,105 @@ const Workspace = () => {
       dispatch(setAppMode("workspace"));
     }
   }, [selectedProject, navigate, dispatch]);
+
+  const [needsPermission, setNeedsPermission] = useState(false);
+  const [cachedHandle, setCachedHandle] = useState(null);
+
+  // Dynamic project scanning and graph loading
+  useEffect(() => {
+    if (!selectedProject) return;
+
+    const projectId = selectedProject.id;
+    let dirHandle = window.projectHandles?.[projectId];
+    let zipFile = window.projectZipFiles?.[projectId];
+
+    async function loadAndScan() {
+      // 1. Load from IndexedDB if not in memory
+      if (!dirHandle && !zipFile) {
+        const persisted = await getProjectHandle(projectId);
+        if (persisted) {
+          if (persisted instanceof File) {
+            zipFile = persisted;
+            if (!window.projectZipFiles) window.projectZipFiles = {};
+            window.projectZipFiles[projectId] = zipFile;
+          } else {
+            dirHandle = persisted;
+            if (!window.projectHandles) window.projectHandles = {};
+            window.projectHandles[projectId] = dirHandle;
+          }
+        }
+      }
+
+      // 2. Check permissions for folders
+      if (dirHandle) {
+        const permission = await dirHandle.queryPermission({ mode: "read" });
+        if (permission !== "granted") {
+          setCachedHandle(dirHandle);
+          setNeedsPermission(true);
+          return;
+        }
+        setNeedsPermission(false);
+      }
+
+      // 3. Trigger Scanning
+      if (dirHandle || zipFile) {
+        const { analyzeProject } = await import("@/lib/analysis/analyzer");
+        analyzeProject(selectedProject, dirHandle, zipFile)
+          .then(({ nodes, edges, files, rawFiles, routeNodes, routeEdges }) => {
+            dispatch(setNodes(nodes));
+            dispatch(setEdges(edges));
+            dispatch(setFiles(files));
+            dispatch(setRouteNodes(routeNodes));
+            dispatch(setRouteEdges(routeEdges));
+            window.projectFiles = rawFiles;
+          })
+          .catch(err => {
+            console.error("Failed to analyze dynamic project", err);
+          });
+      } else {
+        // Showcase seed fallback
+        const { getGraphDataForProject } = await import("@/lib/analysis/mockDataGenerator");
+        const { nodes, edges, files } = getGraphDataForProject(selectedProject);
+        dispatch(setNodes(nodes));
+        dispatch(setEdges(edges));
+        dispatch(setFiles(files));
+
+        // Dynamic route matching fallback
+        const mockFiles = files.map(f => ({ path: f, content: "" }));
+        const routeGraph = buildRouteGraph(mockFiles, selectedProject);
+        dispatch(setRouteNodes(routeGraph.nodes));
+        dispatch(setRouteEdges(routeGraph.edges));
+      }
+    }
+
+    loadAndScan().catch(err => {
+      console.error("Error in loadAndScan", err);
+    });
+  }, [selectedProject, dispatch]);
+
+  const handleRequestPermission = async () => {
+    if (!cachedHandle) return;
+    try {
+      const permission = await cachedHandle.requestPermission({ mode: "read" });
+      if (permission === "granted") {
+        setNeedsPermission(false);
+        const projectId = selectedProject.id;
+        if (!window.projectHandles) window.projectHandles = {};
+        window.projectHandles[projectId] = cachedHandle;
+
+        const { analyzeProject } = await import("@/lib/analysis/analyzer");
+        const { nodes, edges, files, rawFiles, routeNodes, routeEdges } = await analyzeProject(selectedProject, cachedHandle, null);
+        dispatch(setNodes(nodes));
+        dispatch(setEdges(edges));
+        dispatch(setFiles(files));
+        dispatch(setRouteNodes(routeNodes));
+        dispatch(setRouteEdges(routeEdges));
+        window.projectFiles = rawFiles;
+      }
+    } catch (err) {
+      console.error("Failed to request permission", err);
+    }
+  };
 
   const handleArrivalChange = (room) => {
     setFocusedRoom(room);
@@ -278,6 +381,35 @@ const Workspace = () => {
         </footer>
 
       </div>
+
+      {/* Directory Access Permission Modal Overlay */}
+      {needsPermission && (
+        <div className="absolute inset-0 z-[8000] bg-obsidian/96 backdrop-blur-md flex flex-col items-center justify-center text-center p-6 select-none pointer-events-auto">
+          <div className="w-14 h-14 rounded-full border border-blue-500/20 bg-blue-500/5 flex items-center justify-center text-blue-400 mb-6 shadow-[0_0_15px_rgba(59,130,246,0.1)]">
+            <Layers size={22} className="animate-pulse" />
+          </div>
+          <h3 className="font-display text-xl font-[800] text-white tracking-tightest mb-2">
+            Local Directory Access Required
+          </h3>
+          <p className="font-mono text-[9px] text-slate-400 max-w-sm leading-relaxed mb-8 uppercase tracking-widest">
+            React Architect needs permission to scan your local folder to construct the component architecture graph.
+          </p>
+          <div className="flex gap-4">
+            <button
+              onClick={handleReturnToHub}
+              className="px-6 py-3.5 rounded-xl border border-white/10 hover:border-white/20 text-slate-400 hover:text-white font-mono text-xs uppercase tracking-wider transition-all duration-300 font-bold"
+            >
+              Back to Hub
+            </button>
+            <button
+              onClick={handleRequestPermission}
+              className="px-6 py-3.5 rounded-xl bg-accent text-slate-900 font-mono text-xs uppercase tracking-wider font-bold hover:shadow-[0_0_20px_rgba(0,229,255,0.3)] transition-all duration-300 shadow-[0_4px_12px_rgba(0,229,255,0.15)]"
+            >
+              Grant Folder Access
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

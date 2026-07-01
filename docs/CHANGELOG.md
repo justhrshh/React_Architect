@@ -1,3 +1,32 @@
+# v2.0 — Real AST analysis & Interactive Workspace Explorer Studios
+
+## Added
+* **Dynamic AST Scanner Engine**:
+  - Implemented recursive directory scanning (File System Access API) and JSZip archives unpackers inside `scanner.js`.
+  - Added Babel AST visitors inside `parser.js` that extract component names, hooks, props, imports, and exports.
+  - Linked parent-child render edges inside `graphBuilder.js` and layered nodes inside `reactFlowAdapter.js`.
+* **Component Architecture Studio Improvements**:
+  - Implemented solid off-white high-contrast sidebar to replace translucent dark themes for maximum readability.
+  - Added "Nesting Hierarchy" context badges.
+  - Added app-level collapsible sidebar/inspector panels fullscreen toggle, auto-fitting the layout to the viewport on toggle.
+* **Interactive Route Studio (`/routes`)**:
+  - Created `routeParser.js` to dynamically extract URL patterns from Next.js (`app/**/page.tsx`) and React Router formats.
+  - Deployed route endpoint nodes, parameters, and targets inside `@xyflow/react` routing trees.
+* **Interactive State Studio (`/state`)**:
+  - Plotted Redux Slices (e.g. `authSlice`, `uiSlice`) and state variables.
+  - Drew dependency edges linking state slices to useSelector consumer components.
+* **Interactive API Studio (`/api`)**:
+  - Visualized Network Gateway Client objects, HTTP route operations (`POST /auth/login`, `GET /projects`), and mapped them to the triggering components.
+* **Interactive Documentation Studio (`/docs`)**:
+  - Indexed `.md` files during scans and bypassed AST parsing.
+  - Rendered select markdown documents inside a custom reader component supporting headers, quotes, lists, and code blocks.
+* **Persisted Handles**:
+  - Cached folder handles in IndexedDB (`projectStore.js`) to restore user access rights on page refresh via workspace re-grant prompts.
+* **Simulated Fetch Delay**:
+  - Implemented a 1.8-second indexing loading screen on project imports.
+
+---
+
 # v1.5 — Decoupled Workspace Portals & Tool Studios
 
 ## Added

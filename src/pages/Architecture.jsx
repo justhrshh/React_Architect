@@ -1,15 +1,836 @@
-import React, { useEffect } from "react";
+import React, { useState, useEffect, useCallback, useMemo } from "react";
 import { useSelector, useDispatch } from "react-redux";
 import { useNavigate } from "react-router-dom";
-import gsap from "gsap";
 import { setActiveRoom } from "@/redux/slices/uiSlice";
 import { selectSelectedProject } from "@/redux/slices/hubSlice";
-import { ArrowLeft, GitMerge, FileCode, CheckCircle, HelpCircle } from "lucide-react";
+import { setNodes as setReduxNodes, setEdges as setReduxEdges } from "@/redux/slices/graphSlice";
+import { motion } from "framer-motion";
+import gsap from "gsap";
+import {
+  Search, ZoomIn, ZoomOut, Maximize2, Maximize, Share2, Settings,
+  Layers, ChevronRight, GitBranch, ArrowLeft, FileCode, CheckCircle, GitMerge
+} from "lucide-react";
+import {
+  ReactFlow,
+  Background,
+  useNodesState,
+  useEdgesState,
+  Handle,
+  Position,
+  useReactFlow,
+  ReactFlowProvider,
+} from "@xyflow/react";
+import { toReactFlow } from "@/lib/analysis/reactFlowAdapter";
+import "@xyflow/react/dist/style.css";
 
-const Architecture = () => {
+// ─── Constants ────────────────────────────────────────────────────────────────
+
+const NW = 224;
+const NH = 110;
+
+const INTER = "'Inter', -apple-system, sans-serif";
+const MONO = "'JetBrains Mono', 'SF Mono', monospace";
+const SERIF = "'Fraunces', Georgia, serif";
+
+const TYPE_CFG = {
+  page:      { label: "Page",      color: "#3B82F6", bg: "#EFF6FF", text: "#1D4ED8" },
+  layout:    { label: "Layout",    color: "#7C3AED", bg: "#F5F3FF", text: "#6D28D9" },
+  component: { label: "Component", color: "#059669", bg: "#ECFDF5", text: "#047857" },
+  provider:  { label: "Provider",  color: "#D97706", bg: "#FFFBEB", text: "#B45309" },
+  context:   { label: "Context",   color: "#DB2777", bg: "#FDF2F8", text: "#9D174D" },
+};
+
+const BUILTIN_HOOKS = new Set([
+  "useState", "useEffect", "useCallback", "useMemo", "useRef",
+  "useContext", "useReducer", "useId", "useLayoutEffect",
+  "useParams", "useRoutes", "useActiveRoute", "useScrollRestoration",
+  "useNavigation", "useLoaderData", "useSearchParams", "useLocation", "useNavigate",
+]);
+
+// ─── Node Metric Component ────────────────────────────────────────────────────
+
+function NodeMetric({ value, label, accentColor }) {
+  return (
+    <span style={{
+      fontSize: 10,
+      color: accentColor ?? "#B0B7C3",
+      fontFamily: INTER,
+      display: "flex",
+      gap: 3,
+      alignItems: "center",
+    }}>
+      <span style={{ fontWeight: 600, color: accentColor ?? "#8A909E" }}>{value}</span>
+      {label}
+    </span>
+  );
+}
+
+// ─── Custom React Flow Node Component ─────────────────────────────────────────
+
+function CustomNode({ data }) {
+  const { node, isSelected, isConnected } = data;
+  const cfg = TYPE_CFG[node.type] || TYPE_CFG.component;
+
+  const shadow = isSelected
+    ? `0 0 0 2.5px ${cfg.color}30, 0 8px 28px rgba(0,0,0,0.10), 0 2px 6px rgba(0,0,0,0.06)`
+    : isConnected
+    ? `0 0 0 1.5px ${cfg.color}22, 0 4px 14px rgba(0,0,0,0.06)`
+    : "0 1px 3px rgba(0,0,0,0.05), 0 4px 14px rgba(0,0,0,0.04)";
+
+  const borderColor = isSelected
+    ? cfg.color + "99"
+    : isConnected
+    ? cfg.color + "44"
+    : "#E8EAED";
+
+  return (
+    <div style={{ position: "relative" }}>
+      <Handle
+        type="target"
+        position={Position.Top}
+        style={{ background: cfg.color, border: "none", width: 6, height: 6 }}
+      />
+      
+      <div
+        style={{
+          width: NW,
+          height: NH,
+          background: "#FFFFFF",
+          borderRadius: 12,
+          border: `1px solid ${borderColor}`,
+          borderLeft: `3px solid ${cfg.color}`,
+          boxShadow: shadow,
+          display: "flex",
+          flexDirection: "column",
+          padding: "13px 14px 11px 15px",
+          boxSizing: "border-box",
+        }}
+      >
+        {/* Name + badge */}
+        <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 6 }}>
+          <span style={{
+            fontSize: 13,
+            fontWeight: 600,
+            color: "#111827",
+            letterSpacing: "-0.018em",
+            lineHeight: 1.25,
+            fontFamily: INTER,
+          }}>
+            {node.name}
+          </span>
+          <span style={{
+            fontSize: 9,
+            fontWeight: 700,
+            letterSpacing: "0.05em",
+            textTransform: "uppercase",
+            color: cfg.text,
+            background: cfg.bg,
+            padding: "3px 6px",
+            borderRadius: 4,
+            flexShrink: 0,
+            fontFamily: INTER,
+            marginTop: 1,
+          }}>
+            {cfg.label}
+          </span>
+        </div>
+
+        {/* File path */}
+        <div style={{
+          fontSize: 9.5,
+          color: "#B8BEC9",
+          fontFamily: MONO,
+          marginTop: 5,
+          overflow: "hidden",
+          textOverflow: "ellipsis",
+          whiteSpace: "nowrap",
+          letterSpacing: "-0.01em",
+        }}>
+          {node.filePath}
+        </div>
+
+        <div style={{ flex: 1 }} />
+
+        {/* Metrics */}
+        <div style={{
+          display: "flex",
+          alignItems: "center",
+          gap: 10,
+          paddingTop: 8,
+          borderTop: "1px solid #F3F4F6",
+        }}>
+          <NodeMetric value={node.hookCount} label="hooks" />
+          <NodeMetric value={node.childCount} label="children" />
+          {node.apiCount > 0 && (
+            <NodeMetric value={node.apiCount} label="api" accentColor={cfg.color} />
+          )}
+        </div>
+      </div>
+
+      <Handle
+        type="source"
+        position={Position.Bottom}
+        style={{ background: cfg.color, border: "none", width: 6, height: 6 }}
+      />
+    </div>
+  );
+}
+
+// ─── Zoom Button Helper ───────────────────────────────────────────────────────
+
+function IconBtn({ onClick, title, children }) {
+  return (
+    <button
+      onClick={onClick}
+      title={title}
+      style={{
+        width: 28,
+        height: 28,
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        borderRadius: 8,
+        border: "none",
+        background: "transparent",
+        color: "#A0A8B4",
+        cursor: "pointer",
+        transition: "background 0.14s, color 0.14s",
+        flexShrink: 0,
+      }}
+      onMouseEnter={e => {
+        e.currentTarget.style.background = "#F3F4F6";
+        e.currentTarget.style.color = "#374151";
+      }}
+      onMouseLeave={e => {
+        e.currentTarget.style.background = "transparent";
+        e.currentTarget.style.color = "#A0A8B4";
+      }}
+    >
+      {children}
+    </button>
+  );
+}
+
+// ─── Inspector Detail Panel ───────────────────────────────────────────────────
+
+function SectionLabel({ children }) {
+  return (
+    <p style={{
+      fontSize: 9,
+      fontWeight: 700,
+      letterSpacing: "0.1em",
+      textTransform: "uppercase",
+      color: "#C8CDD8",
+      fontFamily: INTER,
+      margin: "0 0 9px 0",
+    }}>
+      {children}
+    </p>
+  );
+}
+
+function Sep() {
+  return <div style={{ height: 1, background: "#F1F3F5", margin: "16px 0" }} />;
+}
+
+function InspectorPanel({ nodes, node, onNavigate }) {
+  if (!node) {
+    return (
+      <aside style={{
+        width: 308,
+        background: "#FFFFFF",
+        borderLeft: "1px solid #E8EAED",
+        display: "flex",
+        flexDirection: "column",
+        flexShrink: 0,
+      }}>
+        <div style={{ padding: "12px 20px 11px", borderBottom: "1px solid #F1F3F5" }}>
+          <span style={{ fontSize: 9, fontWeight: 700, letterSpacing: "0.1em", textTransform: "uppercase", color: "#C8CDD8", fontFamily: INTER }}>
+            Inspector
+          </span>
+        </div>
+        <div className="flex-1 flex justify-center items-center">
+          <span style={{ fontSize: 12, color: "#D1D5DB", fontFamily: INTER }}>Select a component</span>
+        </div>
+      </aside>
+    );
+  }
+
+  const cfg = TYPE_CFG[node.type] || TYPE_CFG.component;
+
+  return (
+    <aside style={{
+      width: 308,
+      background: "#FFFFFF",
+      borderLeft: "1px solid #E8EAED",
+      display: "flex",
+      flexDirection: "column",
+      flexShrink: 0,
+      overflow: "hidden",
+    }}>
+      {/* Panel header */}
+      <div style={{ padding: "12px 20px 11px", borderBottom: "1px solid #F1F3F5", flexShrink: 0 }}>
+        <span style={{ fontSize: 9, fontWeight: 700, letterSpacing: "0.1em", textTransform: "uppercase", color: "#C8CDD8", fontFamily: INTER }}>
+          Inspector
+        </span>
+      </div>
+
+      {/* Scrollable content */}
+      <div style={{ flex: 1, overflowY: "auto", scrollbarWidth: "none" }}>
+        <motion.div
+          key={node.id}
+          initial={{ opacity: 0, x: 8 }}
+          animate={{ opacity: 1, x: 0 }}
+          transition={{ duration: 0.22, ease: [0.16, 1, 0.3, 1] }}
+          style={{ padding: "18px 20px 28px" }}
+        >
+          {/* Component identity */}
+          <div>
+            <SectionLabel>Component</SectionLabel>
+            <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 8, marginBottom: 5 }}>
+              <h2 style={{
+                fontSize: 19,
+                fontWeight: 600,
+                color: "#111827",
+                letterSpacing: "-0.03em",
+                margin: 0,
+                lineHeight: 1.2,
+                fontFamily: INTER,
+              }}>
+                {node.name}
+              </h2>
+              <span style={{
+                fontSize: 9,
+                fontWeight: 700,
+                letterSpacing: "0.05em",
+                textTransform: "uppercase",
+                color: cfg.text,
+                background: cfg.bg,
+                padding: "4px 8px",
+                borderRadius: 5,
+                flexShrink: 0,
+                fontFamily: INTER,
+                marginTop: 3,
+              }}>
+                {cfg.label}
+              </span>
+            </div>
+            <p style={{
+              fontSize: 10,
+              color: "#B8BEC9",
+              fontFamily: MONO,
+              margin: 0,
+              letterSpacing: "-0.01em",
+            }}>
+              {node.filePath}
+            </p>
+          </div>
+
+          {/* Quick stats */}
+          <div style={{
+            display: "grid",
+            gridTemplateColumns: "1fr 1fr 1fr",
+            marginTop: 14,
+            border: "1px solid #F1F3F5",
+            borderRadius: 8,
+            overflow: "hidden",
+          }}>
+            {[
+              { label: "Hooks", value: node.hookCount },
+              { label: "Children", value: node.childCount },
+              { label: "API", value: node.apiCount },
+            ].map((stat, i) => (
+              <div
+                key={stat.label}
+                style={{
+                  padding: "10px 0 9px",
+                  textAlign: "center",
+                  borderLeft: i > 0 ? "1px solid #F1F3F5" : "none",
+                }}
+              >
+                <div style={{
+                  fontSize: 17,
+                  fontWeight: 600,
+                  color: stat.value > 0 ? "#111827" : "#E5E7EB",
+                  fontFamily: INTER,
+                  letterSpacing: "-0.025em",
+                  lineHeight: 1,
+                  marginBottom: 3,
+                }}>
+                  {stat.value}
+                </div>
+                <div style={{
+                  fontSize: 8.5,
+                  color: "#C8CDD8",
+                  fontFamily: INTER,
+                  letterSpacing: "0.07em",
+                  textTransform: "uppercase",
+                  fontWeight: 700,
+                }}>
+                  {stat.label}
+                </div>
+              </div>
+            ))}
+          </div>
+
+          {/* Props */}
+          {node.props && node.props.length > 0 && (
+            <>
+              <Sep />
+              <SectionLabel>Props</SectionLabel>
+              <div style={{ display: "flex", flexDirection: "column", gap: 7 }}>
+                {node.props.map(prop => (
+                  <div
+                    key={prop.name}
+                    style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8 }}
+                  >
+                    <div style={{ display: "flex", alignItems: "center", gap: 7, minWidth: 0 }}>
+                      <div style={{
+                        width: 5,
+                        height: 5,
+                        borderRadius: "50%",
+                        flexShrink: 0,
+                        background: prop.required ? "#3B82F6" : "transparent",
+                        border: prop.required ? "none" : "1.5px solid #D1D5DB",
+                      }} />
+                      <span style={{
+                        fontSize: 12,
+                        color: "#374151",
+                        fontFamily: INTER,
+                        fontWeight: 500,
+                        whiteSpace: "nowrap",
+                        overflow: "hidden",
+                        textOverflow: "ellipsis",
+                      }}>
+                        {prop.name}
+                      </span>
+                    </div>
+                    <span style={{
+                      fontSize: 10,
+                      color: "#A8B0BF",
+                      fontFamily: MONO,
+                      letterSpacing: "-0.02em",
+                      flexShrink: 0,
+                      maxWidth: 140,
+                      overflow: "hidden",
+                      textOverflow: "ellipsis",
+                      whiteSpace: "nowrap",
+                    }}>
+                      {prop.type || "any"}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </>
+          )}
+
+          {/* Hooks */}
+          {node.hooks && node.hooks.length > 0 && (
+            <>
+              <Sep />
+              <SectionLabel>Hooks</SectionLabel>
+              <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
+                {node.hooks.map(hook => {
+                  const builtin = BUILTIN_HOOKS.has(hook);
+                  return (
+                    <div
+                      key={hook}
+                      style={{
+                        display: "flex",
+                        alignItems: "center",
+                        gap: 8,
+                        padding: "5px 8px",
+                        borderRadius: 6,
+                        background: builtin ? "transparent" : "#F8F9FB",
+                      }}
+                    >
+                      <span style={{ fontSize: 9, color: "#C8CDD8", fontFamily: MONO, fontWeight: 500, flexShrink: 0 }}>
+                        ƒ
+                      </span>
+                      <span style={{
+                        fontSize: 11.5,
+                        color: builtin ? "#8A909E" : "#111827",
+                        fontFamily: MONO,
+                        letterSpacing: "-0.02em",
+                        fontWeight: builtin ? 400 : 500,
+                      }}>
+                        {hook}
+                      </span>
+                      {!builtin && (
+                        <span style={{
+                          fontSize: 8.5,
+                          color: "#3B82F6",
+                          fontFamily: INTER,
+                          letterSpacing: "0.04em",
+                          marginLeft: "auto",
+                          fontWeight: 700,
+                          textTransform: "uppercase",
+                        }}>
+                          custom
+                        </span>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            </>
+          )}
+
+          {/* Children */}
+          {node.children && node.children.length > 0 && (
+            <>
+              <Sep />
+              <SectionLabel>Children</SectionLabel>
+              <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+                {node.children.map(child => {
+                  const childNode = nodes.find(n => n.name === child);
+                  return (
+                    <button
+                      key={child}
+                      onClick={() => childNode && onNavigate(childNode.id)}
+                      style={{
+                        fontSize: 11,
+                        color: childNode ? "#374151" : "#9CA3AF",
+                        fontFamily: MONO,
+                        background: "#F8F9FB",
+                        border: "1px solid #E8EAED",
+                        padding: "4px 10px",
+                        borderRadius: 6,
+                        letterSpacing: "-0.01em",
+                        cursor: childNode ? "pointer" : "default",
+                        transition: "background 0.14s, border-color 0.14s",
+                      }}
+                      onMouseEnter={e => {
+                        if (!childNode) return;
+                        e.currentTarget.style.background = "#EFF6FF";
+                        e.currentTarget.style.borderColor = "#BFDBFE";
+                      }}
+                      onMouseLeave={e => {
+                        e.currentTarget.style.background = "#F8F9FB";
+                        e.currentTarget.style.borderColor = "#E8EAED";
+                      }}
+                    >
+                      {child}
+                    </button>
+                  );
+                })}
+              </div>
+            </>
+          )}
+
+          {/* Dependencies */}
+          {node.deps && node.deps.length > 0 && (
+            <>
+              <Sep />
+              <SectionLabel>Dependencies</SectionLabel>
+              <div style={{ display: "flex", flexDirection: "column", gap: 5 }}>
+                {node.deps.map(dep => (
+                  <div
+                    key={dep}
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      gap: 8,
+                      padding: "4px 0",
+                      borderBottom: "1px solid #F8F9FB",
+                    }}
+                  >
+                    <div style={{
+                      width: 4,
+                      height: 4,
+                      borderRadius: 1,
+                      background: "#E0E3E8",
+                      flexShrink: 0,
+                    }} />
+                    <span style={{
+                      fontSize: 11,
+                      color: "#6B7280",
+                      fontFamily: MONO,
+                      letterSpacing: "-0.02em",
+                    }}>
+                      {dep}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </>
+          )}
+
+          {/* Imports */}
+          {node.imports && node.imports.length > 0 && (
+            <>
+              <Sep />
+              <SectionLabel>Imports</SectionLabel>
+              <p style={{
+                fontSize: 10,
+                color: "#A8B0BF",
+                fontFamily: MONO,
+                letterSpacing: "-0.02em",
+                lineHeight: 1.9,
+                margin: 0,
+                whiteSpace: "pre-wrap"
+              }}>
+                {node.imports.join(",\n")}
+              </p>
+            </>
+          )}
+        </motion.div>
+      </div>
+    </aside>
+  );
+}
+
+// ─── Top Bar ──────────────────────────────────────────────────────────────────
+
+function TopBar({ nodeCount, projectName, handleBack }) {
+  return (
+    <header style={{
+      height: 52,
+      background: "#FFFFFF",
+      borderBottom: "1px solid #E8EAED",
+      display: "flex",
+      alignItems: "center",
+      padding: "0 16px 0 18px",
+      flexShrink: 0,
+      gap: 0,
+      zIndex: 20,
+    }}>
+      {/* Back button */}
+      <button
+        onClick={handleBack}
+        style={{
+          display: "flex",
+          alignItems: "center",
+          gap: 6,
+          padding: "6px 12px",
+          borderRadius: 8,
+          border: "1px solid rgba(0,0,0,0.1)",
+          background: "rgba(0,0,0,0.03)",
+          color: "#374151",
+          fontSize: 11,
+          fontFamily: INTER,
+          fontWeight: 600,
+          cursor: "pointer",
+          marginRight: 16,
+          transition: "background 0.15s",
+        }}
+        onMouseEnter={e => e.currentTarget.style.background = "rgba(0,0,0,0.06)"}
+        onMouseLeave={e => e.currentTarget.style.background = "rgba(0,0,0,0.03)"}
+      >
+        <ArrowLeft size={13} strokeWidth={2.5} />
+        Command Center
+      </button>
+
+      {/* Logo */}
+      <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+        <div style={{
+          width: 30,
+          height: 30,
+          background: "#111827",
+          borderRadius: 7,
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          flexShrink: 0,
+        }}>
+          <Layers size={14} color="white" />
+        </div>
+        <div style={{ lineHeight: 1 }}>
+          <div style={{
+            fontSize: 14,
+            fontWeight: 500,
+            color: "#111827",
+            letterSpacing: "-0.03em",
+            fontFamily: SERIF,
+            lineHeight: 1.15,
+          }}>
+            React Architect
+          </div>
+          <div style={{
+            fontSize: 8,
+            color: "#B8BEC9",
+            fontFamily: INTER,
+            letterSpacing: "0.09em",
+            textTransform: "uppercase",
+            fontWeight: 700,
+            marginTop: 1,
+          }}>
+            Architecture Studio — Component Nesting Hierarchy
+          </div>
+        </div>
+      </div>
+
+      {/* Divider */}
+      <div style={{ width: 1, height: 18, background: "#E8EAED", margin: "0 16px" }} />
+
+      {/* Project path */}
+      <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
+        <span style={{ fontSize: 12, color: "#A8B0BF", fontFamily: INTER }}>{projectName || "react-project"}</span>
+        <ChevronRight size={11} color="#D1D5DB" />
+        <div style={{ display: "flex", alignItems: "center", gap: 5 }}>
+          <GitBranch size={11} color="#9CA3AF" />
+          <span style={{ fontSize: 12, color: "#374151", fontFamily: INTER, fontWeight: 500 }}>main</span>
+        </div>
+      </div>
+
+      <div style={{ flex: 1 }} />
+
+      {/* Nesting Hierarchy Info Badge */}
+      <div style={{
+        display: "flex",
+        alignItems: "center",
+        gap: 6,
+        marginRight: 12,
+        padding: "4px 10px",
+        background: "#EFF6FF",
+        borderRadius: 6,
+        border: "1px solid #BFDBFE",
+      }}>
+        <span style={{ fontSize: 10, color: "#1D4ED8", fontFamily: INTER, fontWeight: 650 }}>
+          Parent-Child Nesting Tree
+        </span>
+      </div>
+
+      {/* Component count pill */}
+      <div style={{
+        display: "flex",
+        alignItems: "center",
+        gap: 6,
+        marginRight: 12,
+        padding: "4px 10px",
+        background: "#F8F9FB",
+        borderRadius: 6,
+        border: "1px solid #E8EAED",
+      }}>
+        <div style={{ width: 6, height: 6, borderRadius: "50%", background: "#10B981" }} />
+        <span style={{ fontSize: 11, color: "#6B7280", fontFamily: INTER }}>
+          {nodeCount} components
+        </span>
+      </div>
+
+      {/* Actions */}
+      <div style={{ display: "flex", alignItems: "center", gap: 1 }}>
+        {[
+          { Icon: Search, label: "Search" },
+          { Icon: Share2, label: "Share" },
+          { Icon: Settings, label: "Settings" },
+        ].map(({ Icon, label }) => (
+          <button
+            key={label}
+            title={label}
+            style={{
+              width: 32,
+              height: 32,
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              borderRadius: 7,
+              background: "transparent",
+              border: "none",
+              color: "#B8BEC9",
+              cursor: "pointer",
+              transition: "background 0.14s, color 0.14s",
+            }}
+            onMouseEnter={e => {
+              e.currentTarget.style.background = "#F3F4F6";
+              e.currentTarget.style.color = "#374151";
+            }}
+            onMouseLeave={e => {
+              e.currentTarget.style.background = "transparent";
+              e.currentTarget.style.color = "#B8BEC9";
+            }}
+          >
+            <Icon size={14} />
+          </button>
+        ))}
+      </div>
+    </header>
+  );
+}
+
+// ─── Inner React Flow Canvas Component ─────────────────────────────────────────
+
+function ArchitectureFlow() {
   const dispatch = useDispatch();
   const navigate = useNavigate();
+  
   const selectedProject = useSelector(selectSelectedProject);
+  const reduxNodes = useSelector((state) => state.graph.nodes);
+  const reduxEdges = useSelector((state) => state.graph.edges);
+  const reduxFiles = useSelector((state) => state.graph.files) || [];
+
+  const [isGraphFullscreen, setIsGraphFullscreen] = useState(false);
+
+  const { fitView, zoomIn, zoomOut } = useReactFlow();
+
+  const handleToggleGraphFullscreen = useCallback(() => {
+    setIsGraphFullscreen((prev) => {
+      const next = !prev;
+      setTimeout(() => {
+        fitView({ padding: 0.15, duration: 300 });
+      }, 100);
+      return next;
+    });
+  }, [fitView]);
+
+  const [nodes, setNodes, onNodesChange] = useNodesState([]);
+  const [edges, setEdges, onEdgesChange] = useEdgesState([]);
+  const [selectedId, setSelectedId] = useState("");
+
+  const nodeTypes = useMemo(() => ({
+    custom: CustomNode,
+  }), []);
+
+  // Pre-select default page node
+  useEffect(() => {
+    if (reduxNodes.length > 0 && !selectedId) {
+      const hasDashboard = reduxNodes.some(n => n.id === "DashboardPage");
+      const hasPageDashboard = reduxNodes.some(n => n.id === "page-dashboard");
+      const hasApp = reduxNodes.some(n => n.id === "App");
+      const defaultId = hasDashboard ? "DashboardPage" : hasPageDashboard ? "page-dashboard" : hasApp ? "App" : reduxNodes[0].id;
+      setSelectedId(defaultId);
+    }
+  }, [reduxNodes, selectedId]);
+
+  // Map to React Flow models when nodes/edges or selection changes
+  useEffect(() => {
+    if (reduxNodes && reduxNodes.length > 0) {
+      const { rfNodes, rfEdges } = toReactFlow(reduxNodes, reduxEdges, selectedId);
+      setNodes(rfNodes);
+      setEdges(rfEdges);
+    }
+  }, [reduxNodes, reduxEdges, selectedId, setNodes, setEdges]);
+
+  // Fit View on initial nodes load
+  useEffect(() => {
+    if (nodes.length > 0) {
+      const t = setTimeout(() => {
+        fitView({ padding: 0.15, duration: 400 });
+      }, 100);
+      return () => clearTimeout(t);
+    }
+  }, [reduxNodes, fitView, nodes.length]);
+
+  const selectedNode = useMemo(() => {
+    return reduxNodes.find(n => n.id === selectedId) || null;
+  }, [reduxNodes, selectedId]);
+
+  const uniqueFiles = useMemo(() => {
+    return reduxFiles;
+  }, [reduxFiles]);
+
+  const handleNodeClick = useCallback((event, node) => {
+    setSelectedId(node.id);
+  }, []);
+
+  const handlePaneClick = useCallback(() => {
+    setSelectedId("");
+  }, []);
+
+  const handleBack = () => {
+    dispatch(setActiveRoom("project-brain"));
+    navigate("/workspace");
+  };
 
   // Guard: if no project is active, redirect to Hub
   useEffect(() => {
@@ -18,173 +839,159 @@ const Architecture = () => {
     }
   }, [selectedProject, navigate]);
 
-  // Visual continuity transition
+  if (!selectedProject) return null;
+
+  return (
+    <div style={{
+      display: "flex",
+      flexDirection: "column",
+      height: "100vh",
+      width: "100vw",
+      overflow: "hidden",
+      fontFamily: INTER,
+    }} className="page-fade">
+      <TopBar nodeCount={reduxNodes.length} projectName={selectedProject.name} handleBack={handleBack} />
+      
+      <div style={{ display: "flex", flex: 1, overflow: "hidden" }}>
+        
+        {/* Left Directory Tree Pane */}
+        {!isGraphFullscreen && (
+          <aside className="w-64 border-r border-neutral-200 bg-[#F9FAFB] p-6 flex flex-col gap-6 shrink-0 overflow-y-auto select-none">
+          <div>
+            <h4 className="font-mono text-[9px] uppercase tracking-widestest text-neutral-500 mb-3.5 font-bold">
+              Detected Files
+            </h4>
+            <div className="flex flex-col gap-2">
+              {uniqueFiles.map((f) => {
+                const active = selectedNode && selectedNode.filePath === f;
+                return (
+                  <div key={f} className={`flex items-center gap-2 px-3 py-1.5 rounded-lg border transition-colors ${
+                    active 
+                      ? "border-blue-200 bg-blue-50/60 text-blue-700 shadow-sm" 
+                      : "border-transparent text-neutral-600 hover:text-neutral-900 hover:bg-neutral-100/60"
+                  }`}>
+                    <FileCode size={12} className={active ? "text-blue-500" : "text-neutral-400"} />
+                    <span className="font-mono text-[10.5px] truncate" title={f}>{f.split("/").pop()}</span>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+          </aside>
+        )}
+
+        {/* Center React Flow Canvas */}
+        <main className="flex-1 flex flex-col relative bg-[#F8F9FB]">
+          <ReactFlow
+            nodes={nodes}
+            edges={edges}
+            nodeTypes={nodeTypes}
+            onNodesChange={onNodesChange}
+            onEdgesChange={onEdgesChange}
+            onNodeClick={handleNodeClick}
+            onPaneClick={handlePaneClick}
+            fitView
+            proOptions={{ hideAttribution: true }}
+            minZoom={0.1}
+            maxZoom={2.5}
+          >
+            <Background
+              color="rgba(59,130,246,0.15)"
+              gap={28}
+              size={1.5}
+            />
+          </ReactFlow>
+
+          {/* Zoom controls */}
+          <div
+            className="absolute bottom-5 left-5 flex items-center"
+            style={{
+              background: "#FFFFFF",
+              border: "1px solid #E8EAED",
+              borderRadius: 12,
+              boxShadow: "0 1px 4px rgba(0,0,0,0.06)",
+              padding: "4px",
+              gap: 0,
+              display: "flex",
+              zIndex: 10,
+            }}
+          >
+            <IconBtn onClick={() => zoomIn()} title="Zoom in">
+              <ZoomIn size={13} />
+            </IconBtn>
+            <span style={{
+              fontSize: 10,
+              fontFamily: MONO,
+              color: "#9CA3AF",
+              width: 38,
+              textAlign: "center",
+              letterSpacing: "-0.02em",
+              fontWeight: 500,
+            }}>
+              Zoom
+            </span>
+            <IconBtn onClick={() => zoomOut()} title="Zoom out">
+              <ZoomOut size={13} />
+            </IconBtn>
+            <div style={{ width: 1, height: 14, background: "#E8EAED", margin: "0 3px" }} />
+            <IconBtn onClick={() => fitView({ padding: 0.15, duration: 300 })} title="Fit graph to view">
+              <Maximize size={12} />
+            </IconBtn>
+            <div style={{ width: 1, height: 14, background: "#E8EAED", margin: "0 3px" }} />
+            <IconBtn onClick={handleToggleGraphFullscreen} title={isGraphFullscreen ? "Exit Full Screen" : "Full Screen Graph"}>
+              <Maximize2 size={12} />
+            </IconBtn>
+          </div>
+
+          {/* Node type legend — bottom right */}
+          <div
+            className="absolute bottom-5 right-5 flex items-center gap-3"
+            style={{
+              background: "rgba(255,255,255,0.88)",
+              backdropFilter: "blur(8px)",
+              border: "1px solid #E8EAED",
+              borderRadius: 10,
+              padding: "7px 12px",
+              zIndex: 10,
+            }}
+          >
+            {Object.entries(TYPE_CFG).map(([type, cfg]) => (
+              <div key={cfg.label} style={{ display: "flex", alignItems: "center", gap: 5 }}>
+                <div style={{ width: 7, height: 7, borderRadius: 2, background: cfg.color, flexShrink: 0 }} />
+                <span style={{ fontSize: 10, color: "#9CA3AF", fontFamily: INTER, letterSpacing: "-0.01em" }}>
+                  {cfg.label}
+                </span>
+              </div>
+            ))}
+          </div>
+        </main>
+
+        {/* Right Inspector Panel */}
+        {!isGraphFullscreen && (
+          <InspectorPanel nodes={reduxNodes} node={selectedNode} onNavigate={setSelectedId} />
+        )}
+      </div>
+    </div>
+  );
+}
+
+// ─── Main Export Component with React Flow Provider ──────────────────────────
+
+export default function Architecture() {
+  // Visual mount continuity transition
   useEffect(() => {
     gsap.fromTo(".page-fade", {
       opacity: 0,
-      backgroundColor: "#00E5FF",
     }, {
       opacity: 1,
-      backgroundColor: "#06070b",
       duration: 0.8,
       ease: "power2.out",
     });
   }, []);
 
-  const handleBack = () => {
-    // Reset active room to project-brain to break the auto-portal redirection loop
-    dispatch(setActiveRoom("project-brain"));
-    navigate("/workspace");
-  };
-
-  if (!selectedProject) return null;
-
   return (
-    <div className="min-h-screen w-full text-slate-100 flex flex-col font-sans select-none relative overflow-hidden page-fade">
-      
-      {/* Background ambient lighting */}
-      <div className="absolute top-0 left-1/4 w-[500px] h-[500px] pointer-events-none rounded-full"
-        style={{ background: "radial-gradient(circle, rgba(0,229,255,0.025) 0%, transparent 70%)", zIndex: 0 }} 
-      />
-      <div className="absolute bottom-0 right-1/4 w-[600px] h-[600px] pointer-events-none rounded-full"
-        style={{ background: "radial-gradient(circle, rgba(0,229,255,0.015) 0%, transparent 70%)", zIndex: 0 }} 
-      />
-
-      {/* Top Header Panel */}
-      <header className="relative z-10 w-full flex items-center justify-between border-b border-white/5 bg-black/40 backdrop-blur-md px-6 py-4.5 select-none">
-        <div className="flex items-center gap-4">
-          <button
-            onClick={handleBack}
-            className="flex items-center gap-2 px-3.5 py-2 rounded-lg border border-white/10 hover:border-white/20 bg-white/5 hover:bg-white/10 text-xs font-mono uppercase tracking-wider text-slate-300 hover:text-white transition-all cursor-pointer font-bold"
-          >
-            <ArrowLeft size={13} strokeWidth={2.5} />
-            Command Center
-          </button>
-          <span className="w-px h-4 bg-white/15" />
-          <div className="flex items-center gap-2">
-            <span className="text-[10px] font-mono uppercase tracking-widestest text-ink-faint">
-              {selectedProject.name} // Architecture Studio
-            </span>
-            <span className="font-mono text-[8px] uppercase tracking-widestest px-1.5 py-0.5 bg-white/5 border border-white/5 rounded text-ink-faint font-semibold">
-              {selectedProject.framework}
-            </span>
-          </div>
-        </div>
-
-        <div className="flex items-center gap-5">
-          <div className="flex items-center gap-2">
-            <span className="w-1.5 h-1.5 rounded-full bg-accent animate-pulse" />
-            <span className="font-mono text-[9px] uppercase tracking-widestest text-accent font-bold">
-              PORTAL_STABLE
-            </span>
-          </div>
-          <span className="w-px h-4 bg-white/15" />
-          <div className="text-[10px] font-mono text-slate-400 tracking-widestest uppercase">
-            Studio // v1.4
-          </div>
-        </div>
-      </header>
-
-      {/* Main Workspace Body Layout */}
-      <div className="flex-1 w-full flex relative z-10 min-h-0 overflow-hidden">
-        
-        {/* Left Directory Tree Mock Pane */}
-        <aside className="w-64 border-r border-white/5 bg-black/25 p-6 flex flex-col gap-6 select-none shrink-0 overflow-y-auto">
-          <div>
-            <h4 className="font-mono text-[9px] uppercase tracking-widestest text-slate-400 mb-3.5 font-bold">
-              Detected Files
-            </h4>
-            <div className="flex flex-col gap-2.5">
-              {[
-                { name: "main.jsx", active: true },
-                { name: "app/Router.jsx", active: true },
-                { name: "app/App.jsx", active: true },
-                { name: "pages/Workspace.jsx", active: false },
-                { name: "pages/Hub.jsx", active: false },
-                { name: "components/hub/ImportProjectModal.jsx", active: false },
-                { name: "redux/slices/uiSlice.js", active: false },
-              ].map((f) => (
-                <div key={f.name} className={`flex items-center gap-2 px-3 py-2 rounded-lg border transition-colors ${
-                  f.active 
-                    ? "border-accent/15 bg-accent/5 text-slate-100" 
-                    : "border-transparent text-slate-500 hover:text-slate-300"
-                }`}>
-                  <FileCode size={12} className={f.active ? "text-accent" : "text-slate-500"} />
-                  <span className="font-mono text-[10px] truncate">{f.name}</span>
-                </div>
-              ))}
-            </div>
-          </div>
-
-          <div className="mt-auto border-t border-white/5 pt-4.5">
-            <div className="p-3 rounded-xl bg-white/5 border border-white/5 flex flex-col gap-2">
-              <span className="font-mono text-[8px] uppercase tracking-widest text-slate-400">Scanner Engine</span>
-              <span className="font-mono text-[11px] font-bold text-accent">BABEL-AST-V2</span>
-            </div>
-          </div>
-        </aside>
-
-        {/* Center Graph Mock Area */}
-        <main className="flex-1 flex flex-col relative bg-[#090b11]/30">
-          
-          {/* Visual Grid Lines Background Overlay */}
-          <div className="absolute inset-0 opacity-[0.02] pointer-events-none select-none" style={{
-            backgroundImage: "linear-gradient(#fff 1px, transparent 1px), linear-gradient(90deg, #fff 1px, transparent 1px)",
-            backgroundSize: "24px 24px"
-          }} />
-
-          {/* Top visual parameters indicators */}
-          <div className="flex justify-between items-center px-8 py-4 border-b border-white/5">
-            <div className="flex items-center gap-3">
-              <GitMerge size={14} className="text-accent" />
-              <span className="font-display font-[800] text-[12px] tracking-tightest uppercase text-slate-200">
-                Component Dependency Map
-              </span>
-            </div>
-            <div className="flex gap-4">
-              <div className="flex items-center gap-1.5 text-[9px] font-mono text-slate-400">
-                <CheckCircle size={10} className="text-green-500" />
-                AST parsed successfully
-              </div>
-            </div>
-          </div>
-
-          {/* Placeholder Graph Area */}
-          <div className="flex-1 flex flex-col items-center justify-center p-8 text-center relative select-none">
-            
-            {/* Holographic Target rings in center */}
-            <div className="absolute w-[240px] h-[240px] rounded-full border border-dashed border-accent/10 animate-spin" style={{ animationDuration: "35s" }} />
-            <div className="absolute w-[180px] h-[180px] rounded-full border border-dashed border-accent/20 animate-spin" style={{ animationDuration: "20s" }} />
-
-            <div className="relative z-10 max-w-sm flex flex-col items-center gap-4.5">
-              <div className="w-12 h-12 rounded-xl border border-accent/20 bg-accent/5 flex items-center justify-center text-accent shadow-[0_0_20px_rgba(0,229,255,0.1)]">
-                <GitMerge size={22} />
-              </div>
-              <div>
-                <h3 className="font-display font-[800] text-lg text-white tracking-tightest leading-none mb-2">
-                  Architecture Studio Portal Stable
-                </h3>
-                <p className="font-mono text-[9.5px] uppercase tracking-wider text-accent mb-4">
-                  /01_COMPONENT_TREE
-                </p>
-                <p className="text-xs text-slate-400 leading-relaxed">
-                  The Three.js scene has successfully decoupled. Ready to mount the React Flow graph canvas and component dependency nodes in Sprint 7.
-                </p>
-              </div>
-            </div>
-
-            {/* Bottom mini status bar */}
-            <div className="absolute bottom-6 left-8 right-8 flex justify-between items-center text-[8px] font-mono text-slate-500 uppercase tracking-widestest">
-              <span>Nodes: 3 / Edges: 2</span>
-              <span>Memory usage: negligible</span>
-            </div>
-          </div>
-
-        </main>
-
-      </div>
-    </div>
+    <ReactFlowProvider>
+      <ArchitectureFlow />
+    </ReactFlowProvider>
   );
-};
-
-export default Architecture;
+}

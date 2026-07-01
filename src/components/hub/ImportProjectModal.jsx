@@ -5,6 +5,7 @@ import {
   detectFromDirectoryHandle,
   detectFromZip,
 } from "@/lib/projectDetector";
+import { saveProjectHandle } from "@/lib/analysis/projectStore";
 
 // ---------------------------------------------------------------------------
 // Icon components (inline SVG — no extra dep)
@@ -59,6 +60,7 @@ const STATES = {
   ZIP_DROP:  "zip-drop",  // show ZIP dropzone
   DETECTING: "detecting", // reading + analysing
   REVIEW:    "review",    // show detected summary, confirm
+  IMPORTING: "importing", // simulated fetching/processing
   ERROR:     "error",     // show error
 };
 
@@ -90,6 +92,14 @@ const ImportProjectModal = ({ onClose }) => {
       const dirHandle = await window.showDirectoryPicker({ mode: "read" });
       setView(STATES.DETECTING);
       const result = await detectFromDirectoryHandle(dirHandle);
+      
+      const projectId = crypto.randomUUID();
+      result.id = projectId;
+
+      if (!window.projectHandles) window.projectHandles = {};
+      window.projectHandles[projectId] = dirHandle;
+      await saveProjectHandle(projectId, dirHandle);
+
       setDetected(result);
       setView(STATES.REVIEW);
     } catch (err) {
@@ -112,6 +122,14 @@ const ImportProjectModal = ({ onClose }) => {
     setView(STATES.DETECTING);
     try {
       const result = await detectFromZip(file);
+      
+      const projectId = crypto.randomUUID();
+      result.id = projectId;
+
+      if (!window.projectZipFiles) window.projectZipFiles = {};
+      window.projectZipFiles[projectId] = file;
+      await saveProjectHandle(projectId, file);
+
       setDetected(result);
       setView(STATES.REVIEW);
     } catch (err) {
@@ -131,8 +149,11 @@ const ImportProjectModal = ({ onClose }) => {
   // Confirm import
   const handleConfirm = () => {
     if (!detected) return;
-    dispatch(addProject(detected));
-    onClose();
+    setView(STATES.IMPORTING);
+    setTimeout(() => {
+      dispatch(addProject(detected));
+      onClose();
+    }, 1800); // 1.8 seconds fetch simulation
   };
 
   return (
@@ -190,6 +211,7 @@ const ImportProjectModal = ({ onClose }) => {
             {view === STATES.IDLE     && <IdleView onFolder={handleSelectFolder} onZip={() => setView(STATES.ZIP_DROP)} />}
             {view === STATES.ZIP_DROP && <ZipDropView zipInputRef={zipInputRef} isDragging={isDragging} setIsDragging={setIsDragging} onDrop={handleDrop} onInputChange={handleZipInputChange} onBack={() => setView(STATES.IDLE)} />}
             {view === STATES.DETECTING && <DetectingView />}
+            {view === STATES.IMPORTING && <ImportingView />}
             {view === STATES.REVIEW   && <ReviewView detected={detected} onConfirm={handleConfirm} onBack={() => setView(STATES.IDLE)} />}
             {view === STATES.ERROR    && <ErrorView message={errorMsg} onBack={() => { setErrorMsg(""); setView(STATES.IDLE); }} />}
           </div>
@@ -415,6 +437,15 @@ const DetectingView = () => (
     <SpinnerIcon />
     <p className="font-mono text-[9.5px] uppercase tracking-wider text-neutral-400">
       Analysing project structure…
+    </p>
+  </div>
+);
+
+const ImportingView = () => (
+  <div className="flex flex-col items-center justify-center py-14 gap-4.5">
+    <SpinnerIcon />
+    <p className="font-mono text-[9.5px] uppercase tracking-wider text-neutral-500 font-bold animate-pulse">
+      Fetching & indexing project source…
     </p>
   </div>
 );
