@@ -1,6 +1,13 @@
 # React Architect Features
 
-React Architect provides a multi-dimensional inspection suite composed of five specialized developer studios.
+React Architect provides a multi-dimensional inspection suite powered by a centralized Knowledge Graph and composed of five specialized developer studios.
+
+## 0. Centralized Knowledge Graph Engine
+The single source of truth database representing your project DNA:
+* **Framework-Agnostic Schema**: Normalized generic node structure mapping ID, Kind, Subtype, Name, and Metadata.
+* **Standardized Relationship Edges**: Unified dependency tracking using relationship descriptors (`IMPORTS`, `RENDERS`, `USES_HOOK`, `USES_CONTEXT`, `USES_API`, `STATE_CONSUMER`).
+* **Structured Validator**: Integrated analysis scoring for circular rendering cycles, duplicate IDs, orphaned nodes, and code metrics.
+* **Decoupled Layout Engine**: Hierarchical position solver computing visual coordinate properties separate from client adapters.
 
 ---
 

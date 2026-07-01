@@ -306,18 +306,20 @@ export default function Documentation() {
   const dispatch = useDispatch();
   const navigate = useNavigate();
   const selectedProject = useSelector(selectSelectedProject);
-  const reduxFiles = useSelector((state) => state.graph.files) || [];
+  const knowledgeGraph = useSelector((state) => state.graph.knowledgeGraph);
 
   const [selectedDocPath, setSelectedDocPath] = useState("");
 
   // Retrieve MD documents
   const docFiles = useMemo(() => {
-    // Search raw project files cache in window
-    const cachedFiles = window.projectFiles || [];
-    const mdFiles = cachedFiles.filter(f => f.path.toLowerCase().endsWith(".md"));
+    const mdNodes = knowledgeGraph?.nodes.filter(n => n.kind === "file" && n.subtype === "markdown") || [];
 
-    if (mdFiles.length > 0) {
-      return mdFiles;
+    if (mdNodes.length > 0) {
+      return mdNodes.map(node => ({
+        path: node.file,
+        name: node.name,
+        content: node.metadata?.content || "",
+      }));
     }
 
     // Default Seed Fallbacks
@@ -349,7 +351,7 @@ All notable changes to this project will be documented in this file.
 - Connected Route, State, and API dynamic graphs.`,
       }
     ];
-  }, [reduxFiles]);
+  }, [knowledgeGraph]);
 
   // Set default selection
   useEffect(() => {

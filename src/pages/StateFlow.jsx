@@ -3,6 +3,7 @@ import { useSelector, useDispatch } from "react-redux";
 import { useNavigate } from "react-router-dom";
 import { setActiveRoom } from "@/redux/slices/uiSlice";
 import { selectSelectedProject } from "@/redux/slices/hubSlice";
+import { selectNodeId, clearSelection } from "@/redux/slices/graphSlice";
 import { motion } from "framer-motion";
 import gsap from "gsap";
 import {
@@ -19,6 +20,7 @@ import {
   useReactFlow,
   ReactFlowProvider,
 } from "@xyflow/react";
+import { toReactFlow } from "@/engines/adapters/reactFlowAdapter";
 import "@xyflow/react/dist/style.css";
 
 // ─── Constants ────────────────────────────────────────────────────────────────
@@ -40,7 +42,8 @@ const TYPE_CFG = {
 
 function CustomStateNode({ data }) {
   const { node, isSelected, isConnected } = data;
-  const cfg = TYPE_CFG[node.type] || TYPE_CFG.user;
+  const typeKey = node.kind === "component" ? "user" : node.subtype;
+  const cfg = TYPE_CFG[typeKey] || TYPE_CFG.slice;
 
   const shadow = isSelected
     ? `0 0 0 2.5px ${cfg.color}30, 0 8px 28px rgba(0,0,0,0.10), 0 2px 6px rgba(0,0,0,0.06)`
@@ -53,6 +56,9 @@ function CustomStateNode({ data }) {
     : isConnected
     ? cfg.color + "44"
     : "#E8EAED";
+
+  const sliceKeys = node.metadata?.keys || [];
+  const hookDetails = node.metadata?.hooks?.filter(h => h.includes("Selector") || h.includes("Dispatch")).join(", ") || "useSelector";
 
   return (
     <div style={{ position: "relative" }}>
@@ -115,7 +121,7 @@ function CustomStateNode({ data }) {
           textOverflow: "ellipsis",
           whiteSpace: "nowrap",
         }}>
-          {node.type === "slice" && node.keys ? `keys: ${node.keys.join(", ")}` : node.details}
+          {node.kind === "state" && node.subtype === "slice" && sliceKeys.length > 0 ? `keys: ${sliceKeys.join(", ")}` : hookDetails}
         </div>
 
         <div style={{ flex: 1 }} />
@@ -131,7 +137,7 @@ function CustomStateNode({ data }) {
           borderTop: "1px solid #F3F4F6",
           paddingTop: 6,
         }}>
-          {node.filePath}
+          {node.file}
         </div>
       </div>
 
@@ -282,7 +288,7 @@ function InspectorPanel({ node }) {
               </span>
             </div>
             <p style={{ fontSize: 10, color: "#B8BEC9", fontFamily: MONO, margin: "5px 0 0" }}>
-              {node.filePath}
+              {node.file}
             </p>
           </div>
 
@@ -292,18 +298,18 @@ function InspectorPanel({ node }) {
           <div>
             <SectionLabel>Description</SectionLabel>
             <p className="text-xs text-neutral-600 leading-relaxed font-sans">
-              {node.type === "store" && "Central store configuring reducer slices and middlewares."}
-              {node.type === "slice" && "Redux toolkit slice managing slice variables, action creators, and state reducers."}
-              {node.type === "user" && "React Component that hooks into the central state using useSelector hooks."}
+              {node.kind === "state" && node.subtype === "store" && "Central store configuring reducer slices and middlewares."}
+              {node.kind === "state" && node.subtype === "slice" && "Redux toolkit slice managing slice variables, action creators, and state reducers."}
+              {node.kind === "component" && "React Component that hooks into the central state using useSelector hooks."}
             </p>
           </div>
 
-          {node.keys && node.keys.length > 0 && (
+          {node.metadata?.keys && node.metadata.keys.length > 0 && (
             <>
               <Sep />
               <SectionLabel>State Variables</SectionLabel>
               <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
-                {node.keys.map(k => (
+                {node.metadata.keys.map(k => (
                   <span key={k} style={{
                     fontSize: 10.5,
                     fontFamily: MONO,
@@ -458,15 +464,20 @@ function StateFlowInner() {
   const navigate = useNavigate();
   
   const selectedProject = useSelector(selectSelectedProject);
-  const reduxNodes = useSelector((state) => state.graph.nodes);
+  const knowledgeGraph = useSelector((state) => state.graph.knowledgeGraph);
   const reduxFiles = useSelector((state) => state.graph.files) || [];
 
   const { fitView, zoomIn, zoomOut } = useReactFlow();
 
   const [nodes, setNodes, onNodesChange] = useNodesState([]);
   const [edges, setEdges, onEdgesChange] = useEdgesState([]);
-  const [selectedId, setSelectedId] = useState("");
   const [isGraphFullscreen, setIsGraphFullscreen] = useState(false);
+
+  const selectedId = useSelector((state) => state.graph.selectedNodeId);
+
+  const setSelectedId = useCallback((id) => {
+    dispatch(selectNodeId(id));
+  }, [dispatch]);
 
   const nodeTypes = useMemo(() => ({
     customState: CustomStateNode,
@@ -474,130 +485,71 @@ function StateFlowInner() {
 
   // Dynamically build the Redux/State flow nodes from project components
   const { stateNodes, stateEdges } = useMemo(() => {
-    if (!selectedProject) return { stateNodes: [], stateEdges: [] };
+    if (!knowledgeGraph) return { stateNodes: [], stateEdges: [] };
 
-    // Find if the project has Redux
-    const hasRedux = selectedProject.hasRedux || reduxNodes.some(n => n.deps?.includes("redux") || n.deps?.includes("@reduxjs/toolkit"));
-
-    const nodesList = [];
-    const edgesList = [];
-
-    // Base store node
-    const storeNode = {
-      id: "store-core",
-      name: "ReduxStore",
-      type: "store",
-      filePath: "src/redux/store.js",
-      details: "configureStore()",
-      x: 888,
-      y: 80,
-    };
-    nodesList.push(storeNode);
-
-    // Slices
-    const authSlice = {
-      id: "slice-auth",
-      name: "authSlice",
-      type: "slice",
-      filePath: "src/redux/authSlice.js",
-      keys: ["currentUser", "users", "status"],
-      x: 600,
-      y: 240,
-    };
-    const uiSlice = {
-      id: "slice-ui",
-      name: "uiSlice",
-      type: "slice",
-      filePath: "src/redux/uiSlice.js",
-      keys: ["appMode", "activeRoom", "sidebarOpen"],
-      x: 1176,
-      y: 240,
-    };
-    nodesList.push(authSlice, uiSlice);
-
-    edgesList.push(
-      { from: "store-core", to: "slice-auth" },
-      { from: "store-core", to: "slice-ui" }
+    const sNodes = knowledgeGraph.nodes.filter(n => n.kind === "state") || [];
+    const consumerIds = new Set(
+      knowledgeGraph.edges
+        .filter(e => e.type === "STATE_CONSUMER")
+        .map(e => e.target)
     );
+    const compConsumers = (knowledgeGraph.nodes || []).filter(n => consumerIds.has(n.id));
+    const nodesList = [...sNodes, ...compConsumers];
 
-    // Filter components consuming state
-    const consumers = reduxNodes.filter(n => n.hooks?.some(h => h.includes("Selector") || h.includes("dispatch") || h.includes("Dispatch")));
-    
-    consumers.forEach((comp, idx) => {
-      const isAuthConsumer = comp.name.toLowerCase().includes("login") || comp.name.toLowerCase().includes("signup") || comp.name.toLowerCase().includes("user") || comp.name.toLowerCase().includes("dashboard");
-      const targetSlice = isAuthConsumer ? "slice-auth" : "slice-ui";
-      
-      const compNodeId = `comp-${comp.name}`;
-      nodesList.push({
-        id: compNodeId,
-        name: comp.name,
-        type: "user",
-        filePath: comp.filePath,
-        details: comp.hooks.filter(h => h.includes("Selector") || h.includes("Dispatch")).join(", "),
-        x: isAuthConsumer ? 400 + idx * 240 : 1000 + idx * 240,
-        y: 400,
-      });
-
-      edgesList.push({
-        from: targetSlice,
-        to: compNodeId,
-      });
-    });
-
-    // Adapt coordinates
-    const spacing = 280;
-    const startX = (2100 - (nodesList.filter(n => n.type === "user").length * spacing)) / 2;
-    let userIdx = 0;
-    nodesList.forEach(n => {
-      if (n.type === "user") {
-        n.x = startX + userIdx * spacing;
-        n.y = 400;
-        userIdx++;
-      }
-    });
+    const edgesList = knowledgeGraph.edges.filter(
+      e => e.type === "STATE_CONSUMER" || (e.type === "DEPENDENCY" && e.source.includes("store") && e.target.includes("slice"))
+    ) || [];
 
     return { stateNodes: nodesList, stateEdges: edgesList };
-  }, [selectedProject, reduxNodes]);
+  }, [knowledgeGraph]);
 
   // Pre-select first state node
   useEffect(() => {
     if (stateNodes.length > 0 && !selectedId) {
       setSelectedId(stateNodes[0].id);
     }
-  }, [stateNodes, selectedId]);
+  }, [stateNodes, selectedId, setSelectedId]);
 
   // Map to React Flow
   const { rfNodes, rfEdges } = useMemo(() => {
     const connectedKeys = new Set();
     if (selectedId) {
       stateEdges.forEach(e => {
-        if (e.from === selectedId || e.to === selectedId) {
-          connectedKeys.add(`${e.from}|${e.to}`);
-          connectedKeys.add(e.from);
-          connectedKeys.add(e.to);
+        if (e.source === selectedId || e.target === selectedId) {
+          connectedKeys.add(`${e.source}|${e.target}`);
+          connectedKeys.add(e.source);
+          connectedKeys.add(e.target);
         }
       });
     }
 
-    const n = stateNodes.map(node => ({
-      id: node.id,
-      type: "customState",
-      position: { x: node.x, y: node.y },
-      data: {
-        node,
-        isSelected: selectedId === node.id,
-        isConnected: connectedKeys.has(node.id),
-      },
-      width: NW,
-      height: NH,
-    }));
+    const n = stateNodes.map(node => {
+      const isSelected = selectedId === node.id;
+      const isConnected = connectedKeys.has(node.id);
+      
+      const x = node.metadata.x !== undefined ? node.metadata.x : 100;
+      const y = node.metadata.y !== undefined ? node.metadata.y : 100;
+
+      return {
+        id: node.id,
+        type: "customState",
+        position: { x, y },
+        data: {
+          node,
+          isSelected,
+          isConnected,
+        },
+        width: NW,
+        height: NH,
+      };
+    });
 
     const e = stateEdges.map(edge => {
-      const active = connectedKeys.has(`${edge.from}|${edge.to}`);
+      const active = connectedKeys.has(`${edge.source}|${edge.target}`);
       return {
-        id: `edge-${edge.from}-${edge.to}`,
-        source: edge.from,
-        target: edge.to,
+        id: `edge-${edge.id}`,
+        source: edge.source,
+        target: edge.target,
         type: "smoothstep",
         animated: active,
         style: {

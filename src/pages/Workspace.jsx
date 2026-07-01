@@ -3,14 +3,163 @@ import { useSelector, useDispatch } from "react-redux";
 import { useNavigate } from "react-router-dom";
 import { Layers } from "lucide-react";
 import { setActiveRoom, setAppMode } from "@/redux/slices/uiSlice";
-import { setNodes, setEdges, setFiles, setRouteNodes, setRouteEdges } from "@/redux/slices/graphSlice";
+import { setFiles, setKnowledgeGraph } from "@/redux/slices/graphSlice";
 import {
   selectSelectedProject,
   clearSelectedProject,
 } from "@/redux/slices/hubSlice";
 import WorkspaceScene from "@/features/workspace/WorkspaceScene";
 import { getProjectHandle } from "@/lib/analysis/projectStore";
-import { buildRouteGraph } from "@/lib/analysis/routeParser";
+import { buildKnowledgeGraph } from "@/engines/graph/buildKnowledgeGraph";
+
+const MOCK_FILES_CONTENT = {
+  "README.md": `# Project Guide
+Welcome to the React Architect workspace documentation.
+
+## Getting Started
+To view your project structure in real time:
+- Enter the **Architecture Studio** to see components.
+- Enter the **Route Studio** to examine endpoint mapping trees.
+- Browse slices in the **State Studio**.
+
+---
+*Generated dynamically by the React Architect scanner engine.*`,
+
+  "docs/CHANGELOG.md": `# Changelog
+All notable changes to this project will be documented in this file.
+
+## [3.0.0] - Centralized Knowledge Graph Engine
+- Integrated unified AST parsing extractor.
+- Decoupled visual layout calculation coordinates.`,
+
+  "src/App.jsx": `import React from 'react';
+import Router from './app/router';
+export default function App() {
+  return <Router />;
+}`,
+
+  "src/app/router.jsx": `import React from 'react';
+import { createBrowserRouter, RouterProvider } from 'react-router-dom';
+import App from '../App';
+import Login from '../pages/Login';
+import Dashboard from '../pages/Dashboard';
+
+const router = createBrowserRouter([
+  { path: '/', element: <App /> },
+  { path: '/login', element: <Login /> },
+  { path: '/dashboard', element: <Dashboard /> }
+]);
+
+export default function Router() {
+  return <RouterProvider router={router} />;
+}`,
+
+  "src/pages/Login.jsx": `import React, { useState } from 'react';
+import { useDispatch } from 'react-redux';
+import FormInput from '../components/FormInput';
+import api from '../services/api';
+
+export default function Login() {
+  const dispatch = useDispatch();
+  const [email, setEmail] = useState('');
+  
+  const handleLogin = () => {
+    api.post('/auth/login', { email });
+  };
+
+  return <FormInput value={email} onChange={setEmail} onSubmit={handleLogin} />;
+}`,
+
+  "src/pages/Dashboard.jsx": `import React from 'react';
+import Sidebar from '../components/Sidebar';
+
+export default function Dashboard() {
+  return (
+    <div>
+      <Sidebar />
+      <h1>Welcome to Dashboard</h1>
+    </div>
+  );
+}`,
+
+  "src/components/Sidebar.jsx": `import React from 'react';
+export default function Sidebar() {
+  return <aside>Navigation links</aside>;
+}`,
+
+  "src/components/FormInput.jsx": `import React from 'react';
+export default function FormInput({ value, onChange, onSubmit }) {
+  return (
+    <form onSubmit={onSubmit}>
+      <input value={value} onChange={e => onChange(e.target.value)} />
+    </form>
+  );
+}`,
+
+  "src/redux/store.js": `import { configureStore } from '@reduxjs/toolkit';
+import authReducer from './authSlice';
+import uiReducer from './uiSlice';
+
+export const store = configureStore({
+  reducer: {
+    auth: authReducer,
+    ui: uiReducer
+  }
+});`,
+
+  "src/redux/authSlice.js": `import { createSlice } from '@reduxjs/toolkit';
+export const authSlice = createSlice({
+  name: 'auth',
+  initialState: {
+    currentUser: null,
+    users: []
+  },
+  reducers: {}
+});
+export default authSlice.reducer;`,
+
+  "src/redux/uiSlice.js": `import { createSlice } from '@reduxjs/toolkit';
+export const uiSlice = createSlice({
+  name: 'ui',
+  initialState: {
+    appMode: 'dark',
+    sidebarOpen: true
+  },
+  reducers: {}
+});
+export default uiSlice.reducer;`,
+
+  "src/services/api.js": `import axios from 'axios';
+export const api = axios.create({
+  baseURL: 'api.domain.com'
+});`,
+
+  "src/services/endpoints.js": `import { api } from './api';
+export const login = (data) => api.post('/auth/login', data);
+export const signup = (data) => api.post('/auth/signup', data);
+export const getProjects = () => api.get('/projects');`
+};
+
+function generateMockContentForPath(path) {
+  const cleanPath = path.replace(/\\/g, "/");
+  if (MOCK_FILES_CONTENT[cleanPath]) {
+    return MOCK_FILES_CONTENT[cleanPath];
+  }
+  const parts = cleanPath.split("/");
+  const fileName = parts.pop();
+  const name = fileName.split(".")[0];
+  
+  if (cleanPath.endsWith(".md")) {
+    return `# ${name}\nMock document contents for ${cleanPath}.`;
+  }
+  
+  if (cleanPath.includes("/components/") || cleanPath.includes("/pages/") || cleanPath.includes("page.jsx") || cleanPath.includes("layout.jsx") || cleanPath.includes("providers")) {
+    const componentName = name.charAt(0).toUpperCase() + name.slice(1);
+    return `import React from 'react';\nexport default function ${componentName}() {\n  return <div>${componentName} content</div>;\n}`;
+  }
+  
+  return "";
+}
 
 const roomDetails = {
   "project-brain": {
@@ -119,15 +268,12 @@ const Workspace = () => {
 
       // 3. Trigger Scanning
       if (dirHandle || zipFile) {
-        const { analyzeProject } = await import("@/lib/analysis/analyzer");
+        const { analyzeProject } = await import("@/engines/analyzer");
         analyzeProject(selectedProject, dirHandle, zipFile)
-          .then(({ nodes, edges, files, rawFiles, routeNodes, routeEdges }) => {
-            dispatch(setNodes(nodes));
-            dispatch(setEdges(edges));
-            dispatch(setFiles(files));
-            dispatch(setRouteNodes(routeNodes));
-            dispatch(setRouteEdges(routeEdges));
-            window.projectFiles = rawFiles;
+          .then((kg) => {
+            dispatch(setKnowledgeGraph(kg));
+            dispatch(setFiles(kg.files));
+            window.projectFiles = kg.rawFiles;
           })
           .catch(err => {
             console.error("Failed to analyze dynamic project", err);
@@ -136,15 +282,15 @@ const Workspace = () => {
         // Showcase seed fallback
         const { getGraphDataForProject } = await import("@/lib/analysis/mockDataGenerator");
         const { nodes, edges, files } = getGraphDataForProject(selectedProject);
-        dispatch(setNodes(nodes));
-        dispatch(setEdges(edges));
-        dispatch(setFiles(files));
 
-        // Dynamic route matching fallback
-        const mockFiles = files.map(f => ({ path: f, content: "" }));
-        const routeGraph = buildRouteGraph(mockFiles, selectedProject);
-        dispatch(setRouteNodes(routeGraph.nodes));
-        dispatch(setRouteEdges(routeGraph.edges));
+        const mockFiles = files.map(f => ({
+          path: f,
+          content: generateMockContentForPath(f)
+        }));
+        const kg = buildKnowledgeGraph(mockFiles, selectedProject);
+        dispatch(setKnowledgeGraph(kg));
+        dispatch(setFiles(kg.files));
+        window.projectFiles = kg.rawFiles;
       }
     }
 
@@ -163,14 +309,11 @@ const Workspace = () => {
         if (!window.projectHandles) window.projectHandles = {};
         window.projectHandles[projectId] = cachedHandle;
 
-        const { analyzeProject } = await import("@/lib/analysis/analyzer");
-        const { nodes, edges, files, rawFiles, routeNodes, routeEdges } = await analyzeProject(selectedProject, cachedHandle, null);
-        dispatch(setNodes(nodes));
-        dispatch(setEdges(edges));
-        dispatch(setFiles(files));
-        dispatch(setRouteNodes(routeNodes));
-        dispatch(setRouteEdges(routeEdges));
-        window.projectFiles = rawFiles;
+        const { analyzeProject } = await import("@/engines/analyzer");
+        const kg = await analyzeProject(selectedProject, cachedHandle, null);
+        dispatch(setKnowledgeGraph(kg));
+        dispatch(setFiles(kg.files));
+        window.projectFiles = kg.rawFiles;
       }
     } catch (err) {
       console.error("Failed to request permission", err);

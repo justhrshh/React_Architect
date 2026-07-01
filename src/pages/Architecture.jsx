@@ -3,7 +3,7 @@ import { useSelector, useDispatch } from "react-redux";
 import { useNavigate } from "react-router-dom";
 import { setActiveRoom } from "@/redux/slices/uiSlice";
 import { selectSelectedProject } from "@/redux/slices/hubSlice";
-import { setNodes as setReduxNodes, setEdges as setReduxEdges } from "@/redux/slices/graphSlice";
+import { selectNodeId, clearSelection } from "@/redux/slices/graphSlice";
 import { motion } from "framer-motion";
 import gsap from "gsap";
 import {
@@ -20,7 +20,7 @@ import {
   useReactFlow,
   ReactFlowProvider,
 } from "@xyflow/react";
-import { toReactFlow } from "@/lib/analysis/reactFlowAdapter";
+import { toReactFlow } from "@/engines/adapters/reactFlowAdapter";
 import "@xyflow/react/dist/style.css";
 
 // ─── Constants ────────────────────────────────────────────────────────────────
@@ -69,7 +69,7 @@ function NodeMetric({ value, label, accentColor }) {
 
 function CustomNode({ data }) {
   const { node, isSelected, isConnected } = data;
-  const cfg = TYPE_CFG[node.type] || TYPE_CFG.component;
+  const cfg = TYPE_CFG[node.subtype] || TYPE_CFG.component;
 
   const shadow = isSelected
     ? `0 0 0 2.5px ${cfg.color}30, 0 8px 28px rgba(0,0,0,0.10), 0 2px 6px rgba(0,0,0,0.06)`
@@ -82,6 +82,10 @@ function CustomNode({ data }) {
     : isConnected
     ? cfg.color + "44"
     : "#E8EAED";
+
+  const hookCount = node.metadata?.hooks?.length || 0;
+  const childCount = node.metadata?.children?.length || 0;
+  const apiCount = node.metadata?.apiCalls?.length || 0;
 
   return (
     <div style={{ position: "relative" }}>
@@ -146,7 +150,7 @@ function CustomNode({ data }) {
           whiteSpace: "nowrap",
           letterSpacing: "-0.01em",
         }}>
-          {node.filePath}
+          {node.file}
         </div>
 
         <div style={{ flex: 1 }} />
@@ -159,10 +163,10 @@ function CustomNode({ data }) {
           paddingTop: 8,
           borderTop: "1px solid #F3F4F6",
         }}>
-          <NodeMetric value={node.hookCount} label="hooks" />
-          <NodeMetric value={node.childCount} label="children" />
-          {node.apiCount > 0 && (
-            <NodeMetric value={node.apiCount} label="api" accentColor={cfg.color} />
+          <NodeMetric value={hookCount} label="hooks" />
+          <NodeMetric value={childCount} label="children" />
+          {apiCount > 0 && (
+            <NodeMetric value={apiCount} label="api" accentColor={cfg.color} />
           )}
         </div>
       </div>
@@ -256,7 +260,16 @@ function InspectorPanel({ nodes, node, onNavigate }) {
     );
   }
 
-  const cfg = TYPE_CFG[node.type] || TYPE_CFG.component;
+  const cfg = TYPE_CFG[node.subtype] || TYPE_CFG.component;
+
+  const hookCount = node.metadata?.hooks?.length || 0;
+  const childCount = node.metadata?.children?.length || 0;
+  const apiCount = node.metadata?.apiCalls?.length || 0;
+  const propsList = node.metadata?.props || [];
+  const hooksList = node.metadata?.hooks || [];
+  const childrenList = node.metadata?.children || [];
+  const depsList = node.metadata?.deps || [];
+  const importsList = node.metadata?.imports || [];
 
   return (
     <aside style={{
@@ -322,7 +335,7 @@ function InspectorPanel({ nodes, node, onNavigate }) {
               margin: 0,
               letterSpacing: "-0.01em",
             }}>
-              {node.filePath}
+              {node.file}
             </p>
           </div>
 
@@ -336,9 +349,9 @@ function InspectorPanel({ nodes, node, onNavigate }) {
             overflow: "hidden",
           }}>
             {[
-              { label: "Hooks", value: node.hookCount },
-              { label: "Children", value: node.childCount },
-              { label: "API", value: node.apiCount },
+              { label: "Hooks", value: hookCount },
+              { label: "Children", value: childCount },
+              { label: "API", value: apiCount },
             ].map((stat, i) => (
               <div
                 key={stat.label}
@@ -374,12 +387,12 @@ function InspectorPanel({ nodes, node, onNavigate }) {
           </div>
 
           {/* Props */}
-          {node.props && node.props.length > 0 && (
+          {propsList.length > 0 && (
             <>
               <Sep />
               <SectionLabel>Props</SectionLabel>
               <div style={{ display: "flex", flexDirection: "column", gap: 7 }}>
-                {node.props.map(prop => (
+                {propsList.map(prop => (
                   <div
                     key={prop.name}
                     style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8 }}
@@ -425,12 +438,12 @@ function InspectorPanel({ nodes, node, onNavigate }) {
           )}
 
           {/* Hooks */}
-          {node.hooks && node.hooks.length > 0 && (
+          {hooksList.length > 0 && (
             <>
               <Sep />
               <SectionLabel>Hooks</SectionLabel>
               <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
-                {node.hooks.map(hook => {
+                {hooksList.map(hook => {
                   const builtin = BUILTIN_HOOKS.has(hook);
                   return (
                     <div
@@ -477,12 +490,12 @@ function InspectorPanel({ nodes, node, onNavigate }) {
           )}
 
           {/* Children */}
-          {node.children && node.children.length > 0 && (
+          {childrenList.length > 0 && (
             <>
               <Sep />
               <SectionLabel>Children</SectionLabel>
               <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
-                {node.children.map(child => {
+                {childrenList.map(child => {
                   const childNode = nodes.find(n => n.name === child);
                   return (
                     <button
@@ -519,12 +532,12 @@ function InspectorPanel({ nodes, node, onNavigate }) {
           )}
 
           {/* Dependencies */}
-          {node.deps && node.deps.length > 0 && (
+          {depsList.length > 0 && (
             <>
               <Sep />
               <SectionLabel>Dependencies</SectionLabel>
               <div style={{ display: "flex", flexDirection: "column", gap: 5 }}>
-                {node.deps.map(dep => (
+                {depsList.map(dep => (
                   <div
                     key={dep}
                     style={{
@@ -557,7 +570,7 @@ function InspectorPanel({ nodes, node, onNavigate }) {
           )}
 
           {/* Imports */}
-          {node.imports && node.imports.length > 0 && (
+          {importsList.length > 0 && (
             <>
               <Sep />
               <SectionLabel>Imports</SectionLabel>
@@ -570,7 +583,7 @@ function InspectorPanel({ nodes, node, onNavigate }) {
                 margin: 0,
                 whiteSpace: "pre-wrap"
               }}>
-                {node.imports.join(",\n")}
+                {importsList.join(",\n")}
               </p>
             </>
           )}
@@ -755,9 +768,22 @@ function ArchitectureFlow() {
   const navigate = useNavigate();
   
   const selectedProject = useSelector(selectSelectedProject);
-  const reduxNodes = useSelector((state) => state.graph.nodes);
-  const reduxEdges = useSelector((state) => state.graph.edges);
+  const knowledgeGraph = useSelector((state) => state.graph.knowledgeGraph);
   const reduxFiles = useSelector((state) => state.graph.files) || [];
+
+  const reduxNodes = useMemo(() => {
+    return knowledgeGraph?.nodes.filter(n => n.kind === "component") || [];
+  }, [knowledgeGraph]);
+
+  const reduxEdges = useMemo(() => {
+    return knowledgeGraph?.edges.filter(e => e.type === "RENDERS") || [];
+  }, [knowledgeGraph]);
+
+  const selectedId = useSelector((state) => state.graph.selectedNodeId);
+
+  const setSelectedId = useCallback((id) => {
+    dispatch(selectNodeId(id));
+  }, [dispatch]);
 
   const [isGraphFullscreen, setIsGraphFullscreen] = useState(false);
 
@@ -775,22 +801,20 @@ function ArchitectureFlow() {
 
   const [nodes, setNodes, onNodesChange] = useNodesState([]);
   const [edges, setEdges, onEdgesChange] = useEdgesState([]);
-  const [selectedId, setSelectedId] = useState("");
 
   const nodeTypes = useMemo(() => ({
-    custom: CustomNode,
+    customNode: CustomNode,
   }), []);
 
   // Pre-select default page node
   useEffect(() => {
     if (reduxNodes.length > 0 && !selectedId) {
-      const hasDashboard = reduxNodes.some(n => n.id === "DashboardPage");
-      const hasPageDashboard = reduxNodes.some(n => n.id === "page-dashboard");
-      const hasApp = reduxNodes.some(n => n.id === "App");
-      const defaultId = hasDashboard ? "DashboardPage" : hasPageDashboard ? "page-dashboard" : hasApp ? "App" : reduxNodes[0].id;
-      setSelectedId(defaultId);
+      const dashboardNode = reduxNodes.find(n => n.name.toLowerCase().includes("dashboard") || n.id.toLowerCase().includes("dashboard"));
+      const appNode = reduxNodes.find(n => n.name === "App" || n.id.includes("App"));
+      const defaultNode = dashboardNode || appNode || reduxNodes[0];
+      setSelectedId(defaultNode.id);
     }
-  }, [reduxNodes, selectedId]);
+  }, [reduxNodes, selectedId, setSelectedId]);
 
   // Map to React Flow models when nodes/edges or selection changes
   useEffect(() => {
@@ -863,7 +887,7 @@ function ArchitectureFlow() {
             </h4>
             <div className="flex flex-col gap-2">
               {uniqueFiles.map((f) => {
-                const active = selectedNode && selectedNode.filePath === f;
+                const active = selectedNode && selectedNode.file === f;
                 return (
                   <div key={f} className={`flex items-center gap-2 px-3 py-1.5 rounded-lg border transition-colors ${
                     active 

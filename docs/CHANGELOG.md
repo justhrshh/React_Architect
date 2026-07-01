@@ -1,3 +1,17 @@
+# v3.0 — Centralized Knowledge Graph Engine & Refactored Studio Pages
+
+## Added
+* **Centralized Knowledge Graph (KG) Engine**:
+  - Modularized the parsing and analysis pipeline into framework-agnostic node (`nodeFactory.js`) and standardized relationship edge (`edgeFactory.js`) constructors.
+  - Implemented structured validation (`graphValidator.js`) detecting duplicates, orphan elements, large components, and circular rendering loops.
+  - Deployed a standalone layout engine (`layoutEngine.js`) to compute node coordinate properties separate from React Flow adapters.
+  - Created modular extractor scripts under `src/engines/parser/extractors/` (component, hook, import, export, context, redux, route, api).
+* **Refactored Exploration Studios**:
+  - Updated Component Architecture, Routes, State Flow, API, and Documentation studio pages to consume data directly from the unified Redux `knowledgeGraph` state database.
+  - Standardized stable node identifiers (`component:file:name`) to maintain persistent selections across workspace views.
+
+---
+
 # v2.0 — Real AST analysis & Interactive Workspace Explorer Studios
 
 ## Added

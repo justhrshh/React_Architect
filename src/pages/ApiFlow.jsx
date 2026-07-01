@@ -3,6 +3,7 @@ import { useSelector, useDispatch } from "react-redux";
 import { useNavigate } from "react-router-dom";
 import { setActiveRoom } from "@/redux/slices/uiSlice";
 import { selectSelectedProject } from "@/redux/slices/hubSlice";
+import { selectNodeId, clearSelection } from "@/redux/slices/graphSlice";
 import { motion } from "framer-motion";
 import gsap from "gsap";
 import {
@@ -19,6 +20,7 @@ import {
   useReactFlow,
   ReactFlowProvider,
 } from "@xyflow/react";
+import { toReactFlow } from "@/engines/adapters/reactFlowAdapter";
 import "@xyflow/react/dist/style.css";
 
 // ─── Constants ────────────────────────────────────────────────────────────────
@@ -40,7 +42,8 @@ const TYPE_CFG = {
 
 function CustomApiNode({ data }) {
   const { node, isSelected, isConnected } = data;
-  const cfg = TYPE_CFG[node.type] || TYPE_CFG.endpoint;
+  const typeKey = node.kind === "component" ? "consumer" : (node.subtype === "gateway" ? "service" : "endpoint");
+  const cfg = TYPE_CFG[typeKey] || TYPE_CFG.endpoint;
 
   const shadow = isSelected
     ? `0 0 0 2.5px ${cfg.color}30, 0 8px 28px rgba(0,0,0,0.10), 0 2px 6px rgba(0,0,0,0.06)`
@@ -53,6 +56,10 @@ function CustomApiNode({ data }) {
     : isConnected
     ? cfg.color + "44"
     : "#E8EAED";
+
+  const details = node.kind === "component"
+    ? (node.metadata?.apiCalls?.join(", ") || "API Fetch")
+    : (node.subtype === "gateway" ? `Base URL: ${node.metadata?.baseURL || "axios"}` : "HTTP Method Call");
 
   return (
     <div style={{ position: "relative" }}>
@@ -85,7 +92,7 @@ function CustomApiNode({ data }) {
             color: "#111827",
             letterSpacing: "-0.015em",
             lineHeight: 1.25,
-            fontFamily: node.type === "endpoint" ? MONO : INTER,
+            fontFamily: node.kind === "api" && node.subtype === "endpoint" ? MONO : INTER,
           }}>
             {node.name}
           </span>
@@ -115,7 +122,7 @@ function CustomApiNode({ data }) {
           textOverflow: "ellipsis",
           whiteSpace: "nowrap",
         }}>
-          {node.details}
+          {details}
         </div>
 
         <div style={{ flex: 1 }} />
@@ -131,7 +138,7 @@ function CustomApiNode({ data }) {
           borderTop: "1px solid #F3F4F6",
           paddingTop: 6,
         }}>
-          {node.filePath}
+          {node.file}
         </div>
       </div>
 
@@ -282,7 +289,7 @@ function InspectorPanel({ node }) {
               </span>
             </div>
             <p style={{ fontSize: 10, color: "#B8BEC9", fontFamily: MONO, margin: "5px 0 0" }}>
-              {node.filePath}
+              {node.file}
             </p>
           </div>
 
@@ -292,9 +299,9 @@ function InspectorPanel({ node }) {
           <div>
             <SectionLabel>Description</SectionLabel>
             <p className="text-xs text-neutral-600 leading-relaxed font-sans">
-              {node.type === "service" && "Modular service wrapping HTTP request operations (axios/fetch)."}
-              {node.type === "endpoint" && "Backend REST API endpoint that manages resource payloads."}
-              {node.type === "consumer" && "React Component that invokes the API service during fetch/effect cycles."}
+              {node.kind === "api" && node.subtype === "gateway" && "Modular service wrapping HTTP request operations (axios/fetch)."}
+              {node.kind === "api" && node.subtype === "endpoint" && "Backend REST API endpoint that manages resource payloads."}
+              {node.kind === "component" && "React Component that invokes the API service during fetch/effect cycles."}
             </p>
           </div>
 
@@ -436,129 +443,93 @@ function ApiFlowInner() {
   const navigate = useNavigate();
   
   const selectedProject = useSelector(selectSelectedProject);
-  const reduxNodes = useSelector((state) => state.graph.nodes);
-  const reduxFiles = useSelector((state) => state.graph.files) || [];
 
   const { fitView, zoomIn, zoomOut } = useReactFlow();
 
   const [nodes, setNodes, onNodesChange] = useNodesState([]);
   const [edges, setEdges, onEdgesChange] = useEdgesState([]);
-  const [selectedId, setSelectedId] = useState("");
   const [isGraphFullscreen, setIsGraphFullscreen] = useState(false);
 
   const nodeTypes = useMemo(() => ({
     customApi: CustomApiNode,
   }), []);
 
+  const knowledgeGraph = useSelector((state) => state.graph.knowledgeGraph);
+  const reduxFiles = useSelector((state) => state.graph.files) || [];
+
+  const selectedId = useSelector((state) => state.graph.selectedNodeId);
+
+  const setSelectedId = useCallback((id) => {
+    dispatch(selectNodeId(id));
+  }, [dispatch]);
+
   // Dynamically build the API connectors map from project consumers
   const { apiNodes, apiEdges } = useMemo(() => {
-    if (!selectedProject) return { apiNodes: [], apiEdges: [] };
+    if (!knowledgeGraph) return { apiNodes: [], apiEdges: [] };
 
-    const nodesList = [];
-    const edgesList = [];
-
-    // Core Gateway Node
-    nodesList.push({
-      id: "api-service",
-      name: "APIService",
-      type: "service",
-      filePath: "src/services/api.js",
-      details: "AxiosInstance (baseURL)",
-      x: 888,
-      y: 80,
-    });
-
-    // Endpoints
-    const endpoints = [
-      { id: "end-login", name: "POST /auth/login", details: "authService.login()", x: 600, y: 240 },
-      { id: "end-signup", name: "POST /auth/signup", details: "authService.signup()", x: 888, y: 240 },
-      { id: "end-fetch", name: "GET /projects", details: "projectService.getAll()", x: 1176, y: 240 },
-    ];
-    nodesList.push(...endpoints.map(e => ({ ...e, type: "endpoint", filePath: "src/services/endpoints.js" })));
-
-    edgesList.push(
-      { from: "api-service", to: "end-login" },
-      { from: "api-service", to: "end-signup" },
-      { from: "api-service", to: "end-fetch" }
+    const apiElements = knowledgeGraph.nodes.filter(n => n.kind === "api") || [];
+    const consumerIds = new Set(
+      knowledgeGraph.edges
+        .filter(e => e.type === "USES_API")
+        .map(e => e.source)
     );
+    const compConsumers = (knowledgeGraph.nodes || []).filter(n => consumerIds.has(n.id));
+    const nodesList = [...apiElements, ...compConsumers];
 
-    // Consumers (components utilizing api hooks)
-    const consumers = reduxNodes.filter(n => n.apiCount > 0 || n.hooks?.some(h => h.toLowerCase().includes("fetch") || h.toLowerCase().includes("api")));
-    
-    consumers.forEach((comp, idx) => {
-      const isAuthConsumer = comp.name.toLowerCase().includes("login") || comp.name.toLowerCase().includes("signup");
-      const targetEndpoint = isAuthConsumer ? "end-login" : "end-fetch";
-      
-      const compNodeId = `comp-${comp.name}`;
-      nodesList.push({
-        id: compNodeId,
-        name: comp.name,
-        type: "consumer",
-        filePath: comp.filePath,
-        details: comp.hooks.filter(h => h.toLowerCase().includes("fetch") || h.toLowerCase().includes("api")).join(", ") || "API Fetch",
-        x: 400 + idx * 300,
-        y: 400,
-      });
-
-      edgesList.push({
-        from: targetEndpoint,
-        to: compNodeId,
-      });
-    });
-
-    // Horizontally space consumers
-    const userNodes = nodesList.filter(n => n.type === "consumer");
-    if (userNodes.length > 0) {
-      const spacing = 280;
-      const startX = (2100 - (userNodes.length * spacing)) / 2;
-      userNodes.forEach((n, idx) => {
-        n.x = startX + idx * spacing;
-        n.y = 400;
-      });
-    }
+    const edgesList = knowledgeGraph.edges.filter(
+      e => e.type === "USES_API" || (e.type === "DEPENDENCY" && e.source.includes("gateway") && e.target.includes("endpoints"))
+    ) || [];
 
     return { apiNodes: nodesList, apiEdges: edgesList };
-  }, [selectedProject, reduxNodes]);
+  }, [knowledgeGraph]);
 
   // Pre-select first node
   useEffect(() => {
     if (apiNodes.length > 0 && !selectedId) {
       setSelectedId(apiNodes[0].id);
     }
-  }, [apiNodes, selectedId]);
+  }, [apiNodes, selectedId, setSelectedId]);
 
   // Map to React Flow
   const { rfNodes, rfEdges } = useMemo(() => {
     const connectedKeys = new Set();
     if (selectedId) {
       apiEdges.forEach(e => {
-        if (e.from === selectedId || e.to === selectedId) {
-          connectedKeys.add(`${e.from}|${e.to}`);
-          connectedKeys.add(e.from);
-          connectedKeys.add(e.to);
+        if (e.source === selectedId || e.target === selectedId) {
+          connectedKeys.add(`${e.source}|${e.target}`);
+          connectedKeys.add(e.source);
+          connectedKeys.add(e.target);
         }
       });
     }
 
-    const n = apiNodes.map(node => ({
-      id: node.id,
-      type: "customApi",
-      position: { x: node.x, y: node.y },
-      data: {
-        node,
-        isSelected: selectedId === node.id,
-        isConnected: connectedKeys.has(node.id),
-      },
-      width: NW,
-      height: NH,
-    }));
+    const n = apiNodes.map(node => {
+      const isSelected = selectedId === node.id;
+      const isConnected = connectedKeys.has(node.id);
+      
+      const x = node.metadata.x !== undefined ? node.metadata.x : 100;
+      const y = node.metadata.y !== undefined ? node.metadata.y : 100;
+
+      return {
+        id: node.id,
+        type: "customApi",
+        position: { x, y },
+        data: {
+          node,
+          isSelected,
+          isConnected,
+        },
+        width: NW,
+        height: NH,
+      };
+    });
 
     const e = apiEdges.map(edge => {
-      const active = connectedKeys.has(`${edge.from}|${edge.to}`);
+      const active = connectedKeys.has(`${edge.source}|${edge.target}`);
       return {
-        id: `edge-${edge.from}-${edge.to}`,
-        source: edge.from,
-        target: edge.to,
+        id: `edge-${edge.id}`,
+        source: edge.source,
+        target: edge.target,
         type: "smoothstep",
         animated: active,
         style: {

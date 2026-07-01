@@ -3,6 +3,7 @@ import { useSelector, useDispatch } from "react-redux";
 import { useNavigate } from "react-router-dom";
 import { setActiveRoom } from "@/redux/slices/uiSlice";
 import { selectSelectedProject } from "@/redux/slices/hubSlice";
+import { selectNodeId, clearSelection } from "@/redux/slices/graphSlice";
 import { motion } from "framer-motion";
 import gsap from "gsap";
 import {
@@ -19,7 +20,7 @@ import {
   useReactFlow,
   ReactFlowProvider,
 } from "@xyflow/react";
-import { toReactFlowRoutes } from "@/lib/analysis/routeParser";
+import { toReactFlow } from "@/engines/adapters/reactFlowAdapter";
 import "@xyflow/react/dist/style.css";
 
 // ─── Constants ────────────────────────────────────────────────────────────────
@@ -32,15 +33,15 @@ const MONO = "'JetBrains Mono', 'SF Mono', monospace";
 const SERIF = "'Fraunces', Georgia, serif";
 
 const TYPE_CFG = {
-  router: { label: "Router Core", color: "#111827", bg: "#F3F4F6", text: "#374151" },
-  route:  { label: "Route Path",  color: "#06B6D4", bg: "#ECFEFF", text: "#0891B2" },
+  router:   { label: "Router Core", color: "#111827", bg: "#F3F4F6", text: "#374151" },
+  endpoint: { label: "Route Path",  color: "#06B6D4", bg: "#ECFEFF", text: "#0891B2" },
 };
 
 // ─── Custom React Flow Route Node Component ───────────────────────────────────
 
 function CustomRouteNode({ data }) {
   const { node, isSelected, isConnected } = data;
-  const cfg = TYPE_CFG[node.type] || TYPE_CFG.route;
+  const cfg = TYPE_CFG[node.subtype] || TYPE_CFG.endpoint;
 
   const shadow = isSelected
     ? `0 0 0 2.5px ${cfg.color}30, 0 8px 28px rgba(0,0,0,0.10), 0 2px 6px rgba(0,0,0,0.06)`
@@ -53,6 +54,8 @@ function CustomRouteNode({ data }) {
     : isConnected
     ? cfg.color + "44"
     : "#E8EAED";
+
+  const componentName = node.metadata?.componentName || "Component";
 
   return (
     <div style={{ position: "relative" }}>
@@ -87,7 +90,7 @@ function CustomRouteNode({ data }) {
             lineHeight: 1.25,
             fontFamily: MONO,
           }}>
-            {node.path}
+            {node.name}
           </span>
           <span style={{
             fontSize: 9,
@@ -115,7 +118,7 @@ function CustomRouteNode({ data }) {
             color: "#374151",
             fontFamily: INTER,
           }}>
-            {`<${node.componentName} />`}
+            {`<${componentName} />`}
           </span>
         </div>
 
@@ -132,7 +135,7 @@ function CustomRouteNode({ data }) {
           borderTop: "1px solid #F3F4F6",
           paddingTop: 8,
         }}>
-          {node.filePath}
+          {node.file}
         </div>
       </div>
 
@@ -225,7 +228,8 @@ function InspectorPanel({ node }) {
     );
   }
 
-  const cfg = TYPE_CFG[node.type] || TYPE_CFG.route;
+  const cfg = TYPE_CFG[node.subtype] || TYPE_CFG.endpoint;
+  const componentName = node.metadata?.componentName || "Component";
 
   return (
     <aside style={{
@@ -264,7 +268,7 @@ function InspectorPanel({ node }) {
                 lineHeight: 1.25,
                 fontFamily: MONO,
               }}>
-                {node.path}
+                {node.name}
               </h2>
               <span style={{
                 fontSize: 9,
@@ -293,10 +297,10 @@ function InspectorPanel({ node }) {
               <FileCode size={14} className="text-neutral-400" />
               <div style={{ lineHeight: 1.25 }}>
                 <span className="block font-mono text-[12px] font-bold text-neutral-800">
-                  {`<${node.componentName} />`}
+                  {`<${componentName} />`}
                 </span>
                 <span className="block font-mono text-[9px] text-neutral-400 mt-0.5">
-                  {node.filePath}
+                  {node.file}
                 </span>
               </div>
             </div>
@@ -311,13 +315,13 @@ function InspectorPanel({ node }) {
               <div style={{ display: "flex", justifyContent: "space-between" }}>
                 <span style={{ fontSize: 11.5, color: "#8A909E" }}>Dynamic Param</span>
                 <span style={{ fontSize: 11, fontFamily: MONO, color: "#111827" }}>
-                  {node.path.includes(":") ? "Yes" : "No"}
+                  {node.name.includes(":") ? "Yes" : "No"}
                 </span>
               </div>
               <div style={{ display: "flex", justifyContent: "space-between" }}>
                 <span style={{ fontSize: 11.5, color: "#8A909E" }}>Security Guard</span>
                 <span style={{ fontSize: 11, fontFamily: MONO, color: "#10B981", fontWeight: 600 }}>
-                  {node.path.includes("dashboard") || node.path.includes("settings") ? "Protected" : "Public"}
+                  {node.name.includes("dashboard") || node.name.includes("settings") ? "Protected" : "Public"}
                 </span>
               </div>
             </div>
@@ -497,15 +501,27 @@ function RoutesFlow() {
   const navigate = useNavigate();
   
   const selectedProject = useSelector(selectSelectedProject);
-  const routeNodes = useSelector((state) => state.graph.routeNodes) || [];
-  const routeEdges = useSelector((state) => state.graph.routeEdges) || [];
+  const knowledgeGraph = useSelector((state) => state.graph.knowledgeGraph);
   const reduxFiles = useSelector((state) => state.graph.files) || [];
+
+  const routeNodes = useMemo(() => {
+    return knowledgeGraph?.nodes.filter(n => n.kind === "route") || [];
+  }, [knowledgeGraph]);
+
+  const routeEdges = useMemo(() => {
+    return knowledgeGraph?.edges.filter(e => e.type === "ROUTE_PARENT") || [];
+  }, [knowledgeGraph]);
+
+  const selectedId = useSelector((state) => state.graph.selectedNodeId);
+
+  const setSelectedId = useCallback((id) => {
+    dispatch(selectNodeId(id));
+  }, [dispatch]);
 
   const { fitView, zoomIn, zoomOut } = useReactFlow();
 
   const [nodes, setNodes, onNodesChange] = useNodesState([]);
   const [edges, setEdges, onEdgesChange] = useEdgesState([]);
-  const [selectedId, setSelectedId] = useState("");
   const [isGraphFullscreen, setIsGraphFullscreen] = useState(false);
 
   const nodeTypes = useMemo(() => ({
@@ -515,15 +531,15 @@ function RoutesFlow() {
   // Pre-select first path node
   useEffect(() => {
     if (routeNodes.length > 0 && !selectedId) {
-      const rootNode = routeNodes.find(n => n.path === "/") || routeNodes[0];
+      const rootNode = routeNodes.find(n => n.name === "/") || routeNodes[0];
       setSelectedId(rootNode.id);
     }
-  }, [routeNodes, selectedId]);
+  }, [routeNodes, selectedId, setSelectedId]);
 
   // Map to React Flow
   useEffect(() => {
     if (routeNodes && routeNodes.length > 0) {
-      const { rfNodes, rfEdges } = toReactFlowRoutes(routeNodes, routeEdges, selectedId);
+      const { rfNodes, rfEdges } = toReactFlow(routeNodes, routeEdges, selectedId, "rgba(6, 182, 212, 0.7)");
       setNodes(rfNodes);
       setEdges(rfEdges);
     }

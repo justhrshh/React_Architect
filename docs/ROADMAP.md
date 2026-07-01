@@ -18,11 +18,17 @@ Trace milestones and sprints for the React Architect workspace platform.
 - Deployed cinematic R3F torus gateway portal transitions with node collapse/implosion sequences.
 - Registered `/architecture`, `/routes`, `/state`, `/api`, and `/docs` explorer pages.
 
-### Sprint 8: Real AST Scanning & Workspace Studios (Active Sprint)
+### Sprint 8: Real AST Scanning & Workspace Studios
 - **Scanner Engine**: Implemented AST-based parser extraction for components, routes, slices, and services.
 - **Contrast Polish**: Designed high-contrast off-white sidebar file-trees.
 - **Page-collapse Fullscreen**: Collapses panel views inside the workspace for fullscreen graph mapping.
 - **Studios Mapping**: Deployed React Flow maps for Component Nesting, Route Mappings, Redux State slices, and API Client endpoints. Added a markdown reader for guide documents.
+
+### Sprint 9: Unified Centralized Knowledge Graph Engine (Active Sprint)
+- **Knowledge Graph Framework**: Designed a framework-agnostic node/edge factory database mapping project DNA.
+- **Extractor Pipelines**: Orchestrated modular extractors under `src/engines/parser/extractors/`.
+- **Layout coordinator**: Decoupled visual layer calculations (`layoutEngine.js`) from visual client adapters.
+- **Studios Refactoring**: Updated all five studios to load, inspect, and map nodes/edges directly from the central Knowledge Graph database.
 
 ---
 

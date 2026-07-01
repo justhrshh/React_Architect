@@ -10,8 +10,9 @@ React Architect is an immersive visual platform designed for exploring, analyzin
 
 React Architect is built as a split decoupled workspace:
 1. **Stand-alone Command Center (World Hub)**: Manage import handlers, select templates, and configure directory structures in a cinematic 3D R3F (React Three Fiber) void.
-2. **Project Brain**: An interactive 3D command platform representing your code features. Selecting a tool platform triggers a collapse-and-implode vertex particle transition, zooping through the torus gateway into your studio explorer.
-3. **Workspace Explorer Studios**: Five specialized, light-themed engineering studios designed to break down and inspect different layers of your application.
+2. **Centralized Knowledge Graph Engine**: A framework-agnostic single source of truth database representing your project DNA, orchestrating modular parser extractors, structured validator metrics, and coordinate positions.
+3. **Project Brain**: An interactive 3D command platform representing your code features. Selecting a tool platform triggers a collapse-and-implode vertex particle transition, zooping through the torus gateway into your studio explorer.
+4. **Workspace Explorer Studios**: Five specialized, light-themed engineering studios designed to break down and inspect different layers of your application.
 
 ---
 
