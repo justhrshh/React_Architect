@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useCallback } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { useSelector, useDispatch } from "react-redux";
 import { useNavigate } from "react-router-dom";
 import gsap from "gsap";
@@ -22,8 +22,6 @@ import DeleteConfirmModal from "@/components/hub/DeleteConfirmModal";
 import {
   Plus, Upload, Zap, ArrowUpRight
 } from "lucide-react";
-
-const STATUS = { active: "#00d4ff", review: "#f59e0b", archived: "#2e3347" };
 
 // ── Human-readable time ago helper ───────────────────────────────────────────
 const timeAgo = (dateString) => {
@@ -287,7 +285,7 @@ function CarouselCard({ project: p, active, style, onMouseDown, onTouchStart, on
 
 // ─── Instagram Reels-style Snap Carousel ─────────────────────────────────────
 function PerspectiveCarousel({ projects, activeId, onChangeActive, onLaunch, onContextMenu }) {
-  // Refs for drag state (avoids stale closures in window listeners)
+  // Refs for drag and spring animation state
   const isDragging = useRef(false);
   const dragStartX = useRef(0);
   const dragOffsetRef = useRef(0);
@@ -296,49 +294,73 @@ function PerspectiveCarousel({ projects, activeId, onChangeActive, onLaunch, onC
   const lastMoveX = useRef(0);
   const lastMoveTime = useRef(0);
 
-  // React state for re-renders
+  const touchStartX = useRef(0);
+  const touchCardRef = useRef(null);
+  const touchLastX = useRef(0);
+  const touchLastTime = useRef(0);
+  const touchVelocity = useRef(0);
+
+  const targetX = useRef(0);
+  const currentX = useRef(0);
+  const springVelocity = useRef(0);
+  const rafId = useRef(null);
+  const wheelTimeout = useRef(null);
+  const hasExceededThreshold = useRef(false);
+  const containerRef = useRef(null);
+
+  // React state for re-renders and animation locks
   const [dragOffset, setDragOffset] = useState(0);
   const [dragging, setDragging] = useState(false);
+  const [animating, setAnimating] = useState(false);
 
   const activeIndex = projects.findIndex((p) => p.id === activeId);
   const CARD_WIDTH = 390; // virtual card spacing for drag-to-index math
 
-  // ── Snap to a given index (clamped) ───────────────────────────────────────
-  const snapTo = useCallback((newIndex) => {
-    const clamped = Math.max(0, Math.min(projects.length - 1, newIndex));
-    if (clamped !== activeIndex) {
-      onChangeActive(projects[clamped].id);
+  // ── Spring Physics Loop ───────────────────────────────────────────────────
+  function updateSpring() {
+    const stiffness = 230;
+    const damping = 28;
+    const mass = 1;
+    const dt = 0.016; // 60fps frame delta in seconds
+
+    const diff = targetX.current - currentX.current;
+
+    // Check if settled
+    if (Math.abs(diff) < 0.1 && Math.abs(springVelocity.current) < 0.1 && !isDragging.current) {
+      currentX.current = targetX.current;
+      springVelocity.current = 0;
+      setDragOffset(targetX.current);
+      setAnimating(false);
+      rafId.current = null;
+      return;
     }
-  }, [projects, activeIndex, onChangeActive]);
 
-  // ── Window-level mouse listeners ──────────────────────────────────────────
-  useEffect(() => {
-    const onMouseMove = (e) => {
-      if (!isDragging.current) return;
-      const diff = e.clientX - dragStartX.current;
-      dragOffsetRef.current = diff;
+    const force = stiffness * diff - damping * springVelocity.current;
+    const acceleration = force / mass;
+    springVelocity.current += acceleration * dt;
+    currentX.current += springVelocity.current * dt;
 
-      // Track velocity for momentum snap
-      const now = performance.now();
-      const dt = now - lastMoveTime.current;
-      if (dt > 0) {
-        velocityRef.current = (e.clientX - lastMoveX.current) / dt; // px/ms
-      }
-      lastMoveX.current = e.clientX;
-      lastMoveTime.current = now;
+    setDragOffset(currentX.current);
+    rafId.current = requestAnimationFrame(updateSpring);
+  }
 
-      setDragOffset(diff);
-    };
+  const triggerSpring = useCallback(() => {
+    if (!rafId.current) {
+      setAnimating(true);
+      rafId.current = requestAnimationFrame(updateSpring);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
-    const onMouseUp = (e) => {
-      if (!isDragging.current) return;
-      isDragging.current = false;
-      const diff = e.clientX - dragStartX.current;
-      const velocity = velocityRef.current; // px/ms
+  // ── Unified Snap/Release Logic ───────────────────────────────────────────
+  const onMouseUpOrTouchEnd = useCallback((diff) => {
+    isDragging.current = false;
+    setDragging(false);
 
-      if (Math.abs(diff) < 8) {
-        // Pure click — no drag
-        const ci = dragCardRef.current;
+    // Click trigger - drag threshold was not met
+    if (!hasExceededThreshold.current || Math.abs(diff) < 8) {
+      const ci = dragCardRef.current !== null ? dragCardRef.current : touchCardRef.current;
+      if (ci !== null) {
         const clickedProject = projects[ci];
         if (clickedProject) {
           if (clickedProject.id === activeId) {
@@ -347,22 +369,82 @@ function PerspectiveCarousel({ projects, activeId, onChangeActive, onLaunch, onC
             onChangeActive(clickedProject.id);
           }
         }
-      } else {
-        // Determine snap direction from drag distance + velocity
-        const ai = projects.findIndex((p) => p.id === activeId);
-        // Fast swipe (velocity > 0.4 px/ms) or large drag (> 30% card width) → snap
-        if (velocity > 0.4 || diff > CARD_WIDTH * 0.3) {
-          snapTo(ai - 1); // swiped right → previous
-        } else if (velocity < -0.4 || diff < -CARD_WIDTH * 0.3) {
-          snapTo(ai + 1); // swiped left → next
+      }
+      targetX.current = 0;
+      currentX.current = 0;
+      springVelocity.current = 0;
+      setDragOffset(0);
+      return;
+    }
+
+    const ai = projects.findIndex((p) => p.id === activeId);
+    let nextIndex = ai;
+
+    const velocity = velocityRef.current || touchVelocity.current || 0;
+    const swipeThreshold = 0.25; 
+    const velocityThreshold = 0.25; 
+
+    // Dragging right (diff > 0) moves the card stack right (brings previous card to center)
+    // Dragging left (diff < 0) moves the card stack left (brings next card to center)
+    if (velocity > velocityThreshold || diff > CARD_WIDTH * swipeThreshold) {
+      nextIndex = ai - 1;
+    } else if (velocity < -velocityThreshold || diff < -CARD_WIDTH * swipeThreshold) {
+      nextIndex = ai + 1;
+    }
+
+    nextIndex = Math.max(0, Math.min(projects.length - 1, nextIndex));
+
+    if (nextIndex !== ai) {
+      const shift = nextIndex - ai;
+      // Compensate dragOffset for index change to prevent jumping
+      currentX.current = currentX.current - shift * CARD_WIDTH;
+      targetX.current = 0;
+      onChangeActive(projects[nextIndex].id);
+    } else {
+      targetX.current = 0;
+    }
+
+    velocityRef.current = 0;
+    touchVelocity.current = 0;
+    triggerSpring();
+  }, [projects, activeId, onChangeActive, onLaunch, triggerSpring, CARD_WIDTH]);
+
+  // ── Mouse Listeners ──────────────────────────────────────────────────────
+  useEffect(() => {
+    const onMouseMove = (e) => {
+      if (!isDragging.current) return;
+      const rawDiff = e.clientX - dragStartX.current;
+
+      if (!hasExceededThreshold.current) {
+        if (Math.abs(rawDiff) > 6) {
+          hasExceededThreshold.current = true;
+          setDragging(true);
+        } else {
+          return;
         }
-        // else: snap back to current (no change needed)
       }
 
-      dragOffsetRef.current = 0;
-      velocityRef.current = 0;
-      setDragOffset(0);
-      setDragging(false);
+      const diff = rawDiff;
+      dragOffsetRef.current = diff;
+
+      const now = performance.now();
+      const dt = now - lastMoveTime.current;
+      if (dt > 0) {
+        velocityRef.current = (e.clientX - lastMoveX.current) / dt;
+      }
+      lastMoveX.current = e.clientX;
+      lastMoveTime.current = now;
+
+      targetX.current = diff;
+      currentX.current = diff;
+      springVelocity.current = 0;
+      setDragOffset(diff);
+    };
+
+    const onMouseUp = () => {
+      if (!isDragging.current) return;
+      const diff = dragOffsetRef.current;
+      onMouseUpOrTouchEnd(diff);
     };
 
     window.addEventListener("mousemove", onMouseMove);
@@ -371,43 +453,65 @@ function PerspectiveCarousel({ projects, activeId, onChangeActive, onLaunch, onC
       window.removeEventListener("mousemove", onMouseMove);
       window.removeEventListener("mouseup", onMouseUp);
     };
-  }, [projects, activeId, onChangeActive, onLaunch, snapTo, CARD_WIDTH]);
+  }, [onMouseUpOrTouchEnd]);
 
-  // ── Per-card mousedown ────────────────────────────────────────────────────
+  // ── Per-card MouseDown ────────────────────────────────────────────────────
   const handleMouseDown = useCallback((e, cardIndex) => {
     e.preventDefault();
     isDragging.current = true;
     dragStartX.current = e.clientX;
     dragOffsetRef.current = 0;
     dragCardRef.current = cardIndex;
+    touchCardRef.current = null;
     velocityRef.current = 0;
     lastMoveX.current = e.clientX;
     lastMoveTime.current = performance.now();
-    setDragging(true);
-    setDragOffset(0);
+    hasExceededThreshold.current = false;
+
+    if (rafId.current) {
+      cancelAnimationFrame(rafId.current);
+      rafId.current = null;
+    }
+    setAnimating(false);
   }, []);
 
-  // ── Touch handlers ────────────────────────────────────────────────────────
-  const touchStartX = useRef(0);
-  const touchCardRef = useRef(null);
-  const touchLastX = useRef(0);
-  const touchLastTime = useRef(0);
-  const touchVelocity = useRef(0);
-
+  // ── Touch Event Handlers ─────────────────────────────────────────────────
   const handleTouchStart = useCallback((e, cardIndex) => {
+    isDragging.current = true;
     touchStartX.current = e.touches[0].clientX;
+    dragStartX.current = e.touches[0].clientX;
+    dragCardRef.current = null;
     touchCardRef.current = cardIndex;
     touchLastX.current = e.touches[0].clientX;
     touchLastTime.current = performance.now();
     touchVelocity.current = 0;
     dragOffsetRef.current = 0;
-    setDragging(true);
-    setDragOffset(0);
+    hasExceededThreshold.current = false;
+
+    if (rafId.current) {
+      cancelAnimationFrame(rafId.current);
+      rafId.current = null;
+    }
+    setAnimating(false);
   }, []);
 
   const handleTouchMove = useCallback((e) => {
+    if (!isDragging.current) return;
     const x = e.touches[0].clientX;
-    const diff = x - touchStartX.current;
+    const rawDiff = x - touchStartX.current;
+
+    if (!hasExceededThreshold.current) {
+      if (Math.abs(rawDiff) > 6) {
+        hasExceededThreshold.current = true;
+        setDragging(true);
+      } else {
+        return;
+      }
+    }
+
+    const diff = rawDiff;
+    dragOffsetRef.current = diff;
+
     const now = performance.now();
     const dt = now - touchLastTime.current;
     if (dt > 0) {
@@ -415,41 +519,77 @@ function PerspectiveCarousel({ projects, activeId, onChangeActive, onLaunch, onC
     }
     touchLastX.current = x;
     touchLastTime.current = now;
-    dragOffsetRef.current = diff;
+
+    targetX.current = diff;
+    currentX.current = diff;
+    springVelocity.current = 0;
     setDragOffset(diff);
   }, []);
 
   const handleTouchEnd = useCallback(() => {
+    if (!isDragging.current) return;
     const diff = dragOffsetRef.current;
-    const velocity = touchVelocity.current;
-    const ci = touchCardRef.current;
+    onMouseUpOrTouchEnd(diff);
+  }, [onMouseUpOrTouchEnd]);
 
-    if (Math.abs(diff) < 8) {
-      const clickedProject = projects[ci];
-      if (clickedProject) {
-        if (clickedProject.id === activeId) {
-          onLaunch(clickedProject);
-        } else {
-          onChangeActive(clickedProject.id);
+  // ── Trackpad / MouseWheel Event Listener ─────────────────────────────────
+  useEffect(() => {
+    const container = containerRef.current;
+    if (!container) return;
+
+    const handleWheel = (e) => {
+      if (Math.abs(e.deltaX) > Math.abs(e.deltaY)) {
+        e.preventDefault();
+
+        if (rafId.current && !isDragging.current) {
+          cancelAnimationFrame(rafId.current);
+          rafId.current = null;
         }
-      }
-    } else {
-      const ai = projects.findIndex((p) => p.id === activeId);
-      if (velocity > 0.4 || diff > CARD_WIDTH * 0.3) {
-        snapTo(ai - 1);
-      } else if (velocity < -0.4 || diff < -CARD_WIDTH * 0.3) {
-        snapTo(ai + 1);
-      }
-    }
+        setAnimating(false);
 
-    dragOffsetRef.current = 0;
-    touchVelocity.current = 0;
-    setDragOffset(0);
-    setDragging(false);
-  }, [projects, activeId, onChangeActive, onLaunch, snapTo, CARD_WIDTH]);
+        if (!isDragging.current) {
+          isDragging.current = true;
+          hasExceededThreshold.current = true;
+          setDragging(true);
+          targetX.current = dragOffsetRef.current;
+          currentX.current = dragOffsetRef.current;
+        }
+
+        // e.deltaX is positive when scrolling right, meaning card stack moves left
+        targetX.current = Math.max(-CARD_WIDTH * 1.2, Math.min(CARD_WIDTH * 1.2, targetX.current - e.deltaX * 0.8));
+        velocityRef.current = -e.deltaX / 16;
+
+        triggerSpring();
+
+        if (wheelTimeout.current) clearTimeout(wheelTimeout.current);
+        wheelTimeout.current = setTimeout(() => {
+          if (!isDragging.current) return;
+          const diff = currentX.current;
+          onMouseUpOrTouchEnd(diff);
+        }, 150);
+      }
+    };
+
+    container.addEventListener("wheel", handleWheel, { passive: false });
+    return () => {
+      container.removeEventListener("wheel", handleWheel);
+    };
+  }, [onMouseUpOrTouchEnd, triggerSpring, CARD_WIDTH]);
+
+  // Clean up timers/animators
+  useEffect(() => {
+    return () => {
+      if (rafId.current) cancelAnimationFrame(rafId.current);
+      if (wheelTimeout.current) clearTimeout(wheelTimeout.current);
+    };
+  }, []);
+
+  // Determine if dynamic transitions should be disabled to prevent fight with RAF ticks
+  const isAnimating = dragging || animating;
 
   return (
     <div 
+      ref={containerRef}
       className="relative flex items-center justify-center w-full h-full pointer-events-auto select-none"
       style={{ perspective: "1400px", cursor: dragging ? "grabbing" : "grab" }}
     >
@@ -457,15 +597,12 @@ function PerspectiveCarousel({ projects, activeId, onChangeActive, onLaunch, onC
         {projects.map((p, idx) => {
           const offset = idx - activeIndex;
           const dragFraction = dragOffset / CARD_WIDTH;
-          const currentOffset = offset - dragFraction;
+          // Drag right moves active card to right (positive translateX)
+          const currentOffset = offset + dragFraction;
           const absOffset = Math.abs(currentOffset);
 
-          // Only render cards within visual range
           if (Math.abs(offset) > 3) return null;
 
-          // ── 3D Layout Math ────────────────────────────────────────────
-          // Center card: elevated, full scale, no rotation
-          // Side cards: lower, pushed back, slightly rotated, scaled down
           const translateX = currentOffset * 320;
           const translateY = -30 + absOffset * 15;
           const translateZ = -absOffset * 120;
@@ -478,7 +615,7 @@ function PerspectiveCarousel({ projects, activeId, onChangeActive, onLaunch, onC
             transform: `translateX(${translateX}px) translateY(${translateY}px) translateZ(${translateZ}px) rotateY(${rotateY}deg) scale(${scale})`,
             zIndex,
             opacity,
-            transition: dragging 
+            transition: isAnimating 
               ? "none" 
               : "transform 600ms cubic-bezier(0.16, 1, 0.3, 1), opacity 600ms cubic-bezier(0.16, 1, 0.3, 1)",
             willChange: "transform, opacity",
@@ -525,11 +662,7 @@ const Hub = () => {
     dispatch(setAppMode("hub"));
   }, [dispatch]);
 
-  // Entrance animations trigger
-  const [isMounted, setIsMounted] = useState(false);
-  useEffect(() => {
-    setIsMounted(true);
-  }, []);
+
 
   // GSAP text reveal
   const hubCopyRef = useRef(null);
@@ -603,7 +736,10 @@ const Hub = () => {
   useEffect(() => {
     if (enrichedProjects.length > 0 && !activeHubProjectId) {
       const midIndex = Math.floor(enrichedProjects.length / 2);
-      setActiveHubProjectId(enrichedProjects[midIndex]?.id);
+      const targetId = enrichedProjects[midIndex]?.id;
+      requestAnimationFrame(() => {
+        setActiveHubProjectId(targetId);
+      });
     }
   }, [enrichedProjects, activeHubProjectId]);
 

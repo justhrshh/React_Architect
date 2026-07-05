@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import HeroBackground from "@/components/landing/HeroBackground";
 import HeroCopy from "@/components/landing/HeroCopy";
@@ -22,6 +22,17 @@ const Landing = () => {
 
   const handleLaunch = () => setBooting(true);
   const handleBootComplete = () => navigate("/hub");
+
+  // Press Enter keypress handler to launch boot sequence
+  useEffect(() => {
+    const handleKeyDown = (e) => {
+      if (e.key === "Enter" && !booting) {
+        handleLaunch();
+      }
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [booting]);
 
   // Intersection Observer scroll-trigger animation setup
   useEffect(() => {
