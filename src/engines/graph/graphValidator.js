@@ -3,12 +3,24 @@
  *
  * @param {Array<object>} nodes
  * @param {Array<object>} edges
+ * @param {Array<{type?: string, message: string, file?: string}>} [diagnostics] - parser/graph-build
+ *   issues collected during buildKnowledgeGraph (malformed files, extractor failures, unresolved
+ *   imports). Surfaced as warnings so the UI can show *why* a project's graph looks incomplete
+ *   instead of failing silently.
  * @returns {{errors: Array<object>, warnings: Array<object>, suggestions: Array<object>}} validationResults
  */
-export function validateGraph(nodes, edges) {
+export function validateGraph(nodes, edges, diagnostics = []) {
   const errors = [];
   const warnings = [];
   const suggestions = [];
+
+  diagnostics.forEach((d) => {
+    warnings.push({
+      type: d.type || "PARSE_ERROR",
+      message: d.message,
+      file: d.file || null,
+    });
+  });
 
   const nodeMap = new Map(nodes.map(n => [n.id, n]));
   const seenIds = new Set();

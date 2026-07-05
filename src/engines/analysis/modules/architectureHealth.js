@@ -162,10 +162,6 @@ const orphanComponentsRule = {
     const components = getNodesByKind(graph.nodes, "component");
     const rootLikeSubtypes = new Set(["page", "layout", "provider", "context"]);
     const renderIncoming = buildReverseAdjacency(graph.edges, "RENDERS");
-    const importIncoming = buildReverseAdjacency(
-      graph.edges.filter(e => e.type === "DEPENDENCY"),
-      "DEPENDENCY"
-    );
     const isEntryFile = file => /(^|\/)(main|index|App)\.[jt]sx?$/.test(file);
     const offenders = components.filter(c => {
       if (rootLikeSubtypes.has(c.subtype) || isEntryFile(c.file)) return false;

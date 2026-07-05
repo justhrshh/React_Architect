@@ -148,6 +148,240 @@ function TickRing({ size, ticks, color, opacity }) {
   );
 }
 
+// --- Morph Overlay Component (Deconstructed Studio Structures) ---
+function MorphOverlay({ domain, color }) {
+  if (domain === "architecture") {
+    return (
+      <svg viewBox="-100 -100 200 200" className="w-full h-full">
+        <motion.path
+          d="M -90 -60 L 90 -60 M -90 0 L 90 0 M -90 60 L 90 60 M -60 -90 L -60 90 M 0 -90 L 0 90 M 60 -90 L 60 90"
+          stroke={`${color}25`}
+          strokeWidth="0.5"
+          initial={{ pathLength: 0 }}
+          animate={{ pathLength: 1 }}
+          transition={{ duration: 0.5, ease: "easeOut" }}
+        />
+        <motion.path
+          d="M 0 -80 L 0 0 M 0 0 L -60 0 L -60 60 M 0 0 L 60 0 L 60 60"
+          stroke={color}
+          strokeWidth="1.2"
+          fill="none"
+          initial={{ pathLength: 0 }}
+          animate={{ pathLength: 1 }}
+          transition={{ duration: 0.6, ease: "easeInOut", delay: 0.1 }}
+        />
+        <motion.rect
+          x="-16" y="-88" width="32" height="16" rx="2"
+          fill="#0E1828" stroke={color} strokeWidth="1.5"
+          initial={{ scale: 0 }}
+          animate={{ scale: 1 }}
+          transition={{ duration: 0.3, delay: 0.3 }}
+        />
+        <motion.rect
+          x="-76" y="52" width="32" height="16" rx="2"
+          fill="#0E1828" stroke={color} strokeWidth="1.5"
+          initial={{ scale: 0 }}
+          animate={{ scale: 1 }}
+          transition={{ duration: 0.3, delay: 0.45 }}
+        />
+        <motion.rect
+          x="44" y="52" width="32" height="16" rx="2"
+          fill="#0E1828" stroke={color} strokeWidth="1.5"
+          initial={{ scale: 0 }}
+          animate={{ scale: 1 }}
+          transition={{ duration: 0.3, delay: 0.45 }}
+        />
+      </svg>
+    );
+  }
+
+  if (domain === "routes") {
+    return (
+      <svg viewBox="-100 -100 200 200" className="w-full h-full">
+        <motion.path
+          d="M -90 -40 C -30 -40, -30 40, 30 40 L 90 40 M -90 40 L -30 40 C 0 40, 0 -40, 30 -40 L 90 -40"
+          stroke={color}
+          strokeWidth="1.5"
+          fill="none"
+          initial={{ pathLength: 0 }}
+          animate={{ pathLength: 1 }}
+          transition={{ duration: 0.7, ease: "easeInOut" }}
+        />
+        <motion.circle
+          cx="-90" cy="-40" r="4.5"
+          fill={color}
+          initial={{ scale: 0 }}
+          animate={{ scale: 1 }}
+          transition={{ duration: 0.2, delay: 0.2 }}
+        />
+        <motion.circle
+          cx="-90" cy="40" r="4.5"
+          fill={color}
+          initial={{ scale: 0 }}
+          animate={{ scale: 1 }}
+          transition={{ duration: 0.2, delay: 0.25 }}
+        />
+        <motion.circle
+          cx="90" cy="-40" r="4.5"
+          fill={color}
+          initial={{ scale: 0 }}
+          animate={{ scale: 1 }}
+          transition={{ duration: 0.2, delay: 0.55 }}
+        />
+        <motion.circle
+          cx="90" cy="40" r="4.5"
+          fill={color}
+          initial={{ scale: 0 }}
+          animate={{ scale: 1 }}
+          transition={{ duration: 0.2, delay: 0.6 }}
+        />
+      </svg>
+    );
+  }
+
+  if (domain === "state") {
+    return (
+      <svg viewBox="-100 -100 200 200" className="w-full h-full">
+        <motion.line
+          x1="0" y1="0" x2="-60" y2="-60"
+          stroke={color} strokeWidth="1.2"
+          initial={{ pathLength: 0 }}
+          animate={{ pathLength: 1 }}
+          transition={{ duration: 0.5 }}
+        />
+        <motion.line
+          x1="0" y1="0" x2="60" y2="-60"
+          stroke={color} strokeWidth="1.2"
+          initial={{ pathLength: 0 }}
+          animate={{ pathLength: 1 }}
+          transition={{ duration: 0.5 }}
+        />
+        <motion.line
+          x1="0" y1="0" x2="0" y2="70"
+          stroke={color} strokeWidth="1.2"
+          initial={{ pathLength: 0 }}
+          animate={{ pathLength: 1 }}
+          transition={{ duration: 0.5 }}
+        />
+        <motion.circle
+          cx="0" cy="0" r="9"
+          fill="#0E1828" stroke={color} strokeWidth="2"
+          initial={{ scale: 0 }}
+          animate={{ scale: 1 }}
+          transition={{ duration: 0.3 }}
+        />
+        <motion.circle
+          cx="-60" cy="-60" r="5"
+          fill={color}
+          initial={{ scale: 0 }}
+          animate={{ scale: 1 }}
+          transition={{ duration: 0.2, delay: 0.4 }}
+        />
+        <motion.circle
+          cx="60" cy="-60" r="5"
+          fill={color}
+          initial={{ scale: 0 }}
+          animate={{ scale: 1 }}
+          transition={{ duration: 0.2, delay: 0.4 }}
+        />
+        <motion.circle
+          cx="0" cy="70" r="5"
+          fill={color}
+          initial={{ scale: 0 }}
+          animate={{ scale: 1 }}
+          transition={{ duration: 0.2, delay: 0.4 }}
+        />
+      </svg>
+    );
+  }
+
+  if (domain === "api") {
+    return (
+      <svg viewBox="-100 -100 200 200" className="w-full h-full">
+        <motion.line
+          x1="-80" y1="-30" x2="80" y2="-30"
+          stroke={color} strokeWidth="1"
+          initial={{ pathLength: 0 }}
+          animate={{ pathLength: 1 }}
+          transition={{ duration: 0.6 }}
+        />
+        <motion.line
+          x1="-80" y1="0" x2="80" y2="0"
+          stroke={color} strokeWidth="1"
+          initial={{ pathLength: 0 }}
+          animate={{ pathLength: 1 }}
+          transition={{ duration: 0.6 }}
+        />
+        <motion.line
+          x1="-80" y1="30" x2="80" y2="30"
+          stroke={color} strokeWidth="1"
+          initial={{ pathLength: 0 }}
+          animate={{ pathLength: 1 }}
+          transition={{ duration: 0.6 }}
+        />
+        <motion.rect
+          x="-88" y="-45" width="16" height="90" rx="1"
+          fill="#0E1828" stroke={color} strokeWidth="1.2"
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          transition={{ duration: 0.3 }}
+        />
+        <motion.rect
+          x="72" y="-45" width="16" height="90" rx="1"
+          fill="#0E1828" stroke={color} strokeWidth="1.2"
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          transition={{ duration: 0.3 }}
+        />
+      </svg>
+    );
+  }
+
+  if (domain === "documentation") {
+    return (
+      <svg viewBox="-100 -100 200 200" className="w-full h-full">
+        <motion.rect
+          x="-80" y="-80" width="160" height="160" rx="2"
+          fill="none" stroke={`${color}33`} strokeWidth="1"
+          initial={{ pathLength: 0 }}
+          animate={{ pathLength: 1 }}
+          transition={{ duration: 0.6 }}
+        />
+        <motion.line
+          x1="-60" y1="-60" x2="20" y2="-60"
+          stroke={color} strokeWidth="2.5"
+          initial={{ pathLength: 0 }}
+          animate={{ pathLength: 1 }}
+          transition={{ duration: 0.4 }}
+        />
+        <motion.line
+          x1="-60" y1="-40" x2="40" y2="-40"
+          stroke={`${color}77`} strokeWidth="1.5"
+          initial={{ pathLength: 0 }}
+          animate={{ pathLength: 1 }}
+          transition={{ duration: 0.4, delay: 0.15 }}
+        />
+        <motion.line
+          x1="-60" y1="-20" x2="30" y2="-20"
+          stroke={`${color}77`} strokeWidth="1.5"
+          initial={{ pathLength: 0 }}
+          animate={{ pathLength: 1 }}
+          transition={{ duration: 0.4, delay: 0.2 }}
+        />
+        <motion.rect
+          x="-60" y="5" width="120" height="50" rx="1"
+          fill="none" stroke={color} strokeWidth="1"
+          initial={{ scaleY: 0 }}
+          animate={{ scaleY: 1 }}
+          transition={{ duration: 0.3, delay: 0.35 }}
+        />
+      </svg>
+    );
+  }
+
+  return null;
+}
+
 // --- Dynamic Briefing Helper ---
 function getCoreContextOverview(displayRoom, analysis, projectName) {
   const baseDNA = {
@@ -492,6 +726,13 @@ const Workspace = () => {
     displayId === "api" ? "#E8705A" :
     displayId === "documentation" ? "#6DB885" : "#7B9CF4"
   ) : intel.color;
+
+  const ring1Duration = transitionPhase === "charge" || transitionPhase === "expansion" ? "2s" :
+                       transitionPhase === "acceleration" ? "6s" : "24s";
+  const ring2Duration = transitionPhase === "charge" || transitionPhase === "expansion" ? "3s" :
+                       transitionPhase === "acceleration" ? "9s" : "36s";
+  const ring3Duration = transitionPhase === "charge" || transitionPhase === "expansion" ? "1.5s" :
+                       transitionPhase === "acceleration" ? "4s" : "14s";
 
   const coreCX = vw * 0.38;
   const coreCY = vh * 0.5;
@@ -896,10 +1137,11 @@ const Workspace = () => {
         <motion.div
           className="absolute"
           animate={{
-            scale: transitionPhase === "acknowledgement" ? 1.08 :
+            scale: transitionPhase === "acknowledgement" ? 1.05 :
                    transitionPhase === "acceleration" ? 1.02 :
                    transitionPhase === "charge" ? 1.15 :
-                   transitionPhase === "expansion" ? 30.0 : 1.0
+                   transitionPhase === "expansion" ? 30.0 : 1.0,
+            borderRadius: transitionPhase === "expansion" ? "0%" : "50%"
           }}
           transition={
             transitionPhase === "expansion" ? { duration: 0.3, ease: [0.4, 0, 0.2, 1] } :
@@ -911,7 +1153,7 @@ const Workspace = () => {
             width: CORE_R * 2, height: CORE_R * 2,
             marginLeft: -CORE_R, marginTop: -CORE_R,
             zIndex: transitionPhase === "expansion" ? 50 : 4,
-            borderRadius: "50%"
+            overflow: "visible"
           }}
         >
           {/* Outer glow halo */}
@@ -927,43 +1169,64 @@ const Workspace = () => {
             transition={{ duration: 0.25 }}
           />
 
-          {/* Ring 1 - outermost, slow CW, with ticks */}
-          <div className="absolute inset-0 rounded-full spin-cw-24"
+          {/* Ring 1 - outermost, slow CW, with ticks (drifts outwards) */}
+          <motion.div 
+            className="absolute rounded-full spin-cw-24"
+            animate={{
+              inset: transitionPhase === "charge" ? -40 : transitionPhase === "expansion" ? -300 : 0,
+              opacity: transitionPhase === "expansion" ? 0 : 0.35
+            }}
+            transition={{ duration: 0.3, ease: "easeInOut" }}
             style={{ 
               border: `1px solid ${displayColor}30`, 
               transition: "border-color 1s",
-              animationDuration: transitionPhase === "charge" || transitionPhase === "expansion" ? "2s" :
-                                 transitionPhase === "acceleration" ? "6s" : "24s"
+              animationDuration: ring1Duration
             }}>
             <TickRing size={CORE_R * 2} ticks={12} color={displayColor} opacity={0.35} />
-          </div>
+          </motion.div>
 
-          {/* Ring 2 - middle, CCW */}
-          <div className="absolute rounded-full spin-ccw-36"
+          {/* Ring 2 - middle, CCW (collapses/drifts inwards) */}
+          <motion.div 
+            className="absolute rounded-full spin-ccw-36"
+            animate={{
+              inset: transitionPhase === "charge" ? 60 : transitionPhase === "expansion" ? 300 : 22,
+              opacity: transitionPhase === "expansion" ? 0 : 0.2
+            }}
+            transition={{ duration: 0.3, ease: "easeInOut" }}
             style={{
-              inset: 22, border: `1px solid ${displayColor}1A`,
+              border: `1px solid ${displayColor}1A`,
               transition: "border-color 1s",
-              animationDuration: transitionPhase === "charge" || transitionPhase === "expansion" ? "3s" :
-                                 transitionPhase === "acceleration" ? "9s" : "36s"
+              animationDuration: ring2Duration
             }} />
 
-          {/* Ring 3 - inner, fast CW, dashed */}
-          <div className="absolute rounded-full spin-cw-14"
+          {/* Ring 3 - inner, fast CW, dashed (separates) */}
+          <motion.div 
+            className="absolute rounded-full spin-cw-14"
+            animate={{
+              inset: transitionPhase === "charge" ? 10 : transitionPhase === "expansion" ? -150 : 44,
+              opacity: transitionPhase === "expansion" ? 0 : 0.14
+            }}
+            transition={{ duration: 0.3, ease: "easeInOut" }}
             style={{
-              inset: 44, border: `1px dashed ${displayColor}14`,
+              border: `1px dashed ${displayColor}14`,
               transition: "border-color 1s",
-              animationDuration: transitionPhase === "charge" || transitionPhase === "expansion" ? "1.5s" :
-                                 transitionPhase === "acceleration" ? "4s" : "14s"
+              animationDuration: ring3Duration
             }} />
 
-          {/* Inner chamber */}
-          <div
-            className="absolute rounded-full overflow-hidden"
+          {/* Inner chamber (unfolds borders and expands) */}
+          <motion.div
+            className="absolute overflow-hidden"
+            animate={{
+              inset: transitionPhase === "expansion" ? 0 : CHAMBER_INSET,
+              borderRadius: transitionPhase === "expansion" ? "0%" : "50%"
+            }}
+            transition={
+              transitionPhase === "expansion" ? { duration: 0.3, ease: "easeIn" } :
+              { duration: 0.25, ease: "easeInOut" }
+            }
             style={{
-              inset: CHAMBER_INSET,
               background: `radial-gradient(circle at 42% 36%, #0E1828 0%, #070A0E 100%)`,
               boxShadow: `inset 0 0 36px rgba(0,0,0,0.85), inset 0 0 18px ${displayColor}10, 0 0 0 1px ${displayColor}22`,
-              transition: "box-shadow 1s ease",
             }}
           >
             {/* Scan line */}
@@ -975,18 +1238,35 @@ const Workspace = () => {
               }}
             />
 
-            {/* Domain visualization */}
+            {/* Domain visualization (normal static state) */}
             <div className="absolute inset-0">
               <motion.div
                 key={`viz-${intelKey}`}
                 initial={{ opacity: 0 }}
-                animate={{ opacity: transitionPhase === "expansion" ? 0 : 1 }}
-                transition={{ duration: 0.4 }}
+                animate={{ opacity: transitionPhase === "charge" || transitionPhase === "expansion" ? 0 : 1 }}
+                transition={{ duration: 0.2 }}
                 className="w-full h-full"
               >
                 <CoreViz domain={intelKey} color={displayColor} />
               </motion.div>
             </div>
+
+            {/* Morph Overlay (Unfolding Studio Visual Language) */}
+            {(transitionPhase === "charge" || transitionPhase === "expansion") && (
+              <div className="absolute inset-0">
+                <motion.div
+                  initial={{ opacity: 0, scale: 0.7 }}
+                  animate={{ 
+                    opacity: 1, 
+                    scale: transitionPhase === "expansion" ? 1.5 : 1.0 
+                  }}
+                  transition={{ duration: 0.4, ease: "easeOut" }}
+                  className="w-full h-full"
+                >
+                  <MorphOverlay domain={intelKey} color={displayColor} />
+                </motion.div>
+              </div>
+            )}
 
             {/* Metric (Dynamic contextual values based on active domain) */}
             <div className="absolute inset-0 flex flex-col items-center justify-center">
@@ -1007,7 +1287,7 @@ const Workspace = () => {
                   key={`metric-${intelKey}`}
                   initial={{ opacity: 0, scale: 0.92 }}
                   animate={{ 
-                    opacity: transitionPhase === "expansion" ? 0 : 1, 
+                    opacity: transitionPhase === "charge" || transitionPhase === "expansion" ? 0 : 1, 
                     scale: transitionPhase === "expansion" ? 0.8 : 1 
                   }}
                   transition={{ duration: 0.2 }}
@@ -1044,7 +1324,7 @@ const Workspace = () => {
                 </motion.div>
               )}
             </div>
-          </div>
+          </motion.div>
         </motion.div>
 
         {/* -- Header (Refined and Simplified) -- */}
@@ -1068,7 +1348,7 @@ const Workspace = () => {
               onMouseEnter={e => (e.currentTarget.style.color = "rgba(255,255,255,0.72)")}
               onMouseLeave={e => (e.currentTarget.style.color = "rgba(255,255,255,0.22)")}
             >
-              React Architect * Return to Hub
+              React<span style={{ color: "#00E5FF", fontWeight: 700 }}>/</span>Architect * Return to Hub
             </div>
             <div style={{
               fontFamily: "'Bodoni Moda', serif",

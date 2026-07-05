@@ -1,3 +1,19 @@
+# v4.0 — Parser Accuracy & Architectural Merge
+
+## Added
+* **Dynamic Config & Path Alias Discovery (`src/engines/parser/aliasResolver.js`)**:
+  - Automatically parses `tsconfig.json`, `jsconfig.json`, `vite.config.js`, and `package.json` to extract custom path aliases (e.g. `@components`, `@lib`, `@/*`) instead of assuming a single hardcoded `@/` prefix.
+* **Ast Utilities (`src/engines/parser/astUtils.js`)**:
+  - Shared dependency-free helper library for AST callee identifier resolution, templates interpolation, comments stripping, and basename-derived naming.
+* **O(1) Module Resolution Index (`src/engines/graph/importResolver.js`)**:
+  - Replaced inline quadratic traversals with an O(1) file index lookup. Handles extension-less imports, directory index files, and resolves named re-exports and barrel files recursively.
+* **File-Based Routing Extractor (`src/engines/parser/extractors/fileRouteExtractor.js`)**:
+  - Maps Next.js App Router and Pages Router entry patterns directly from folder structure.
+* **Parser Error Isolation & Recovery**:
+  - Wrapped Babel parser options in error recovery mode and isolated each AST extractor execution in a `try/catch` block. Malformed files or unusual AST shapes no longer crash the scanner.
+
+---
+
 # v3.1 — Analysis Engine
 
 ## Added

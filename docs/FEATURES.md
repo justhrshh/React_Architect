@@ -5,8 +5,10 @@ React Architect provides a multi-dimensional inspection suite powered by a centr
 ## 0. Centralized Knowledge Graph Engine
 The single source of truth database representing your project DNA:
 * **Framework-Agnostic Schema**: Normalized generic node structure mapping ID, Kind, Subtype, Name, and Metadata.
-* **Standardized Relationship Edges**: Unified dependency tracking using relationship descriptors (`IMPORTS`, `RENDERS`, `USES_HOOK`, `USES_CONTEXT`, `USES_API`, `STATE_CONSUMER`).
-* **Structured Validator**: Integrated analysis scoring for circular rendering cycles, duplicate IDs, orphaned nodes, and code metrics.
+* **Path Alias Discovery**: Scans `tsconfig.json`/`jsconfig.json`/`vite.config.js` to build dynamic mappings, resolving nested path aliases.
+* **O(1) Import Resolution**: Employs a pre-built O(1) file index to resolve relative, extension-less, directory index files, and named barrel re-exports recursively.
+* **Standardized Relationship Edges**: Unified dependency tracking using relationship descriptors (`IMPORTS`, `RENDERS`, `USES_HOOK`, `USES_CONTEXT`, `USES_API`, `STATE_CONSUMER`, `LAZY_LOADS`).
+* **Structured Validator**: Integrated analysis scoring for circular rendering cycles, duplicate IDs, orphaned nodes, parser errors, and code metrics.
 * **Decoupled Layout Engine**: Hierarchical position solver computing visual coordinate properties separate from client adapters.
 
 ---

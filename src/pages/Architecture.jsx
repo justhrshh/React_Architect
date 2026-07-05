@@ -657,7 +657,7 @@ function TopBar({ nodeCount, projectName, handleBack }) {
             fontFamily: SERIF,
             lineHeight: 1.15,
           }}>
-            React Architect
+            React<span style={{ color: "#00E5FF", fontWeight: 700 }}>/</span>Architect
           </div>
           <div style={{
             fontSize: 8,

@@ -13,7 +13,7 @@ import { runAnalysis } from "./analysis";
  * @returns {Promise<object>} knowledgeGraph - central single source of truth
  */
 export async function analyzeProject(project, dirHandle, zipFile) {
-  let files = [];
+  let files;
 
   if (dirHandle) {
     files = await scanDirectory(dirHandle);
