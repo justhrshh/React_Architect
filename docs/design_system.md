@@ -78,9 +78,10 @@ Elevation is represented through soft, multi-layered box shadows simulating real
 
 All transitions must feel natural, hydraulic, and deliberate.
 
-### 4.1 Reels-Style Snap Scrolling
-* **Math**: The `PerspectiveCarousel` uses drag gestures (mouse + touch) integrated at the window level, tracking momentum velocities.
-* **Snapping**: If drag velocity exceeds `0.4 px/ms` or drag offset exceeds `30%` of card width, it snaps to the next/prev card using `transform 600ms cubic-bezier(0.16, 1, 0.3, 1)`.
+### 4.1 Reels-Style Snap Scrolling (Refactored)
+* **Direct Tracking Math**: The `PerspectiveCarousel` uses a true 1:1 direct tracking coordinate calculation (`currentOffset = offset + dragFraction`) during dragging, so dragging right moves the card stack right and dragging left moves it left.
+* **Spring Snap**: On mouse release, trackpad scroll finish, or swipe end, the carousel glides and snaps using a custom spring solver loop running on `requestAnimationFrame` with stiffness `230` and damping `28` (completely eliminating lag and jitter).
+* **Position Compensation**: During index switches, the spring's offset is mathematically compensated to prevent visual jumps, ensuring a seamless visual glide into the centered position.
 
 ### 4.2 Interactive 3D Tilt (Holographic Parallax)
 Active panel elements tilt towards the cursor when hovered:

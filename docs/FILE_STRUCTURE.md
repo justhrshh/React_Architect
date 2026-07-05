@@ -100,6 +100,27 @@ redux/
     ├── settingsSlice.js
     └── architectureSlice.js
 
+engines/
+├── scanner/
+│   └── scanner.js                  ← Scans directories & ZIP files for code and configs
+├── parser/
+│   ├── parser.js                   ← Generates Babel ASTs with error recovery
+│   ├── aliasResolver.js            ← Extracts dynamic config path aliases
+│   ├── astUtils.js                 ← Shared AST callee and template utilities
+│   └── extractors/                 ← Specialized AST data extractor modules
+├── graph/
+│   ├── buildKnowledgeGraph.js      ← Assembles Knowledge Graph nodes and edges
+│   ├── importResolver.js           ← O(1) module re-export index resolver
+│   ├── graphValidator.js           ← Validates connections and logs parser errors
+│   ├── nodeFactory.js              ← Component/File/Route node schema creation
+│   ├── edgeFactory.js              ← Dependency/Render/State relationship creation
+│   └── layoutEngine.js             ← Computes 2D rendering coordinates
+├── analysis/
+│   ├── index.js                    ← Analysis Engine public API entry point
+│   ├── analysisEngine.js           ← Orchestrates registered analysis modules
+│   └── modules/                    ← Pluggable metrics & health score checkers
+└── analyzer.js                     ← Main pipeline orchestrator script
+
 hooks/
 
 services/
@@ -125,6 +146,6 @@ utils/
 * Redux state belongs inside `redux/`.
 * Global styles belong inside `styles/`.
 * Shared helper functions belong inside `utils/`.
-* Future parsing, graph generation, scoring, and AI systems will live inside `engines/`.
+* Parsing, graph generation, scoring, and AI analysis systems live inside `engines/`.
 
 This structure is the official architecture of React Architect and should remain consistent throughout development.

@@ -360,19 +360,33 @@ Decoupled Workspace Portals & Tool Studios:
 *   **Unified Tool Routes & Dedicated Studio Pages**: Registered routes `/architecture`, `/routes`, `/state`, `/api`, and `/docs` under the Workspace router. Created standalone dark placeholder studio pages featuring a `gsap.fromTo` background fade transition on mounting to blend seamlessly from the white portal zoop flash.
 *   **Workspace HUD Overlay Auto-Hiding**: Configured top navigation header, mobile selector bar, and bottom info cards to instantly slide and fade away when a portal destination is selected, or when entering **Look Around (explore)** mode.
 
+### ✅ Sprint 9.1 Complete
+Parser Accuracy & Architectural Merge:
+*   **Dynamic Config & Path Alias Discovery**: Scans `tsconfig.json`/`jsconfig.json`/`vite.config.js` to build dynamic mappings, resolving nested path aliases.
+*   **O(1) Import Resolution**: Employs a pre-built O(1) file index to resolve relative, extension-less, directory index files, and named barrel re-exports recursively.
+*   **File-Based Routing Extractor**: Added `fileRouteExtractor.js` to extract Next.js App Router and Pages Router conventions directly from folder scans.
+*   **Robust Extractor Overhauls**: Overwrote all AST extractor engines to recognize class components, lazy loading (`ImportExpression`), RTK queries, thunks, and default/named exports.
+*   **Fail-Safe Processing**: Isolated each file AST parser and extractor execution within independent `try/catch` scopes to prevent a single syntax error from aborting the scan. fold errors back into `graphValidator.js` to render in the UI.
+
+### ✅ Sprint 9.2 Complete
+Project Carousel Interaction & Landing Page Polish:
+*   **Direct Pointer Tracking**: Fixed the drag direction math. Dragging right shifts cards to the right (`currentOffset = offset + dragFraction`), and dragging left shifts cards left.
+*   **Premium Spring Physics**: Configured a custom spring animation loop (stiffness `230`, damping `28`) running on `requestAnimationFrame` for a smooth, high-fidelity cover flow snap.
+*   **Visual Jump Compensation**: When snapping to a different card, adjusted the spring position to compensate for the index shift. This keeps the cards physically in the exact position they were when released, letting the spring glide them back to center smoothly with zero jumps.
+*   **Universal Inputs**: Added native trackpad gestures (listening to horizontal scroll and gliding using spring physics) alongside mouse drag and touch swipes.
+*   **UX Polish**: Added a `6px` drag threshold, cursor grab/grabbing styling, and prevented text selection.
+*   **Landing Page enter keypress**: Enabled starting the workspace boot sequence automatically upon pressing the `Enter` key.
+*   **Clean ESLint & Build**: Cleaned up all other lint warnings, ensuring `npm run lint` on the entire codebase finishes with `0 errors` and `0 warnings`.
+
 ---
 
 ## Current Version
-React Architect v2.0 - 2D Interactive Orbiting Core & Signature Portal Transition
+React/Architect v4.0 - Advanced Parser Accuracy, Unified Resolution & High-Fidelity Carousel
 
 ---
 
 ## Current Milestone
-Sprint 8 & 9 - 2D Workspace Refactoring & Signature Transition
-Focus:
-*   Decoupled 3D R3F platforms to create a high-fidelity 2D Orbiting Core briefed briefing room.
-*   Enlarged planetary nodes to 44px with custom status score circles and larger core indicator dots.
-*   Implemented a signature transition sequence (Core acknowledgement -> Orbit acceleration -> Energy charge -> Core expansion -> Arrival) to replace simple portal wipes.
+Sprint 9.1 & 9.2 Complete
 
 ------------------------------------------------------------------------
 
