@@ -363,17 +363,16 @@ Decoupled Workspace Portals & Tool Studios:
 ---
 
 ## Current Version
-React Architect v1.5 — Decoupled Workspace Portals & Tool Studios Complete
+React Architect v2.0 - 2D Interactive Orbiting Core & Signature Portal Transition
 
 ---
 
 ## Current Milestone
-Sprint 8 — React Flow AST Integration
+Sprint 8 & 9 - 2D Workspace Refactoring & Signature Transition
 Focus:
-*   Integrate React Flow canvas inside the `Architecture` room.
-*   Use `selectedProject` as source of truth for what the graph renders.
-*   Map mock component nodes and connection edges.
-*   Maintain spatial GSAP camera sweeps, HUD overlays, and materialization animations.
+*   Decoupled 3D R3F platforms to create a high-fidelity 2D Orbiting Core briefed briefing room.
+*   Enlarged planetary nodes to 44px with custom status score circles and larger core indicator dots.
+*   Implemented a signature transition sequence (Core acknowledgement -> Orbit acceleration -> Energy charge -> Core expansion -> Arrival) to replace simple portal wipes.
 
 ------------------------------------------------------------------------
 

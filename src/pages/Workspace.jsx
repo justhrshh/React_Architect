@@ -1,143 +1,292 @@
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect, useCallback, useRef } from "react";
 import { useSelector, useDispatch } from "react-redux";
 import { useNavigate } from "react-router-dom";
-import { Layers } from "lucide-react";
-import { setActiveRoom, setAppMode } from "@/redux/slices/uiSlice";
+import { motion } from "framer-motion";
 import { setFiles, setKnowledgeGraph } from "@/redux/slices/graphSlice";
-import {
-  selectSelectedProject,
-  clearSelectedProject,
-} from "@/redux/slices/hubSlice";
-import WorkspaceScene from "@/features/workspace/WorkspaceScene";
+import { selectSelectedProject, clearSelectedProject } from "@/redux/slices/hubSlice";
+import { setAnalysisStatus, setAnalysisResults, resetAnalysis } from "@/redux/slices/analysisSlice";
+import { setAppMode, setActiveRoom } from "@/redux/slices/uiSlice";
 import { getProjectHandle } from "@/lib/analysis/projectStore";
 import { buildKnowledgeGraph } from "@/engines/graph/buildKnowledgeGraph";
 
-const MOCK_FILES_CONTENT = {
-  "README.md": `# Project Guide
-Welcome to the React Architect workspace documentation.
+// --- Constants ---
+const CORE_R = 180;       // px - radius of the Core circle
+const CHAMBER_INSET = 68; // px - inset of inner chamber from core edge
 
-## Getting Started
-To view your project structure in real time:
-- Enter the **Architecture Studio** to see components.
-- Enter the **Route Studio** to examine endpoint mapping trees.
-- Browse slices in the **State Studio**.
+function toXY(deg, r) {
+  const rad = (deg * Math.PI) / 180;
+  return { x: Math.round(r * Math.cos(rad)), y: Math.round(r * Math.sin(rad)) };
+}
 
----
-*Generated dynamically by the React Architect scanner engine.*`,
+// --- Core Visualization Components ---
+function CoreViz({ domain, color }) {
+  const o = 0.22;
 
-  "docs/CHANGELOG.md": `# Changelog
-All notable changes to this project will be documented in this file.
+  if (domain === "default") return (
+    <svg viewBox="-75 -48 150 96" className="w-full h-full">
+      <line x1="-48" y1="-18" x2="0" y2="0" stroke={color} strokeWidth="0.6" opacity={o * 1.2} />
+      <line x1="38" y1="-28" x2="0" y2="0" stroke={color} strokeWidth="0.6" opacity={o * 1.2} />
+      <line x1="28" y1="24" x2="0" y2="0" stroke={color} strokeWidth="0.6" opacity={o * 1.2} />
+      <line x1="-36" y1="28" x2="0" y2="0" stroke={color} strokeWidth="0.6" opacity={o * 1.2} />
+      <line x1="-48" y1="-18" x2="-65" y2="8" stroke={color} strokeWidth="0.4" opacity={o * 0.7} />
+      <line x1="38" y1="-28" x2="62" y2="-12" stroke={color} strokeWidth="0.4" opacity={o * 0.7} />
+      <line x1="38" y1="-28" x2="-48" y2="-18" stroke={color} strokeWidth="0.3" opacity={o * 0.5} />
+      <circle cx="0"   cy="0"   r="5"   fill={color} opacity={0.5} />
+      <circle cx="-48" cy="-18" r="2.5" fill={color} opacity={0.28} />
+      <circle cx="38"  cy="-28" r="2.5" fill={color} opacity={0.28} />
+      <circle cx="28"  cy="24"  r="2.5" fill={color} opacity={0.28} />
+      <circle cx="-36" cy="28"  r="2.5" fill={color} opacity={0.28} />
+      <circle cx="-65" cy="8"   r="1.5" fill={color} opacity={0.14} />
+      <circle cx="62"  cy="-12" r="1.5" fill={color} opacity={0.14} />
+    </svg>
+  );
 
-## [3.0.0] - Centralized Knowledge Graph Engine
-- Integrated unified AST parsing extractor.
-- Decoupled visual layout calculation coordinates.`,
+  if (domain === "architecture") return (
+    <svg viewBox="-75 -48 150 96" className="w-full h-full">
+      <circle cx="0" cy="-38" r="3.5" fill={color} opacity={0.45} />
+      <line x1="0" y1="-34" x2="-36" y2="-10" stroke={color} strokeWidth="0.6" opacity={0.3} />
+      <line x1="0" y1="-34" x2="36"  y2="-10" stroke={color} strokeWidth="0.6" opacity={0.3} />
+      <circle cx="-36" cy="-10" r="2.5" fill={color} opacity={0.3} />
+      <circle cx="36"  cy="-10" r="2.5" fill={color} opacity={0.3} />
+      <line x1="-36" y1="-7" x2="-52" y2="18" stroke={color} strokeWidth="0.5" opacity={0.2} />
+      <line x1="-36" y1="-7" x2="-18" y2="18" stroke={color} strokeWidth="0.5" opacity={0.2} />
+      <line x1="36"  y1="-7" x2="18"  y2="18" stroke={color} strokeWidth="0.5" opacity={0.2} />
+      <line x1="36"  y1="-7" x2="52"  y2="18" stroke={color} strokeWidth="0.5" opacity={0.2} />
+      <circle cx="-52" cy="18" r="1.8" fill={color} opacity={0.18} />
+      <circle cx="-18" cy="18" r="1.8" fill={color} opacity={0.18} />
+      <circle cx="18"  cy="18" r="1.8" fill={color} opacity={0.18} />
+      <circle cx="52"  cy="18" r="1.8" fill={color} opacity={0.18} />
+      <path d="M 36 -10 Q 58 -34 10 -42 Q -4 -45 -8 -33" fill="none" stroke="#E8705A" strokeWidth="0.8" opacity={0.5} strokeDasharray="3,3" />
+    </svg>
+  );
 
-  "src/App.jsx": `import React from 'react';
-import Router from './app/router';
-export default function App() {
-  return <Router />;
-}`,
+  if (domain === "routes") return (
+    <svg viewBox="-75 -48 150 96" className="w-full h-full">
+      <circle cx="0" cy="-36" r="3" fill={color} opacity={0.45} />
+      <line x1="0" y1="-36" x2="-52" y2="30" stroke={color} strokeWidth="0.7" opacity={0.25} />
+      <line x1="0" y1="-36" x2="-18" y2="36" stroke={color} strokeWidth="0.7" opacity={0.25} />
+      <line x1="0" y1="-36" x2="18"  y2="36" stroke={color} strokeWidth="0.7" opacity={0.25} />
+      <line x1="0" y1="-36" x2="52"  y2="30" stroke={color} strokeWidth="0.7" opacity={0.25} />
+      <line x1="0" y1="-36" x2="0"   y2="36" stroke={color} strokeWidth="0.4" opacity={0.14} />
+      <circle cx="-52" cy="30" r="2.5" fill="none" stroke="#E8705A" strokeWidth="0.9" opacity={0.65} />
+      <circle cx="18"  cy="36" r="2.5" fill="none" stroke="#E8705A" strokeWidth="0.9" opacity={0.65} />
+      <circle cx="-18" cy="36" r="2"   fill={color} opacity={0.2} />
+      <circle cx="52"  cy="30" r="2"   fill={color} opacity={0.2} />
+      <circle cx="0"   cy="36" r="1.5" fill={color} opacity={0.15} />
+    </svg>
+  );
 
-  "src/app/router.jsx": `import React from 'react';
-import { createBrowserRouter, RouterProvider } from 'react-router-dom';
-import App from '../App';
-import Login from '../pages/Login';
-import Dashboard from '../pages/Dashboard';
+  if (domain === "state") return (
+    <svg viewBox="-75 -48 150 96" className="w-full h-full">
+      <circle cx="0" cy="0" r="6"  fill={color} opacity={0.55} />
+      <circle cx="0" cy="0" r="18" fill="none" stroke={color} strokeWidth="0.8" opacity={0.38} />
+      <circle cx="0" cy="0" r="31" fill="none" stroke={color} strokeWidth="0.5" opacity={0.22} strokeDasharray="9,3" />
+      <circle cx="0" cy="0" r="44" fill="none" stroke={color} strokeWidth="0.4" opacity={0.12} strokeDasharray="7,6" />
+      <line x1="-5" y1="-5" x2="5" y2="5"  stroke="#E8705A" strokeWidth="0.9" opacity={0.55} />
+      <line x1="-5" y1="5"  x2="5" y2="-5" stroke="#E8705A" strokeWidth="0.9" opacity={0.55} />
+      <circle cx="20"  cy="0"  r="2" fill={color} opacity={0.3} />
+      <circle cx="-20" cy="0"  r="2" fill={color} opacity={0.3} />
+      <circle cx="0"   cy="20" r="2" fill={color} opacity={0.3} />
+      <circle cx="0"   cy="-20"r="2" fill={color} opacity={0.3} />
+    </svg>
+  );
 
-const router = createBrowserRouter([
-  { path: '/', element: <App /> },
-  { path: '/login', element: <Login /> },
-  { path: '/dashboard', element: <Dashboard /> }
-]);
+  if (domain === "api") {
+    const dots = [];
+    for (let row = -3; row <= 3; row++) {
+      for (let col = -6; col <= 6; col++) {
+        const isWarn = row >= 2 && col >= 3;
+        dots.push(
+          <circle key={`${row}-${col}`} cx={col * 10} cy={row * 12}
+            r={isWarn ? 2.2 : 1.4}
+            fill={isWarn ? "#E8705A" : color}
+            opacity={isWarn ? 0.5 : 0.18} />
+        );
+      }
+    }
+    return <svg viewBox="-75 -48 150 96" className="w-full h-full">{dots}</svg>;
+  }
 
-export default function Router() {
-  return <RouterProvider router={router} />;
-}`,
+  // documentation
+  const bars = [
+    { y: -34, w: 114, warn: false }, { y: -22, w: 76, warn: false },
+    { y: -10, w: 96,  warn: false }, { y: 2,   w: 28, warn: true  },
+    { y: 14,  w: 104, warn: false }, { y: 26,  w: 22, warn: true  },
+    { y: 38,  w: 82,  warn: false },
+  ];
+  return (
+    <svg viewBox="-75 -48 150 96" className="w-full h-full">
+      {bars.map((b, i) => (
+        <rect key={i} x={-b.w / 2} y={b.y - 4} width={b.w} height={6} rx={1}
+          fill={b.warn ? "#E8705A" : color}
+          opacity={b.warn ? 0.38 : 0.2} />
+      ))}
+    </svg>
+  );
+}
 
-  "src/pages/Login.jsx": `import React, { useState } from 'react';
-import { useDispatch } from 'react-redux';
-import FormInput from '../components/FormInput';
-import api from '../services/api';
+function TickRing({ size, ticks, color, opacity }) {
+  const r = size / 2 - 1;
+  const items = Array.from({ length: ticks }, (_, i) => {
+    const a = (i * (360 / ticks) * Math.PI) / 180;
+    const x1 = size / 2 + Math.cos(a) * (r - 5);
+    const y1 = size / 2 + Math.sin(a) * (r - 5);
+    const x2 = size / 2 + Math.cos(a) * r;
+    const y2 = size / 2 + Math.sin(a) * r;
+    return { x1, y1, x2, y2 };
+  });
+  return (
+    <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`}
+      className="absolute inset-0" style={{ overflow: "visible" }}>
+      <circle cx={size / 2} cy={size / 2} r={r}
+        fill="none" stroke={color} strokeWidth="0.8" opacity={opacity} />
+      {items.map((t, i) => (
+        <line key={i} x1={t.x1} y1={t.y1} x2={t.x2} y2={t.y2}
+          stroke={color} strokeWidth="1" opacity={opacity * 1.6} />
+      ))}
+    </svg>
+  );
+}
 
-export default function Login() {
-  const dispatch = useDispatch();
-  const [email, setEmail] = useState('');
-  
-  const handleLogin = () => {
-    api.post('/auth/login', { email });
+// --- Dynamic Briefing Helper ---
+function getCoreContextOverview(displayRoom, analysis, projectName) {
+  const baseDNA = {
+    projectName: projectName || "React Project",
+    components: analysis?.projectDNA?.componentCount || 0,
+    routes: analysis?.projectDNA?.routeCount || 0,
+    contexts: analysis?.projectDNA?.contextCount || 0,
+    apis: analysis?.projectDNA?.apiCount || 0,
+    healthScore: analysis?.architectureHealth?.score ?? 91,
+    circulars: (analysis?.architectureHealth?.errors || []).concat(analysis?.architectureHealth?.warnings || []).filter(item => item.type === "CIRCULAR_DEPENDENCIES").length,
+    largeComps: (analysis?.architectureHealth?.errors || []).concat(analysis?.architectureHealth?.warnings || []).filter(item => item.type === "LARGE_COMPONENTS").length,
+    unusedComps: analysis?.deadCode?.unusedComponents?.length || 0,
+    deadRoutes: analysis?.deadCode?.unusedRoutes?.length || 0,
+    unusedHooks: analysis?.deadCode?.unusedHooks?.length || 0,
+    unusedApis: analysis?.deadCode?.unusedApiServices?.length || 0,
   };
 
-  return <FormInput value={email} onChange={setEmail} onSubmit={handleLogin} />;
-}`,
+  if (displayRoom === "default" || displayRoom === "project-brain") {
+    let targetDomain = "Architecture";
+    let reason = "Verify modular boundaries and structural imports.";
+    if (baseDNA.circulars > 0) {
+      targetDomain = "Architecture";
+      reason = `${baseDNA.circulars} circular dependency loops were detected.`;
+    } else if (baseDNA.deadRoutes > 0) {
+      targetDomain = "Routes";
+      reason = `${baseDNA.deadRoutes} dead routes were detected.`;
+    } else if (baseDNA.unusedHooks > 0) {
+      targetDomain = "State";
+      reason = `${baseDNA.unusedHooks} unused state slices or hooks carry cascade invalidation risks.`;
+    } else if (baseDNA.unusedApis > 0) {
+      targetDomain = "API";
+      reason = `${baseDNA.unusedApis} stale API client endpoints were mapped.`;
+    }
 
-  "src/pages/Dashboard.jsx": `import React from 'react';
-import Sidebar from '../components/Sidebar';
-
-export default function Dashboard() {
-  return (
-    <div>
-      <Sidebar />
-      <h1>Welcome to Dashboard</h1>
-    </div>
-  );
-}`,
-
-  "src/components/Sidebar.jsx": `import React from 'react';
-export default function Sidebar() {
-  return <aside>Navigation links</aside>;
-}`,
-
-  "src/components/FormInput.jsx": `import React from 'react';
-export default function FormInput({ value, onChange, onSubmit }) {
-  return (
-    <form onSubmit={onSubmit}>
-      <input value={value} onChange={e => onChange(e.target.value)} />
-    </form>
-  );
-}`,
-
-  "src/redux/store.js": `import { configureStore } from '@reduxjs/toolkit';
-import authReducer from './authSlice';
-import uiReducer from './uiSlice';
-
-export const store = configureStore({
-  reducer: {
-    auth: authReducer,
-    ui: uiReducer
+    return {
+      metric: baseDNA.healthScore,
+      color: "#7B9CF4",
+      headline: `Project structure is in ${baseDNA.healthScore >= 90 ? "optimal" : "concerning"} standing`,
+      body: `The Knowledge Graph has mapped ${baseDNA.components} components, ${baseDNA.routes} routes, ${baseDNA.contexts} slices, and ${baseDNA.apis} API endpoints.`,
+      recommendation: `Investigate ${targetDomain}`,
+      actionLabel: `Investigate ${targetDomain}`
+    };
   }
-});`,
 
-  "src/redux/authSlice.js": `import { createSlice } from '@reduxjs/toolkit';
-export const authSlice = createSlice({
-  name: 'auth',
-  initialState: {
-    currentUser: null,
-    users: []
-  },
-  reducers: {}
-});
-export default authSlice.reducer;`,
+  if (displayRoom === "architecture") {
+    const headline = baseDNA.circulars > 0 ? "Circular import issues detected" : "Structural integrity is strong";
+    const body = baseDNA.circulars > 0 
+      ? `A circular dependency chain has begun attracting satellite imports. ${baseDNA.largeComps} monolithic component modules require decomposition.`
+      : `${baseDNA.components} active components mapped with clear separation of modular boundaries.`;
+    return {
+      metric: baseDNA.healthScore,
+      color: "#D4A847",
+      headline,
+      body,
+      recommendation: baseDNA.circulars > 0 ? "Resolve circular dependency loops before compilation size spikes." : "All component systems stable.",
+      actionLabel: "Inspect Architecture"
+    };
+  }
 
-  "src/redux/uiSlice.js": `import { createSlice } from '@reduxjs/toolkit';
-export const uiSlice = createSlice({
-  name: 'ui',
-  initialState: {
-    appMode: 'dark',
-    sidebarOpen: true
-  },
-  reducers: {}
-});
-export default uiSlice.reducer;`,
+  if (displayRoom === "routes") {
+    const headline = baseDNA.deadRoutes > 0 ? "Routing health is deteriorating" : "Route configurations look healthy";
+    const body = baseDNA.deadRoutes > 0
+      ? `${baseDNA.deadRoutes} dead routes were detected. Navigation complexity exceeds recommended performance thresholds.`
+      : `All ${baseDNA.routes} application routes are mapped and active. No orphan paths found.`;
+    return {
+      metric: Math.max(100 - baseDNA.deadRoutes * 12, 10),
+      color: "#5BB8D4",
+      headline,
+      body,
+      recommendation: baseDNA.deadRoutes > 0 ? "Audit layout templates and remove unreachable navigation pathways." : "All route gates secure.",
+      actionLabel: "Investigate Routes"
+    };
+  }
 
-  "src/services/api.js": `import axios from 'axios';
-export const api = axios.create({
-  baseURL: 'api.domain.com'
-});`,
+  if (displayRoom === "state") {
+    const headline = baseDNA.unusedHooks > 0 ? "State redundancy risk is elevated" : "Data subscriptions are optimal";
+    const body = baseDNA.unusedHooks > 0
+      ? `${baseDNA.unusedHooks} unused state slices or hooks were detected. Cascade invalidation events are likely without hooks cleanups.`
+      : `All global store slices and hooks share optimal render subscription trees.`;
+    return {
+      metric: Math.max(100 - baseDNA.unusedHooks * 8, 10),
+      color: "#9B7AE8",
+      headline,
+      body,
+      recommendation: baseDNA.unusedHooks > 0 ? "Merge duplicate selectors and decouple stale component bindings." : "State store clear.",
+      actionLabel: "Analyze State"
+    };
+  }
 
-  "src/services/endpoints.js": `import { api } from './api';
-export const login = (data) => api.post('/auth/login', data);
-export const signup = (data) => api.post('/auth/signup', data);
-export const getProjects = () => api.get('/projects');`
+  if (displayRoom === "api") {
+    const headline = baseDNA.unusedApis > 0 ? "Stale API client calls detected" : "Fetch layers are well-formed";
+    const body = baseDNA.unusedApis > 0
+      ? `${baseDNA.unusedApis} endpoints lack consumer imports. Fetch retry configurations carry cache mismatches.`
+      : `All ${baseDNA.apis} API endpoints are actively called by client modules.`;
+    return {
+      metric: Math.max(100 - baseDNA.unusedApis * 10, 10),
+      color: "#E8705A",
+      headline,
+      body,
+      recommendation: baseDNA.unusedApis > 0 ? "Audit stale axios requests and cache redundant network fetches." : "Endpoints resolved.",
+      actionLabel: "Review APIs"
+    };
+  }
+
+  if (displayRoom === "documentation") {
+    return {
+      metric: 85,
+      color: "#6DB885",
+      headline: "Critical components undocumented",
+      body: "Only 38% component coverage. Core components have zero JSDoc descriptors and lack Storybook examples.",
+      recommendation: "Document high-leverage button and input components first.",
+      actionLabel: "Explore Documentation"
+    };
+  }
+
+  return {
+    metric: "100",
+    color: "#7B9CF4",
+    headline: "System Mapped",
+    body: "All systems healthy.",
+    recommendation: "No active alerts.",
+    actionLabel: "Explore Workspace"
+  };
+}
+
+const MOCK_FILES_CONTENT = {
+  "README.md": `# Project Guide\nWelcome to the React Architect workspace documentation.\n\n## Getting Started\nTo view your project structure in real time:\n- Enter the **Architecture Studio** to see components.\n- Enter the **Route Studio** to examine endpoint mapping trees.\n- Browse slices in the **State Studio**.\n\n---\n*Generated dynamically by the React Architect scanner engine.*`,
+  "docs/CHANGELOG.md": `# Changelog\nAll notable changes to this project will be documented in this file.\n\n## [3.0.0] - Centralized Knowledge Graph Engine\n- Integrated unified AST parsing extractor.\n- Decoupled visual layout calculation coordinates.`,
+  "src/App.jsx": `import React from 'react';\nimport Router from './app/router';\nexport default function App() {\n  return <Router />;\n}`,
+  "src/app/router.jsx": `import React from 'react';\nimport { createBrowserRouter, RouterProvider } from 'react-router-dom';\nimport App from '../App';\nimport Login from '../pages/Login';\nimport Dashboard from '../pages/Dashboard';\n\nconst router = createBrowserRouter([\n  { path: '/', element: <App /> },\n  { path: '/login', element: <Login /> },\n  { path: '/dashboard', element: <Dashboard /> }\n]);\n\nexport default function Router() {\n  return <RouterProvider router={router} />;\n}`,
+  "src/pages/Login.jsx": `import React, { useState } from 'react';\nimport { useDispatch } from 'react-redux';\nimport FormInput from '../components/FormInput';\nimport api from '../services/api';\n\nexport default function Login() {\n  const dispatch = useDispatch();\n  const [email, setEmail] = useState('');\n  \n  const handleLogin = () => {\n    api.post('/auth/login', { email });\n  };\n\n  return <FormInput value={email} onChange={setEmail} onSubmit={handleLogin} />;\n}`,
+  "src/pages/Dashboard.jsx": `import React from 'react';\nimport Sidebar from '../components/Sidebar';\n\nexport default function Dashboard() {\n  return (\n    <div>\n      <Sidebar />\n      <h1>Welcome to Dashboard</h1>\n    </div>\n  );\n}`,
+  "src/components/Sidebar.jsx": `import React from 'react';\nexport default function Sidebar() {\n  return <aside>Navigation links</aside>;\n}`,
+  "src/components/FormInput.jsx": `import React from 'react';\nexport default function FormInput({ value, onChange, onSubmit }) {\n  return (\n    <form onSubmit={onSubmit}>\n      <input value={value} onChange={e => onChange(e.target.value)} />\n    </form>\n  );\n}`,
+  "src/redux/store.js": `import { configureStore } from '@reduxjs/toolkit';\nimport authReducer from './authSlice';\nimport uiReducer from './uiSlice';\n\nexport const store = configureStore({\n  reducer: {\n    auth: authReducer,\n    ui: uiReducer\n  }\n});`,
+  "src/redux/authSlice.js": `import { createSlice } from '@reduxjs/toolkit';\nexport const authSlice = createSlice({\n  name: 'auth',\n  initialState: {\n    currentUser: null,\n    users: []\n  },\n  reducers: {}\n});\nexport default authSlice.reducer;`,
+  "src/redux/uiSlice.js": `import { createSlice } from '@reduxjs/toolkit';\nexport const uiSlice = createSlice({\n  name: 'ui',\n  initialState: {\n    appMode: 'dark',\n    sidebarOpen: true\n  },\n  reducers: {}\n});\nexport default uiSlice.reducer;`,
+  "src/services/api.js": `import axios from 'axios';\nexport const api = axios.create({\n  baseURL: 'api.domain.com'\n});`,
+  "src/services/endpoints.js": `import { api } from './api';\nexport const login = (data) => api.post('/auth/login', data);\nexport const signup = (data) => api.post('/auth/signup', data);\nexport const getProjects = () => api.get('/projects');`
 };
 
 function generateMockContentForPath(path) {
@@ -161,76 +310,52 @@ function generateMockContentForPath(path) {
   return "";
 }
 
-const roomDetails = {
-  "project-brain": {
-    title: "Project Brain",
-    type: "Core Analysis Hub",
-    desc: "Architectural health scores, AI-assisted refactoring, and codebase statistics will plug in here in future sprints.",
-  },
-  "architecture": {
-    title: "Architecture",
-    type: "Component Tree",
-    desc: "Interactive component hierarchy graph. Sprint 4 will load AST structures and render nodes using React Flow.",
-  },
-  "routes": {
-    title: "Routes",
-    type: "Navigation Flow",
-    desc: "Trace react-router page paths, screen dependencies, and router hooks dynamically.",
-  },
-  "state-flow": {
-    title: "State Flow",
-    type: "RTK & Context Slice",
-    desc: "Reveal Redux slices, contexts, and local state dependencies inside a visual state trace.",
-  },
-  "api-flow": {
-    title: "API Flow",
-    type: "Network Endpoints",
-    desc: "Map request and response surfaces, REST / GraphQL calls, and mock api structures.",
-  },
-  "documentation": {
-    title: "Documentation",
-    type: "Interactive Markdown",
-    desc: "Inspect auto-generated codebase documents, setup guides, and inline code docstrings.",
-  },
-  "explore": {
-    title: "Space Explorer",
-    type: "Immersive 3D Void",
-    desc: "You are in wide-angle explore mode. Click and drag the mouse to look around, scroll to zoom, or select a platform to focus and lock in.",
-  },
+const getTargetRotation = (activeDomainId) => {
+  if (!activeDomainId) return 0;
+  const angleMap = {
+    "architecture": -90,
+    "routes": -18,
+    "state": 54,
+    "api": 126,
+    "documentation": 198
+  };
+  const baseAngle = angleMap[activeDomainId] ?? 0;
+  // Rotate system so that the selected angle aligns at -90 degrees (top center)
+  return -90 - baseAngle;
 };
 
-const menuItems = [
-  { key: "project-brain", label: "00 Brain" },
-  { key: "architecture", label: "01 Architecture" },
-  { key: "routes", label: "02 Routes" },
-  { key: "state-flow", label: "03 State" },
-  { key: "api-flow", label: "04 API" },
-  { key: "documentation", label: "05 Docs" },
-];
-
-// ── Main Workspace Component ─────────────────────────────────────────────────
+// --- Main Workspace Component ---
 const Workspace = () => {
   const dispatch = useDispatch();
   const navigate = useNavigate();
 
-  const activeRoom = useSelector((state) => state.ui.activeRoom);
   const selectedProject = useSelector(selectSelectedProject);
+  const analysis = useSelector((state) => state.analysis);
 
-  const [focusedRoom, setFocusedRoom] = useState("project-brain");
+  const [active, setActive]     = useState(null);
+  const [hovered, setHovered]   = useState(null);
+  const [entering, setEntering] = useState(false);
+  const [vw, setVw]             = useState(1440);
+  const [vh, setVh]             = useState(900);
+  const [tick, setTick]         = useState(0);
 
-  // Redirect to Hub if no project is selected
+  const [transitionPhase, setTransitionPhase] = useState(null);
+  const [extraRotation, setExtraRotation] = useState(0);
+
+  // Redirect to Hub if no project is loaded
   useEffect(() => {
     if (!selectedProject) {
       navigate("/hub");
     } else {
       dispatch(setAppMode("workspace"));
+      dispatch(resetAnalysis());
     }
   }, [selectedProject, navigate, dispatch]);
 
   const [needsPermission, setNeedsPermission] = useState(false);
   const [cachedHandle, setCachedHandle] = useState(null);
 
-  // Dynamic project scanning and graph loading
+  // Dynamic project scanning and AST extraction triggers
   useEffect(() => {
     if (!selectedProject) return;
 
@@ -239,7 +364,6 @@ const Workspace = () => {
     let zipFile = window.projectZipFiles?.[projectId];
 
     async function loadAndScan() {
-      // 1. Load from IndexedDB if not in memory
       if (!dirHandle && !zipFile) {
         const persisted = await getProjectHandle(projectId);
         if (persisted) {
@@ -255,7 +379,6 @@ const Workspace = () => {
         }
       }
 
-      // 2. Check permissions for folders
       if (dirHandle) {
         const permission = await dirHandle.queryPermission({ mode: "read" });
         if (permission !== "granted") {
@@ -266,20 +389,22 @@ const Workspace = () => {
         setNeedsPermission(false);
       }
 
-      // 3. Trigger Scanning
       if (dirHandle || zipFile) {
+        dispatch(setAnalysisStatus('analyzing'));
         const { analyzeProject } = await import("@/engines/analyzer");
         analyzeProject(selectedProject, dirHandle, zipFile)
           .then((kg) => {
             dispatch(setKnowledgeGraph(kg));
             dispatch(setFiles(kg.files));
             window.projectFiles = kg.rawFiles;
+            dispatch(setAnalysisResults(kg.analysis));
           })
           .catch(err => {
-            console.error("Failed to analyze dynamic project", err);
+            console.error("Failed to analyze project", err);
+            dispatch(setAnalysisStatus('error'));
           });
       } else {
-        // Showcase seed fallback
+        dispatch(setAnalysisStatus('analyzing'));
         const { getGraphDataForProject } = await import("@/lib/analysis/mockDataGenerator");
         const { nodes, edges, files } = getGraphDataForProject(selectedProject);
 
@@ -288,9 +413,19 @@ const Workspace = () => {
           content: generateMockContentForPath(f)
         }));
         const kg = buildKnowledgeGraph(mockFiles, selectedProject);
+        
+        const { layoutGraphNodes } = await import("@/engines/layout/layoutEngine");
+        const { runAnalysis } = await import("@/engines/analysis");
+        kg.nodes = layoutGraphNodes(kg.nodes, kg.edges);
+        kg.rawFiles = mockFiles;
+        
+        const analysisResults = runAnalysis(kg);
+        kg.analysis = analysisResults;
+
         dispatch(setKnowledgeGraph(kg));
         dispatch(setFiles(kg.files));
         window.projectFiles = kg.rawFiles;
+        dispatch(setAnalysisResults(analysisResults));
       }
     }
 
@@ -298,6 +433,18 @@ const Workspace = () => {
       console.error("Error in loadAndScan", err);
     });
   }, [selectedProject, dispatch]);
+
+  useEffect(() => {
+    const resize = () => { setVw(window.innerWidth); setVh(window.innerHeight); };
+    resize();
+    window.addEventListener("resize", resize);
+    return () => window.removeEventListener("resize", resize);
+  }, []);
+
+  useEffect(() => {
+    const id = setInterval(() => setTick(t => t + 1), 1000);
+    return () => clearInterval(id);
+  }, []);
 
   const handleRequestPermission = async () => {
     if (!cachedHandle) return;
@@ -309,30 +456,20 @@ const Workspace = () => {
         if (!window.projectHandles) window.projectHandles = {};
         window.projectHandles[projectId] = cachedHandle;
 
+        dispatch(setAnalysisStatus('analyzing'));
         const { analyzeProject } = await import("@/engines/analyzer");
         const kg = await analyzeProject(selectedProject, cachedHandle, null);
         dispatch(setKnowledgeGraph(kg));
         dispatch(setFiles(kg.files));
         window.projectFiles = kg.rawFiles;
+        dispatch(setAnalysisResults(kg.analysis));
       }
     } catch (err) {
       console.error("Failed to request permission", err);
+      dispatch(setAnalysisStatus('error'));
     }
   };
 
-  const handleArrivalChange = (room) => {
-    setFocusedRoom(room);
-  };
-
-  const handleNavClick = (roomKey) => {
-    dispatch(setActiveRoom(roomKey));
-  };
-
-  const handlePlatformSelect = (roomKey) => {
-    dispatch(setActiveRoom(roomKey));
-  };
-
-  // Return to Dashboard Hub
   const handleReturnToHub = () => {
     dispatch(clearSelectedProject());
     dispatch(setAppMode("hub"));
@@ -340,220 +477,813 @@ const Workspace = () => {
     navigate("/hub");
   };
 
-  const handlePortalComplete = useCallback((roomKey) => {
-    const routes = {
-      "architecture": "/architecture",
-      "routes": "/routes",
-      "state-flow": "/state",
-      "api-flow": "/api",
-      "documentation": "/docs",
-    };
-    const targetRoute = routes[roomKey];
-    if (targetRoute) {
-      navigate(targetRoute);
-    }
-  }, [navigate]);
+  const now = new Date();
+  const timeStr = now.toTimeString().slice(0, 8);
 
-  const activeDetail = roomDetails[focusedRoom];
-  const isFlying = focusedRoom === null;
-  const showHUD = !isFlying && (activeRoom === "project-brain");
+  const intelKey = active ?? "default";
+  const intel = getCoreContextOverview(intelKey, analysis, selectedProject?.name);
+
+  // Preview color: active > hovered > default
+  const displayId = active ?? hovered;
+  const displayColor = displayId ? (
+    displayId === "architecture" ? "#D4A847" :
+    displayId === "routes" ? "#5BB8D4" :
+    displayId === "state" ? "#9B7AE8" :
+    displayId === "api" ? "#E8705A" :
+    displayId === "documentation" ? "#6DB885" : "#7B9CF4"
+  ) : intel.color;
+
+  const coreCX = vw * 0.38;
+  const coreCY = vh * 0.5;
+
+  // Orbit ring -> line start just outside the Core edge
+  const EDGE = CORE_R + 14;
+
+  const handleDomain = (id) => setActive(p => p === id ? null : id);
+
+  const startSignatureTransition = () => {
+    // 1. Acknowledgement (~120ms)
+    setTransitionPhase("acknowledgement");
+    
+    // 2. Orbit acceleration (~350ms)
+    setTimeout(() => {
+      setTransitionPhase("acceleration");
+      setExtraRotation(180);
+    }, 120);
+
+    // 3. Core charge (~250ms)
+    setTimeout(() => {
+      setTransitionPhase("charge");
+      setExtraRotation(540);
+    }, 470);
+
+    // 4. Core expansion (~250ms)
+    setTimeout(() => {
+      setTransitionPhase("expansion");
+      setExtraRotation(1080);
+    }, 720);
+
+    // 5. Navigation / Arrival
+    setTimeout(() => {
+      const routes = {
+        "architecture": "/architecture",
+        "routes": "/routes",
+        "state": "/state",
+        "api": "/api",
+        "documentation": "/docs",
+      };
+      const targetRoute = routes[active];
+      if (targetRoute) {
+        navigate(targetRoute);
+      }
+      setTransitionPhase(null);
+      setExtraRotation(0);
+      setActive(null);
+    }, 970);
+  };
+
+  const chamberSize = CORE_R * 2 - CHAMBER_INSET * 2;
+
+  // Dynamic layout score mapping & dynamic orbit radius
+  const ORBIT_R = Math.max(260, Math.min(310, vw * 0.21));
+  const localC = ORBIT_R + 60;
+
+  const baseDNA = {
+    components: analysis?.projectDNA?.componentCount || 0,
+    routes: analysis?.projectDNA?.routeCount || 0,
+    contexts: analysis?.projectDNA?.contextCount || 0,
+    apis: analysis?.projectDNA?.apiCount || 0,
+  };
+
+  const domains = [
+    { id: "architecture", label: "Architecture", color: "#D4A847", score: analysis?.architectureHealth?.score ?? 87, count: `${baseDNA.components} components`, ...toXY(-90, ORBIT_R) },
+    { id: "routes",       label: "Routes",       color: "#5BB8D4", score: Math.max(100 - (analysis?.deadCode?.unusedRoutes?.length * 12 || 0), 10), count: `${baseDNA.routes} routes`,       ...toXY(-18, ORBIT_R) },
+    { id: "state",        label: "State",        color: "#9B7AE8", score: Math.max(100 - (analysis?.deadCode?.unusedHooks?.length * 8 || 0), 10), count: `${baseDNA.contexts} contexts`,       ...toXY(54, ORBIT_R)  },
+    { id: "api",          label: "API",           color: "#E8705A", score: Math.max(100 - (analysis?.deadCode?.unusedApiServices?.length * 10 || 0), 10), count: `${baseDNA.apis} endpoints`,    ...toXY(126, ORBIT_R) },
+    { id: "documentation",label: "Documentation",color: "#6DB885", score: 85, count: "85% coverage",    ...toXY(198, ORBIT_R) },
+  ];
+
+  const activeDomain = domains.find(d => d.id === active);
+
+  // Dynamic rotate angle
+  const orbitRotation = getTargetRotation(active);
+
+  // Core metrics contextual mapping
+  const getContextualMetric = (domainId, analysis, overview) => {
+    if (!domainId) {
+      return {
+        metric: overview.metric,
+        label: "Architecture Health"
+      };
+    }
+    
+    switch (domainId) {
+      case "architecture":
+        return {
+          metric: analysis?.architectureHealth?.score ?? 87,
+          label: "Architecture Health"
+        };
+      case "routes":
+        return {
+          metric: analysis?.deadCode?.unusedRoutes?.length ?? 14,
+          label: "Dead Routes"
+        };
+      case "state":
+        return {
+          metric: analysis?.projectDNA?.hookCount ?? 48,
+          label: "Redux Consumers"
+        };
+      case "api":
+        return {
+          metric: analysis?.deadCode?.unusedApiServices?.length ?? 2,
+          label: "Stale API Endpoints"
+        };
+      case "documentation":
+        return {
+          metric: "61%",
+          label: "Documentation Coverage"
+        };
+      default:
+        return {
+          metric: overview.metric,
+          label: "Architecture Health"
+        };
+    }
+  };
+
+  const coreMetric = getContextualMetric(active, analysis, intel);
 
   if (!selectedProject) {
-    return null; // Let the redirect trigger in useEffect
+    return null;
   }
 
   return (
-    <div className="relative w-screen h-screen overflow-hidden bg-obsidian select-none text-slate-100 flex flex-col font-sans">
-      
-      {/* 3D spatial scene background */}
-      <WorkspaceScene 
-        onArrivalChange={handleArrivalChange} 
-        onSelectRoom={handlePlatformSelect}
-        onSelectProject={() => {}}
-        onAddClick={() => navigate("/hub")}
-        onContextMenu={() => {}}
-        onPortalComplete={handlePortalComplete}
-      />
+    <>
+      <style>{`
+        @import url('https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,200..800&family=Bodoni+Moda:ital,opsz,wght@0,6..96,400..900;1,6..96,400..900&family=JetBrains+Mono:ital,wght@0,100..800;1,100..800&display=swap');
+        @keyframes spin-cw   { to { transform: rotate(360deg); } }
+        @keyframes spin-ccw  { to { transform: rotate(-360deg); } }
+        @keyframes breathe   { 0%,100% { opacity:0.5; } 50% { opacity:1; } }
+        @keyframes status-blink { 0%,100% { opacity:1; } 50% { opacity:0.2; } }
+        @keyframes data-flow { from { stroke-dashoffset:28; } to { stroke-dashoffset:0; } }
+        @keyframes scan      { 0%   { transform:translateY(0); opacity:0.6; }
+                               88%  { opacity:0.6; }
+                               100% { transform:translateY(${chamberSize}px); opacity:0; } }
+        @keyframes fade-up   { from { opacity:0; transform:translateY(12px); }
+                               to   { opacity:1; transform:translateY(0); } }
+        @keyframes threshold-in { from { opacity:0; transform:translateY(6px); }
+                                  to   { opacity:1; transform:translateY(0); } }
+        @keyframes entering-wipe { from { opacity:0; } to { opacity:1; } }
 
-      {/* Explore Mode Instructions Overlay HUD */}
-      {focusedRoom === "explore" && (
-        <div className="absolute top-[30%] left-1/2 transform -translate-x-1/2 -translate-y-1/2 text-center pointer-events-none animate-fade-in z-20">
-          <div className="font-mono text-[10px] uppercase tracking-widestest text-accent mb-2">
-            Explore Mode Active
-          </div>
-          <h2 className="font-display text-lg md:text-xl font-[800] text-white tracking-tightest text-balance max-w-lg leading-tight">
-            Drag mouse to look around &bull; Scroll to zoom &bull; Click platform to lock
-          </h2>
-        </div>
-      )}
+        .spin-cw-24  { animation: spin-cw  24s linear infinite; }
+        .spin-cw-14  { animation: spin-cw  14s linear infinite; }
+        .spin-ccw-36 { animation: spin-ccw 36s linear infinite; }
+        .breathe     { animation: breathe 4.5s ease-in-out infinite; }
+        .status-blink{ animation: status-blink 2.6s ease-in-out infinite; }
+        .data-flow   { stroke-dasharray: 3 10; animation: data-flow 1.4s linear infinite; }
+        .data-flow-fast { stroke-dasharray: 3 10; animation: data-flow 0.4s linear infinite; }
+        .scan-line   { animation: scan 7s ease-in-out infinite; }
+      `}</style>
 
-      {/* Premium HUD UI overlays */}
-      <div className="relative z-10 w-full h-full pointer-events-none flex flex-col justify-between p-6 md:p-10">
-        
-        {/* Top Header Panel */}
-        <header 
-          className={`w-full flex items-center justify-between pointer-events-auto bg-obsidian/30 backdrop-blur-md border border-edge-subtle p-4 rounded-xl shadow-lg gap-4 transition-all duration-500 transform ${
-            showHUD ? "opacity-100 translate-y-0" : "opacity-0 -translate-y-6 pointer-events-none"
-          }`}
+      <div
+        className="relative w-full h-screen overflow-hidden select-none"
+        style={{ background: "#05080E", fontFamily: "'Bricolage Grotesque', sans-serif" }}
+      >
+        {/* -- Atmospheric glow - shifts hue with domain -- */}
+        <div
+          className="absolute inset-0 pointer-events-none"
+          style={{
+            background: `radial-gradient(ellipse 880px 680px at ${coreCX}px ${coreCY}px, ${displayColor}16 0%, transparent 62%)`,
+            transition: "background 1.1s ease",
+          }}
+        />
+
+        {/* -- Deep vignette -- */}
+        <div
+          className="absolute inset-0 pointer-events-none"
+          style={{
+            background: "radial-gradient(ellipse 110% 110% at 50% 50%, transparent 35%, #05080E 100%)",
+          }}
+        />
+
+        {/* -- Spatial grid -- */}
+        <svg className="absolute inset-0 w-full h-full pointer-events-none" style={{ opacity: 0.022 }}>
+          <defs>
+            <pattern id="grid" width="64" height="64" patternUnits="userSpaceOnUse">
+              <path d="M 64 0 L 0 0 0 64" fill="none" stroke="white" strokeWidth="0.5" />
+            </pattern>
+          </defs>
+          <rect width="100%" height="100%" fill="url(#grid)" />
+        </svg>
+
+        {/* -- Rotating Orbital System Container -- */}
+        <motion.div
+          animate={{ rotate: orbitRotation + extraRotation }}
+          transition={
+            transitionPhase === "acknowledgement" ? { duration: 0.12, ease: "easeOut" } :
+            transitionPhase === "acceleration" ? { duration: 0.35, ease: "easeIn" } :
+            transitionPhase === "charge" ? { duration: 0.25, ease: "easeIn" } :
+            transitionPhase === "expansion" ? { duration: 0.25, ease: "easeIn" } :
+            { duration: 1.2, ease: [0.25, 1, 0.4, 1] }
+          }
+          style={{
+            position: "absolute",
+            left: coreCX - localC,
+            top: coreCY - localC,
+            width: localC * 2,
+            height: localC * 2,
+            transformOrigin: "center center",
+            pointerEvents: "none",
+            zIndex: 3
+          }}
         >
-          <div 
-            onClick={() => handleNavClick("project-brain")}
-            className="font-display font-[800] text-sm tracking-tightest cursor-pointer text-white hover:opacity-80 transition-opacity whitespace-nowrap"
-          >
-            React<span className="text-accent">/</span>Architect
-          </div>
-          
-          {/* Active project name */}
-          {selectedProject && (
-            <div className="hidden md:flex items-center gap-2">
-              <span className="w-px h-3 bg-white/15" />
-              <span className="font-mono text-[10px] uppercase tracking-widestest text-ink-faint">
-                {selectedProject.name}
-              </span>
-              <span className="font-mono text-[8px] uppercase tracking-widestest px-1.5 py-0.5 bg-white/5 border border-edge-subtle rounded text-ink-faint">
-                {selectedProject.framework}
-              </span>
-            </div>
-          )}
+          {/* Orbit rings */}
+          <svg className="absolute inset-0 w-full h-full pointer-events-none">
+            <circle cx={localC} cy={localC} r={ORBIT_R}
+              fill="none" stroke="white" strokeWidth="0.4" opacity="0.04" />
+            <circle cx={localC} cy={localC} r={ORBIT_R + 44}
+              fill="none" stroke="white" strokeWidth="0.25" opacity="0.02" />
+          </svg>
 
-          {/* Navigation Room Selectors */}
-          <nav className="hidden lg:flex items-center gap-6">
-            {menuItems.map((item) => {
-              const isSelected = activeRoom === item.key;
+          {/* Connection lines + data flow dot stream */}
+          <svg className="absolute inset-0 w-full h-full pointer-events-none">
+            <defs>
+              <filter id="glow-line" x="-80%" y="-80%" width="260%" height="260%">
+                <feGaussianBlur stdDeviation="2.5" result="blur" />
+                <feMerge><feMergeNode in="blur" /><feMergeNode in="SourceGraphic" /></feMerge>
+              </filter>
+            </defs>
+            {domains.map(domain => {
+              const len   = Math.sqrt(domain.x ** 2 + domain.y ** 2);
+              const nx    = domain.x / len;
+              const ny    = domain.y / len;
+              const isAct = active  === domain.id;
+              const isHov = hovered === domain.id && !active;
+              const isAnyActive = active !== null;
+              
+              const x1 = localC + nx * EDGE;
+              const y1 = localC + ny * EDGE;
+              // offset line to stop at the edge of the 44px planetary body (radius 22 + padding = 24)
+              const x2 = localC + domain.x - nx * 24;
+              const y2 = localC + domain.y - ny * 24;
+
+              const isTransitioning = transitionPhase !== null;
+              
+              // Connections focus hierarchy & transition feed glow
+              const lineOpacity = isTransitioning
+                ? (isAct ? 0.75 : 0.3)
+                : (isAct ? 0.35 : isHov ? 0.2 : isAnyActive ? 0.015 : 0.08);
+
+              const strokeWidth = isTransitioning
+                ? (isAct ? 1.8 : 0.9)
+                : (isAct ? 0.9 : 0.5);
+
               return (
-                <button
-                  key={item.key}
-                  onClick={() => handleNavClick(item.key)}
-                  className={`nav-underline font-mono text-[10px] md:text-xs uppercase tracking-widestest transition-all duration-300 ${
-                    isSelected ? "text-accent font-semibold" : "text-ink-dim hover:text-white"
-                  }`}
-                  data-active={isSelected}
-                >
-                  {item.label}
-                </button>
+                <g key={domain.id}>
+                  {/* Base link lines */}
+                  <line x1={x1} y1={y1} x2={x2} y2={y2}
+                    stroke={isAct || isHov ? domain.color : "white"} 
+                    strokeWidth={strokeWidth}
+                    opacity={lineOpacity}
+                    style={{ transition: "opacity 0.6s ease, stroke 0.6s ease, stroke-width 0.6s ease" }}
+                  />
+
+                  {/* Active highlight glow path */}
+                  {(isAct || (isTransitioning && isAct)) && (
+                    <line x1={x1} y1={y1} x2={x2} y2={y2}
+                      stroke={domain.color} strokeWidth={isTransitioning ? "1.8" : "1.2"} opacity="0.3"
+                      filter="url(#glow-line)" />
+                  )}
+
+                  {/* Active node data stream (flowing from node into Core) */}
+                  {(isAct || (isTransitioning && transitionPhase !== "acknowledgement")) && (
+                    <line x1={x2} y1={y2} x2={x1} y2={y1}
+                      stroke={domain.color}
+                      strokeWidth={isAct ? 2.5 : 1.2}
+                      opacity={isAct ? 0.9 : 0.5}
+                      className={isTransitioning && transitionPhase !== "acknowledgement" ? "data-flow-fast" : "data-flow"}
+                      filter="url(#glow-line)" />
+                  )}
+                </g>
               );
             })}
-          </nav>
+          </svg>
 
-          <div className="flex items-center gap-2">
-            {/* Explore / Look Around Button */}
-            {activeRoom !== "explore" && (
-              <button
-                onClick={() => handleNavClick("explore")}
-                className="font-mono text-[10px] md:text-xs uppercase tracking-widestest px-4 py-2 border border-edge-subtle text-ink-dim hover:text-white hover:border-white/20 rounded-lg transition-colors shadow-lg bg-obsidian/45"
-              >
-                Look Around
-              </button>
-            )}
+          {/* Orbit celestial nodes (Enlarged) */}
+          {domains.map(domain => {
+            const isAct    = active  === domain.id;
+            const isHov    = hovered === domain.id;
+            const isAnyActive = active !== null;
+            const isDimmed = isAnyActive && !isAct;
 
-            {/* Exit to Hub */}
-            <button
-              onClick={handleReturnToHub}
-              className="font-mono text-[10px] md:text-xs uppercase tracking-widestest text-ink-dim hover:text-white border border-edge-subtle hover:border-white/20 px-4 py-2 rounded-lg transition-colors whitespace-nowrap"
-            >
-              ← Hub
-            </button>
-          </div>
-        </header>
+            const isTransitioning = transitionPhase !== null;
 
-        {/* Floating Mobile Nav bar (visible on small viewports) */}
-        <div 
-          className={`lg:hidden w-full overflow-x-auto flex items-center gap-4 py-2 pointer-events-auto mt-4 bg-obsidian/50 backdrop-blur border border-edge-subtle p-3 rounded-lg transition-all duration-500 ${
-            showHUD ? "opacity-100 translate-y-0" : "opacity-0 -translate-y-4 pointer-events-none"
-          }`}
-        >
-          {menuItems.map((item) => {
-            const isSelected = activeRoom === item.key;
+            // Enlarged planetary radii
+            const arcR     = 17;
+            const circ     = 2 * Math.PI * arcR;
+            const arcDash  = (domain.score / 100) * circ;
+
+            // Blur & scale nodes during acceleration/charge
+            const nodeBlur = (isTransitioning && transitionPhase !== "acknowledgement")
+              ? "blur(6px)"
+              : "blur(0px)";
+
+            const scale = isTransitioning && transitionPhase !== "acknowledgement"
+              ? (isAct ? 1.3 : 0.6)
+              : (isAct ? 1.15 : isHov ? 1.08 : 1.0);
+
+            const opacity = isTransitioning && transitionPhase !== "acknowledgement"
+              ? (isAct ? 0.9 : 0.1)
+              : (isDimmed ? 0.3 : 1.0);
+
+            // Labels and details fade out completely
+            const textOpacity = isTransitioning && transitionPhase !== "acknowledgement" ? 0 : 1;
+
             return (
               <button
-                key={item.key}
-                onClick={() => handleNavClick(item.key)}
-                className={`whitespace-nowrap font-mono text-[9px] uppercase tracking-widestest px-3 py-1.5 rounded ${
-                  isSelected ? "bg-accent/10 text-accent font-semibold border border-accent/25" : "text-ink-dim"
-                }`}
+                key={domain.id}
+                onClick={() => !isTransitioning && handleDomain(domain.id)}
+                onMouseEnter={() => !isTransitioning && setHovered(domain.id)}
+                onMouseLeave={() => !isTransitioning && setHovered(null)}
+                className="absolute focus:outline-none cursor-pointer pointer-events-auto"
+                style={{
+                  left: localC + domain.x,
+                  top:  localC + domain.y,
+                  transform: "translate(-50%, -50%)",
+                  zIndex: isAct || isHov ? 20 : 10,
+                }}
               >
-                {item.label}
+                {/* Counter-rotation to keep button text upright */}
+                <motion.div
+                  animate={{ 
+                    scale, 
+                    opacity,
+                    rotate: - (orbitRotation + extraRotation),
+                    filter: nodeBlur
+                  }}
+                  transition={
+                    transitionPhase === "acknowledgement" ? { duration: 0.12, ease: "easeOut" } :
+                    transitionPhase === "acceleration" ? { duration: 0.35, ease: "easeIn" } :
+                    transitionPhase === "charge" ? { duration: 0.25, ease: "easeIn" } :
+                    transitionPhase === "expansion" ? { duration: 0.25, ease: "easeIn" } :
+                    { duration: 1.2, ease: [0.25, 1, 0.4, 1] }
+                  }
+                  className="flex flex-col items-center gap-[9px]"
+                >
+                  {/* Score arc + center dot */}
+                  <div className="relative" style={{ width: 44, height: 44 }}>
+                    <svg width={44} height={44} viewBox="0 0 44 44"
+                      style={{ transform: "rotate(-90deg)" }}>
+                      <circle cx={22} cy={22} r={arcR} fill="none"
+                        stroke={domain.color} strokeWidth="1" opacity={0.12 * textOpacity} />
+                      <circle cx={22} cy={22} r={arcR} fill="none"
+                        stroke={domain.color} strokeWidth="1.2"
+                        opacity={(isAct ? 0.9 : 0.42) * textOpacity}
+                        strokeDasharray={`${arcDash} ${circ}`}
+                        strokeLinecap="round"
+                        style={{ transition: "opacity 0.5s" }}
+                      />
+                    </svg>
+                    <div className="absolute inset-0 flex items-center justify-center">
+                      <div
+                        style={{
+                          width:  isAct ? 13 : 9,
+                          height: isAct ? 13 : 9,
+                          borderRadius: "50%",
+                          background: domain.color,
+                          boxShadow: isAct
+                            ? `0 0 24px 7px ${domain.color}A0`
+                            : isHov 
+                              ? `0 0 16px 5px ${domain.color}70`
+                              : `0 0 8px 1px ${domain.color}45`,
+                          transition: "all 0.5s ease",
+                        }}
+                      />
+                    </div>
+                  </div>
+
+                  {/* Label + count */}
+                  <motion.div 
+                    animate={{ opacity: textOpacity }}
+                    transition={{ duration: 0.2 }}
+                    className="flex flex-col items-center gap-[4px]"
+                  >
+                    <div style={{
+                      fontFamily: "'Bricolage Grotesque', sans-serif",
+                      fontSize: "11px", fontWeight: 600,
+                      letterSpacing: "2.2px", textTransform: "uppercase",
+                      color: isAct ? domain.color : "rgba(255,255,255,0.42)",
+                      transition: "color 0.5s",
+                    }}>
+                      {domain.label}
+                    </div>
+                    <div style={{
+                      fontFamily: "'JetBrains Mono', monospace",
+                      fontSize: "8.5px", letterSpacing: "0.8px",
+                      color: isAct ? `${domain.color}72` : "rgba(255,255,255,0.17)",
+                      transition: "color 0.5s",
+                    }}>
+                      {domain.count}
+                    </div>
+                  </motion.div>
+                </motion.div>
               </button>
             );
           })}
-        </div>
+        </motion.div>
 
-        {/* Bottom Info Details panel */}
-        <footer className="w-full flex items-end justify-between mt-auto">
-          <div className="w-full max-w-md pointer-events-auto">
+        {/* -- THE CORE (Static Focal Point & Scaling Portal) -- */}
+        <motion.div
+          className="absolute"
+          animate={{
+            scale: transitionPhase === "acknowledgement" ? 1.08 :
+                   transitionPhase === "acceleration" ? 1.02 :
+                   transitionPhase === "charge" ? 1.15 :
+                   transitionPhase === "expansion" ? 30.0 : 1.0
+          }}
+          transition={
+            transitionPhase === "expansion" ? { duration: 0.3, ease: [0.4, 0, 0.2, 1] } :
+            transitionPhase === "acknowledgement" ? { duration: 0.12, ease: "easeOut" } :
+            { duration: 0.22, ease: "easeInOut" }
+          }
+          style={{
+            left: coreCX, top: coreCY,
+            width: CORE_R * 2, height: CORE_R * 2,
+            marginLeft: -CORE_R, marginTop: -CORE_R,
+            zIndex: transitionPhase === "expansion" ? 50 : 4,
+            borderRadius: "50%"
+          }}
+        >
+          {/* Outer glow halo */}
+          <motion.div
+            className="absolute inset-0 rounded-full"
+            animate={{
+              boxShadow: transitionPhase === "acknowledgement" ? `0 0 90px 24px ${displayColor}35, 0 0 180px 48px ${displayColor}1A` :
+                         transitionPhase === "acceleration" ? `0 0 120px 32px ${displayColor}50, 0 0 200px 64px ${displayColor}2A` :
+                         transitionPhase === "charge" ? `0 0 180px 48px ${displayColor}80, 0 0 300px 96px ${displayColor}4A` :
+                         transitionPhase === "expansion" ? `0 0 350px 120px ${displayColor}FF, 0 0 600px 200px ${displayColor}80` :
+                         `0 0 70px 12px ${displayColor}1C, 0 0 140px 36px ${displayColor}09`
+            }}
+            transition={{ duration: 0.25 }}
+          />
+
+          {/* Ring 1 - outermost, slow CW, with ticks */}
+          <div className="absolute inset-0 rounded-full spin-cw-24"
+            style={{ 
+              border: `1px solid ${displayColor}30`, 
+              transition: "border-color 1s",
+              animationDuration: transitionPhase === "charge" || transitionPhase === "expansion" ? "2s" :
+                                 transitionPhase === "acceleration" ? "6s" : "24s"
+            }}>
+            <TickRing size={CORE_R * 2} ticks={12} color={displayColor} opacity={0.35} />
+          </div>
+
+          {/* Ring 2 - middle, CCW */}
+          <div className="absolute rounded-full spin-ccw-36"
+            style={{
+              inset: 22, border: `1px solid ${displayColor}1A`,
+              transition: "border-color 1s",
+              animationDuration: transitionPhase === "charge" || transitionPhase === "expansion" ? "3s" :
+                                 transitionPhase === "acceleration" ? "9s" : "36s"
+            }} />
+
+          {/* Ring 3 - inner, fast CW, dashed */}
+          <div className="absolute rounded-full spin-cw-14"
+            style={{
+              inset: 44, border: `1px dashed ${displayColor}14`,
+              transition: "border-color 1s",
+              animationDuration: transitionPhase === "charge" || transitionPhase === "expansion" ? "1.5s" :
+                                 transitionPhase === "acceleration" ? "4s" : "14s"
+            }} />
+
+          {/* Inner chamber */}
+          <div
+            className="absolute rounded-full overflow-hidden"
+            style={{
+              inset: CHAMBER_INSET,
+              background: `radial-gradient(circle at 42% 36%, #0E1828 0%, #070A0E 100%)`,
+              boxShadow: `inset 0 0 36px rgba(0,0,0,0.85), inset 0 0 18px ${displayColor}10, 0 0 0 1px ${displayColor}22`,
+              transition: "box-shadow 1s ease",
+            }}
+          >
+            {/* Scan line */}
             <div
-              className={`glass p-6 md:p-8 rounded-2xl border border-edge-subtle shadow-2xl transition-all duration-500 transform ${
-                (showHUD && focusedRoom) 
-                  ? "opacity-100 translate-y-0" 
-                  : "opacity-0 translate-y-6 scale-95"
-              }`}
-            >
-              {activeDetail ? (
-                <>
-                  <div className="flex items-center gap-3 mb-4">
-                    <span className="inline-block w-2 h-2 rounded-full bg-accent animate-pulse-glow" />
-                    <span className="font-mono text-[10px] uppercase tracking-widestest text-ink-faint">
-                      {activeDetail.type}
-                    </span>
+              className="absolute scan-line pointer-events-none"
+              style={{
+                left: 0, right: 0, top: 0, height: 1,
+                background: `linear-gradient(to right, transparent 0%, ${displayColor}28 40%, ${displayColor}28 60%, transparent 100%)`,
+              }}
+            />
+
+            {/* Domain visualization */}
+            <div className="absolute inset-0">
+              <motion.div
+                key={`viz-${intelKey}`}
+                initial={{ opacity: 0 }}
+                animate={{ opacity: transitionPhase === "expansion" ? 0 : 1 }}
+                transition={{ duration: 0.4 }}
+                className="w-full h-full"
+              >
+                <CoreViz domain={intelKey} color={displayColor} />
+              </motion.div>
+            </div>
+
+            {/* Metric (Dynamic contextual values based on active domain) */}
+            <div className="absolute inset-0 flex flex-col items-center justify-center">
+              {analysis && analysis.status === "analyzing" ? (
+                <div className="flex flex-col items-center animate-pulse">
+                  <div style={{
+                    fontFamily: "'JetBrains Mono', monospace",
+                    fontSize: "9px",
+                    letterSpacing: "1.5px",
+                    color: "#00E5FF",
+                    textTransform: "uppercase"
+                  }}>
+                    Scanning...
                   </div>
-                  <h3 className="font-display text-2xl md:text-3xl font-[800] text-white tracking-tightest mb-3 leading-none animate-slide-up">
-                    {activeDetail.title}
-                  </h3>
-                  <p className="text-sm text-ink-dim leading-relaxed">
-                    {activeDetail.desc}
-                  </p>
-                </>
-              ) : (
-                <div className="flex items-center gap-3 py-2">
-                  <span className="inline-block w-1.5 h-1.5 rounded-full bg-accent animate-ping" />
-                  <span className="font-mono text-[10px] uppercase tracking-widestest text-accent animate-pulse">
-                    SWEEPING CAMERA POSITION...
-                  </span>
                 </div>
+              ) : (
+                <motion.div
+                  key={`metric-${intelKey}`}
+                  initial={{ opacity: 0, scale: 0.92 }}
+                  animate={{ 
+                    opacity: transitionPhase === "expansion" ? 0 : 1, 
+                    scale: transitionPhase === "expansion" ? 0.8 : 1 
+                  }}
+                  transition={{ duration: 0.2 }}
+                  className="flex flex-col items-center"
+                >
+                  <div
+                    style={{
+                      fontFamily: "'Bodoni Moda', serif",
+                      fontStyle: "italic",
+                      fontWeight: 700,
+                      fontSize: "clamp(44px, 6vw, 58px)",
+                      color: displayColor,
+                      lineHeight: 1,
+                      letterSpacing: "-2px",
+                      textShadow: `0 0 40px ${displayColor}50`,
+                      transition: "color 0.9s, text-shadow 0.9s",
+                    }}
+                  >
+                    {coreMetric.metric}
+                  </div>
+                  <div
+                    style={{
+                      fontFamily: "'JetBrains Mono', monospace",
+                      fontSize: "7.5px",
+                      letterSpacing: "2.5px",
+                      color: `${displayColor}70`,
+                      marginTop: 8,
+                      textTransform: "uppercase",
+                      transition: "color 0.9s",
+                    }}
+                  >
+                    {coreMetric.label}
+                  </div>
+                </motion.div>
               )}
             </div>
           </div>
-          
-          <div 
-            className={`hidden md:block font-mono text-[10px] text-ink-faint uppercase tracking-widestest p-4 transition-opacity duration-500 ${
-              showHUD ? "opacity-100" : "opacity-0"
-            }`}
-          >
-            Workspace Mode // HUD_v0.5.3
-          </div>
-        </footer>
+        </motion.div>
 
-      </div>
-
-      {/* Directory Access Permission Modal Overlay */}
-      {needsPermission && (
-        <div className="absolute inset-0 z-[8000] bg-obsidian/96 backdrop-blur-md flex flex-col items-center justify-center text-center p-6 select-none pointer-events-auto">
-          <div className="w-14 h-14 rounded-full border border-blue-500/20 bg-blue-500/5 flex items-center justify-center text-blue-400 mb-6 shadow-[0_0_15px_rgba(59,130,246,0.1)]">
-            <Layers size={22} className="animate-pulse" />
-          </div>
-          <h3 className="font-display text-xl font-[800] text-white tracking-tightest mb-2">
-            Local Directory Access Required
-          </h3>
-          <p className="font-mono text-[9px] text-slate-400 max-w-sm leading-relaxed mb-8 uppercase tracking-widest">
-            React Architect needs permission to scan your local folder to construct the component architecture graph.
-          </p>
-          <div className="flex gap-4">
-            <button
+        {/* -- Header (Refined and Simplified) -- */}
+        <motion.div
+          className="absolute top-0 left-0 right-0 flex items-start justify-between"
+          animate={{ opacity: transitionPhase === "expansion" ? 0 : 1 }}
+          transition={{ duration: 0.15 }}
+          style={{ padding: "28px 36px", zIndex: 10 }}
+        >
+          {/* Left - project identity */}
+          <div>
+            <div 
               onClick={handleReturnToHub}
-              className="px-6 py-3.5 rounded-xl border border-white/10 hover:border-white/20 text-slate-400 hover:text-white font-mono text-xs uppercase tracking-wider transition-all duration-300 font-bold"
+              style={{
+                fontFamily: "'JetBrains Mono', monospace",
+                fontSize: "8.5px", letterSpacing: "3px",
+                color: "rgba(255,255,255,0.22)", textTransform: "uppercase",
+                marginBottom: 6,
+                cursor: "pointer"
+              }}
+              onMouseEnter={e => (e.currentTarget.style.color = "rgba(255,255,255,0.72)")}
+              onMouseLeave={e => (e.currentTarget.style.color = "rgba(255,255,255,0.22)")}
             >
-              Back to Hub
-            </button>
-            <button
-              onClick={handleRequestPermission}
-              className="px-6 py-3.5 rounded-xl bg-accent text-slate-900 font-mono text-xs uppercase tracking-wider font-bold hover:shadow-[0_0_20px_rgba(0,229,255,0.3)] transition-all duration-300 shadow-[0_4px_12px_rgba(0,229,255,0.15)]"
-            >
-              Grant Folder Access
-            </button>
+              React Architect * Return to Hub
+            </div>
+            <div style={{
+              fontFamily: "'Bodoni Moda', serif",
+              fontStyle: "italic", fontWeight: 500,
+              fontSize: "19px", color: "rgba(255,255,255,0.82)",
+              letterSpacing: "-0.3px",
+            }}>
+              {selectedProject?.name || "react-project"}
+            </div>
+            <div style={{
+              fontFamily: "'JetBrains Mono', monospace",
+              fontSize: "8.5px", color: "rgba(255,255,255,0.18)",
+              marginTop: 3, letterSpacing: "0.4px",
+            }}>
+              {selectedProject?.framework || "React"} * {analysis && analysis.projectDNA?.language || "JavaScript"}
+            </div>
           </div>
+
+          {/* Right - quiet system status */}
+          <div className="flex flex-col gap-[7px] items-end">
+            {needsPermission ? (
+              <button 
+                onClick={handleRequestPermission}
+                className="font-mono text-[9px] uppercase tracking-widest px-3 py-1.5 bg-red-950/40 border border-red-500/30 text-red-400 rounded cursor-pointer hover:bg-red-900/50 transition-colors pointer-events-auto"
+              >
+                Unlock Folder Permission
+              </button>
+            ) : analysis && analysis.status === "error" ? (
+              <div className="flex items-center gap-[9px]">
+                <div style={{
+                  fontFamily: "'JetBrains Mono', monospace",
+                  fontSize: "7.5px", letterSpacing: "1.6px",
+                  color: "#EF4444", textTransform: "uppercase",
+                }}>
+                  Analysis Failed
+                </div>
+                <div
+                  className="status-blink"
+                  style={{
+                    width: 5, height: 5, borderRadius: "50%",
+                    background: "#EF4444",
+                  }}
+                />
+              </div>
+            ) : analysis && analysis.status === "analyzing" ? (
+              <div className="flex items-center gap-[9px]">
+                <div style={{
+                  fontFamily: "'JetBrains Mono', monospace",
+                  fontSize: "7.5px", letterSpacing: "1.6px",
+                  color: "#00E5FF", textTransform: "uppercase",
+                }}>
+                  Scanning Source Files
+                </div>
+                <div
+                  className="status-blink"
+                  style={{
+                    width: 5, height: 5, borderRadius: "50%",
+                    background: "#00E5FF",
+                  }}
+                />
+              </div>
+            ) : (
+              <div className="flex items-center gap-[9px]">
+                <div style={{
+                  fontFamily: "'JetBrains Mono', monospace",
+                  fontSize: "7.5px", letterSpacing: "2px",
+                  color: "#4ADE80", textTransform: "uppercase",
+                }}>
+                  Analysis Ready
+                </div>
+                <div
+                  style={{
+                    width: 5, height: 5, borderRadius: "50%",
+                    background: "#4ADE80",
+                    boxShadow: "0 0 10px #4ADE80",
+                  }}
+                />
+              </div>
+            )}
+          </div>
+        </motion.div>
+
+        {/* -- Bottom-left - live timestamp -- */}
+        <motion.div
+          className="absolute"
+          animate={{ opacity: transitionPhase === "expansion" ? 0 : 1 }}
+          transition={{ duration: 0.15 }}
+          style={{ left: 36, bottom: 30, zIndex: 10 }}
+        >
+          <div style={{
+            fontFamily: "'JetBrains Mono', monospace",
+            fontSize: "8px", letterSpacing: "1.5px",
+            color: "rgba(255,255,255,0.12)", textTransform: "uppercase",
+          }}>
+            SYSTEM * {timeStr}
+          </div>
+        </motion.div>
+
+        {/* -- Investigation Brief Panel (Relocated to Floating Right Side Card) -- */}
+        <div
+          className="absolute pointer-events-auto"
+          style={{
+            right: vw < 1200 ? 40 : 80,
+            top: "50%",
+            transform: "translateY(-50%)",
+            width: vw < 1200 ? 320 : 380,
+            textAlign: "left",
+            zIndex: 6,
+          }}
+        >
+          <motion.div
+            key={`brief-${intelKey}`}
+            initial={{ opacity: 0, x: 20 }}
+            animate={{ opacity: transitionPhase === "expansion" ? 0 : 1, x: 0 }}
+            transition={{ duration: 0.7, delay: 0.12, ease: [0.22, 1, 0.36, 1] }}
+          >
+            {/* Section Header */}
+            <div style={{
+              fontFamily: "'JetBrains Mono', monospace",
+              fontSize: "8.5px", letterSpacing: "3.3px",
+              color: "rgba(255,255,255,0.22)", textTransform: "uppercase",
+              marginBottom: 20,
+            }}>
+              Investigation Brief
+            </div>
+
+            {/* Headline */}
+            <div style={{
+              fontFamily: "'Bricolage Grotesque', sans-serif",
+              fontSize: "18px", fontWeight: 700,
+              lineHeight: 1.4,
+              color: displayColor, marginBottom: 16,
+              transition: "color 0.9s",
+            }}>
+              {intel.headline}
+            </div>
+
+            {/* Body */}
+            <div style={{
+              fontFamily: "'Bricolage Grotesque', sans-serif",
+              fontSize: "13.5px", color: "rgba(255,255,255,0.45)",
+              lineHeight: 1.8, marginBottom: 24,
+            }}>
+              {intel.body}
+            </div>
+
+            {/* Recommendation Sub-Header */}
+            <div style={{
+              fontFamily: "'JetBrains Mono', monospace",
+              fontSize: "7.5px", letterSpacing: "1.8px",
+              color: "rgba(255,255,255,0.22)", textTransform: "uppercase",
+              marginBottom: 8
+            }}>
+              Recommended Action
+            </div>
+
+            {/* Recommendation */}
+            <div style={{
+              fontFamily: "'Bodoni Moda', serif",
+              fontStyle: "italic", fontSize: "16px",
+              color: "rgba(255,255,255,0.8)", lineHeight: 1.6,
+              marginBottom: 36,
+            }}>
+              {intel.recommendation}
+            </div>
+
+            {/* Studio Contextual Action Button (Primary Action) */}
+            {active && !transitionPhase && (
+              <motion.button
+                onClick={startSignatureTransition}
+                initial={{ opacity: 0, y: 8 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.4, delay: 0.2 }}
+                className="group flex items-center gap-[18px] focus:outline-none cursor-pointer"
+              >
+                <div style={{
+                  width: 40, height: 1,
+                  background: `linear-gradient(to right, transparent, ${displayColor}77)`,
+                }} />
+                <div
+                  style={{
+                    fontFamily: "'JetBrains Mono', monospace",
+                    fontSize: "9px", letterSpacing: "2.8px",
+                    color: "rgba(255,255,255,0.5)", textTransform: "uppercase",
+                    transition: "color 0.3s",
+                  }}
+                  onMouseEnter={e => (e.currentTarget.style.color = "rgba(255,255,255,0.95)")}
+                  onMouseLeave={e => (e.currentTarget.style.color = "rgba(255,255,255,0.5)")}
+                >
+                  {intel.actionLabel}
+                </div>
+                <div style={{
+                  width: 40, height: 1,
+                  background: `linear-gradient(to left, transparent, ${displayColor}77)`,
+                }} />
+              </motion.button>
+            )}
+
+            {/* Guidance Alert if no domain is selected */}
+            {!active && (
+              <div style={{
+                fontFamily: "'JetBrains Mono', monospace",
+                fontSize: "8.5px", letterSpacing: "2.5px",
+                color: "rgba(255,255,255,0.22)", textTransform: "uppercase",
+                marginTop: 24,
+                borderTop: "1px solid rgba(255,255,255,0.06)",
+                paddingTop: 20
+              }}>
+                Select a domain node to brief
+              </div>
+            )}
+          </motion.div>
         </div>
-      )}
-    </div>
+      </div>
+    </>
   );
 };
 

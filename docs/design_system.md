@@ -102,8 +102,10 @@ Interactive action buttons drag slightly toward the cursor on hover:
 * **Math**: Translates coordinates by `dx * 0.18` and `dy * 0.22` relative to the button center.
 * **Transition**: Reset transition uses `transform 350ms cubic-bezier(0.2, 0.7, 0.1, 1)` to bounce smoothly back to center.
 
-### 4.5 Cinematic 3D Portal Transition (White Light-Flash Continuity)
-Redirection into standalone 2D tool pages (like `/architecture`) is bridged through a high-contrast white light portal:
-* **Construct Sequence**: Implosion of 8 white vertex spheres collapses the platform's rotating wireframe and forms a vertical white torus ring & energy disk.
-* **Zoop Zoom-past**: The portal group position moves forward past the camera viewport (`z: 0.05 → z: 8.0` over `650ms`, `ease: power3.in`) while the energy disk scales to `18x` to cover the screen.
-* **Mount Fade-in**: The destination page mounts with a `gsap.fromTo` background animation fading from solid white (`#ffffff`) back to obsidian `#06070b` over `800ms` with `ease: power2.out`. This creates seamless visual continuity across routes.
+### 4.5 Cinematic Signature Portal Transition (Core Transformation)
+Redirection into standalone Studio pages (like `/architecture`) is bridged through the dynamic expansion of the Core itself:
+* **Core Acknowledgement (~120ms)**: The Core briefly pulses (scale `1.0 -> 1.08`), its border glow expands, and the orbital rotation stiffens to signal input acceptance.
+* **Orbit Acceleration (~350ms)**: The orbital container accelerates its rotation speed (spinning an extra `+180deg` using an ease-in curve). The planetary nodes blur (`blur(6px)`) and fade text labels to form pure light trails.
+* **Core Energy Charge (~250ms)**: All 5 modular connection paths light up, streaming data flow dots at high speed into the center. Core glow shadow expands massively.
+* **Core Expansion (~250ms)**: The Core scales up to `30x` to consume the entire viewport in an elegant cosmic overlay. All HUD interfaces fade to `0` opacity.
+* **Mount crossfade**: The destination studio page mounts as the Core expands beyond the screen, creating seamless visual continuity.

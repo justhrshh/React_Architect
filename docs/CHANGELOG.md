@@ -1,3 +1,27 @@
+# v3.1 — Analysis Engine
+
+## Added
+* **Analysis Engine (`src/engines/analysis/`)**:
+  - `analysisEngine.js` — orchestrates every analysis module via `runAnalysis(graph)`, returning `{ projectDNA, architectureHealth, dependencyHeatmap, deadCode, complexity }`. Modules are registered in a single array (`moduleRegistry`), so adding a future module (Refactor Suggestions, AI Context Builder, Performance Analyzer, etc.) never requires touching existing ones.
+  - `index.js` — public entry point; re-exports `runAnalysis`, `analyzeImpact`, and every module individually for callers that only need one analysis.
+  - **`modules/projectDNA.js`** — derives framework, language, router, state library, build tool, package manager, component/page/hook/context/slice/API/route counts, largest component, average component size, average dependency count, and an estimated complexity tier, entirely from graph data (no hardcoded assumptions).
+  - **`modules/architectureHealth.js`** — pluggable rule-based scorer. Nine independent rules ship out of the box (large components, circular dependencies, dead routes, duplicate hooks, orphan components, unused components, excessive nesting, broken imports, missing providers), each contributing its own score deduction and structured findings. Returns `{ score, grade, errors, warnings, suggestions, ruleResults }`.
+  - **`modules/dependencyHeatmap.js`** — computes incoming/outgoing degree, RENDERS-tree depth, degree centrality, and usage frequency per node, plus a ranked `criticalNodes` list.
+  - **`modules/deadCode.js`** — detects unused components, low-reuse hooks, unresolved routes, unconsumed contexts, uncalled API endpoints, and orphan files. Exempts legitimate structural roots (pages, layouts, providers, app entry files) from false positives.
+  - **`modules/complexity.js`** — per-component complexity scoring (LOC + hooks + children + API calls, weighted), project-wide complexity, average/max nesting depth, largest render subtree, and file-level dependency depth.
+  - **`modules/impactAnalysis.js`** — on-demand `analyze(graph, nodeId)` bidirectional BFS returning every component/route/API/state node structurally connected to a target, plus a blast-radius count. Kept out of the default `runAnalysis` sweep since it's parameterized per node; invoked via `analyzeImpact(graph, nodeId)`.
+  - **`modules/metrics.js`** — shared, dependency-free graph math toolbox (adjacency/reverse-adjacency builders, degree maps, BFS depth, cycle detection, orphan detection, degree centrality, grouping/averaging helpers) used by every module above so no traversal logic is duplicated.
+
+## Design Notes
+* The Analysis Engine has zero dependencies on Babel, the parser, or React Flow — it only ever reads the generic `{ nodes, edges }` Knowledge Graph shape from `nodeFactory.js` / `edgeFactory.js`. As parser accuracy improves in the parallel sprint, every module here automatically produces richer output with no code changes.
+* `architectureHealth.js` accepts pre-computed context (`deadCode` results, `graph.validation`) from `analysisEngine.js` to avoid recomputing the same structural scans twice — a pattern any future module can opt into via a `needsContext` flag in `moduleRegistry`.
+* Verified against a synthetic graph shaped exactly like `buildKnowledgeGraph.js` output (including its fallback-seed schema) — all six modules execute cleanly and produce internally consistent results (e.g. `deadCode.unusedComponents` and `architectureHealth`'s `ORPHAN_COMPONENTS`/`UNUSED_COMPONENTS` rules agree with each other).
+
+## Status
+Sprint 9.2 Complete. React Architect now has a reusable Analysis Engine sitting above the Knowledge Graph — Architecture Health and Impact Analysis are engine-ready; only studio UI wiring remains to surface them.
+
+---
+
 # v3.0 — Centralized Knowledge Graph Engine & Refactored Studio Pages
 
 ## Added

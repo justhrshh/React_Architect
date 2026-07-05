@@ -11,6 +11,18 @@ The single source of truth database representing your project DNA:
 
 ---
 
+## 0.5 Analysis Engine
+A reusable intelligence layer sitting directly above the Knowledge Graph. It never touches source files, Babel, or React Flow — it only ever reads the `{ nodes, edges }` graph, which means it automatically gets smarter as the parser improves without ever being rewritten.
+
+* **Project DNA**: Framework, language, router, state library, build tool, component/page/hook/context/route/API counts, largest component, average component size, average dependency count, and an estimated complexity tier — all derived live from the graph.
+* **Architecture Health**: A pluggable, rule-based scorer (large components, circular dependencies, dead routes, duplicate hooks, orphan components, unused components, excessive nesting, broken imports, missing providers). Each rule is independent and contributes its own deduction, so the score always explains *why* it exists.
+* **Dependency Heatmap**: Incoming/outgoing degree, render depth, centrality, and usage frequency for every node, plus a ranked list of the graph's most critical nodes.
+* **Dead Code Detection**: Unused components, low-reuse hooks, unresolved routes, unconsumed contexts, uncalled API endpoints, and orphan files.
+* **Complexity**: Per-component complexity scoring, project-wide complexity, average/max nesting depth, the largest render subtree, and file-level dependency depth.
+* **Impact Analysis**: Given any node, returns every component, route, API, and state slice structurally connected to it, plus a blast-radius count — the foundation for safe Live Refactoring and the future Refactor Simulator.
+
+---
+
 ## 1. Component Architecture Studio
 Understand component organization and composition instantly.
 * **Component Nesting**: Charts parent-child boundaries dynamically using AST analysis.

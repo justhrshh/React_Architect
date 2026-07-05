@@ -1,6 +1,7 @@
 import { scanDirectory, scanZip } from "./scanner/scanner";
 import { buildKnowledgeGraph } from "./graph/buildKnowledgeGraph";
 import { layoutGraphNodes } from "./layout/layoutEngine";
+import { runAnalysis } from "./analysis";
 
 /**
  * Orchestrates the full architectural analysis pipeline using the new
@@ -31,6 +32,9 @@ export async function analyzeProject(project, dirHandle, zipFile) {
 
   // 3. Keep a cache of raw files inside knowledgeGraph metadata for docs visualizer
   kg.rawFiles = files;
+
+  // 4. Run Analysis Engine
+  kg.analysis = runAnalysis(kg);
 
   return kg;
 }

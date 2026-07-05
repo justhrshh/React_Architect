@@ -60,20 +60,6 @@ components/
 └── Nav.jsx
 
 features/
-├── workspace/
-│   ├── CameraController.jsx       ← GSAP sweeps + OrbitControls (explore mode only)
-│   ├── CameraPositions.js         ← Static room position/target coordinate configs
-│   ├── WorkspaceScene.jsx         ← R3F Canvas orchestrator; distributes state flags to rooms
-│   ├── WorldLights.jsx            ← Ambient + spot lighting rig for all 6 platforms
-│   ├── WorldEnvironment.jsx       ← Stars, grid floor, wire connections, energy particles
-│   └── rooms/
-│       ├── Portal.jsx             ← Reusable 3D Portal Gateway (white node-scattering implosion)
-│       ├── BrainRoom.jsx          ← Holographic operating table console; concentric division lines, crosshairs, dynamic scale/glow transitions
-│       ├── ArchitectureRoom.jsx   ← Platform + LocalParticles + wireframe build + Portal Integration
-│       ├── RoutesRoom.jsx         ← Platform + LocalParticles + wireframe build + Portal Integration
-│       ├── StateRoom.jsx          ← Platform + LocalParticles + wireframe build + Portal Integration
-│       ├── ApiRoom.jsx            ← Platform + LocalParticles + wireframe build + Portal Integration
-│       └── DocumentationRoom.jsx  ← Platform + LocalParticles + wireframe build + Portal Integration
 ├── architecture/
 ├── routes/
 ├── state-flow/

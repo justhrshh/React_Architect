@@ -24,11 +24,18 @@ Trace milestones and sprints for the React Architect workspace platform.
 - **Page-collapse Fullscreen**: Collapses panel views inside the workspace for fullscreen graph mapping.
 - **Studios Mapping**: Deployed React Flow maps for Component Nesting, Route Mappings, Redux State slices, and API Client endpoints. Added a markdown reader for guide documents.
 
-### Sprint 9: Unified Centralized Knowledge Graph Engine (Active Sprint)
+### Sprint 9: Unified Centralized Knowledge Graph Engine
 - **Knowledge Graph Framework**: Designed a framework-agnostic node/edge factory database mapping project DNA.
 - **Extractor Pipelines**: Orchestrated modular extractors under `src/engines/parser/extractors/`.
 - **Layout coordinator**: Decoupled visual layer calculations (`layoutEngine.js`) from visual client adapters.
 - **Studios Refactoring**: Updated all five studios to load, inspect, and map nodes/edges directly from the central Knowledge Graph database.
+
+### Sprint 9.2: Analysis Engine (Active Sprint)
+- **Reusable Analysis Engine**: Built `src/engines/analysis/` as a pure consumer of the Knowledge Graph — no parsing, no AST, no Babel, no React Flow dependency of any kind.
+- **Modular Design**: Six independent modules (`projectDNA`, `architectureHealth`, `dependencyHeatmap`, `deadCode`, `complexity`, `impactAnalysis`) orchestrated by `analysisEngine.js`, each exposing a common `analyze(graph)` interface.
+- **Pluggable Health Scoring**: `architectureHealth.js` uses an array-of-rules pattern — every scoring rule is an independent function contributing its own deduction, so new rules never require touching existing ones.
+- **Shared Metrics Toolbox**: `metrics.js` centralizes graph math (degree maps, centrality, cycle detection, BFS depth, orphan detection) so no module duplicates the same traversal logic.
+- **On-Demand Impact Analysis**: `analyzeImpact(graph, nodeId)` traverses the graph in both directions to compute blast radius — laying the groundwork for Live Refactoring (Feature 1) and the Refactor Simulator (Feature 10).
 
 ---
 
@@ -74,6 +81,35 @@ API
 Docs
 
 Everything should consume the same graph.
+
+Update: the graph now has an Analysis Engine sitting directly on top of it
+(Sprint 9.2). The picture is now:
+
+React Project
+      │
+      ▼
+Scanner
+      │
+      ▼
+AST Parser
+      │
+      ▼
+Knowledge Graph
+      │
+      ▼
+Analysis Engine
+      │
+ ┌────┼────┬────┬────┬────┐
+ ▼    ▼    ▼    ▼    ▼    ▼
+Architecture
+Routes
+State
+API
+Docs
+(+ Impact Analysis, on demand)
+
+Studios and future features consume Analysis Engine output instead of
+recomputing their own graph traversals.
 
 ------------------------------------------------------------
 
@@ -311,6 +347,11 @@ Project DNA should allow developers to understand a codebase within seconds.
 ------------------------------------------------------------
 
 Development Priority
+
+> **Status note (Sprint 9.2):** items 3 and 4 below (Architecture Health,
+> Dependency & Impact Analysis) now have their engine-level logic built and
+> ready in `src/engines/analysis/`. What remains is wiring their output into
+> studio UI — no further graph-analysis work is required to unblock that.
 
 1. Improve parser accuracy
    - Barrel exports
