@@ -1,7 +1,8 @@
 import { useState, useEffect } from "react";
 import { useSelector, useDispatch } from "react-redux";
 import { useNavigate } from "react-router-dom";
-import { motion } from "framer-motion";
+import { motion, AnimatePresence } from "framer-motion";
+import { ArrowLeft } from "lucide-react";
 import { setFiles, setKnowledgeGraph } from "@/redux/slices/graphSlice";
 import { selectSelectedProject, clearSelectedProject } from "@/redux/slices/hubSlice";
 import { setAnalysisStatus, setAnalysisResults, resetAnalysis } from "@/redux/slices/analysisSlice";
@@ -574,6 +575,147 @@ const Workspace = () => {
   const [transitionPhase, setTransitionPhase] = useState(null);
   const [extraRotation, setExtraRotation] = useState(0);
 
+  // Onboarding sequence state ("intro" -> "charging" -> "shrinking" -> "revealing" -> "ready")
+  const [introStep, setIntroStep] = useState("intro");
+
+  // Progressive disclosure hover states
+  const [hoveredStack, setHoveredStack] = useState(false);
+  const [hoveredScale, setHoveredScale] = useState(false);
+  const [hoveredHealth, setHoveredHealth] = useState(false);
+  const [hoveredBottomDiagnostics, setHoveredBottomDiagnostics] = useState(false);
+
+  const knowledgeGraph = useSelector((state) => state.graph.knowledgeGraph);
+  const rawFiles = knowledgeGraph?.rawFiles || [];
+
+  // Parse project's package.json dependencies dynamically
+  const packageJsonFile = rawFiles.find(f => f.name === "package.json");
+  let dependencies = {};
+  if (packageJsonFile) {
+    try {
+      const parsed = JSON.parse(packageJsonFile.content);
+      dependencies = {
+        ...parsed.dependencies,
+        ...parsed.devDependencies,
+        ...parsed.peerDependencies
+      };
+    } catch (e) {
+      console.error("Failed to parse package.json dependencies", e);
+    }
+  }
+
+  // Detect package manager
+  const packageManager = rawFiles.some(f => f.name === "package-lock.json") ? "npm" :
+                         rawFiles.some(f => f.name === "yarn.lock") ? "yarn" :
+                         rawFiles.some(f => f.name === "pnpm-lock.yaml") ? "pnpm" : "npm";
+
+  // Category mapping catalog
+  const CATEGORY_MAP = {
+    "Frontend": [
+      { key: "react", label: "React" },
+      { key: "vite", label: "Vite" },
+      { key: "typescript", label: "TypeScript" },
+      { key: "vue", label: "Vue" },
+      { key: "svelte", label: "Svelte" },
+      { key: "@angular/core", label: "Angular" },
+    ],
+    "State": [
+      { key: "@reduxjs/toolkit", label: "Redux Toolkit" },
+      { key: "redux", label: "Redux" },
+      { key: "zustand", label: "Zustand" },
+      { key: "mobx", label: "MobX" },
+      { key: "recoil", label: "Recoil" },
+      { key: "xstate", label: "XState" },
+    ],
+    "Routing": [
+      { key: "react-router-dom", label: "React Router" },
+      { key: "react-router", label: "React Router" },
+      { key: "@tanstack/react-router", label: "TanStack Router" },
+      { key: "wouter", label: "Wouter" },
+    ],
+    "Styling": [
+      { key: "tailwindcss", label: "Tailwind CSS" },
+      { key: "sass", label: "Sass" },
+      { key: "scss", label: "SCSS" },
+      { key: "less", label: "Less" },
+      { key: "styled-components", label: "Styled Components" },
+      { key: "@emotion/react", label: "Emotion" },
+    ],
+    "Animation": [
+      { key: "gsap", label: "GSAP" },
+      { key: "@gsap/react", label: "GSAP React" },
+      { key: "framer-motion", label: "Framer Motion" },
+      { key: "motion", label: "Motion" },
+      { key: "animejs", label: "Anime.js" },
+    ],
+    "Networking": [
+      { key: "axios", label: "Axios" },
+      { key: "@tanstack/react-query", label: "TanStack Query" },
+      { key: "swr", label: "SWR" },
+    ],
+    "Tooling": [
+      { key: "eslint", label: "ESLint" },
+      { key: "prettier", label: "Prettier" },
+      { key: "typescript", label: "TypeScript" },
+      { key: "vitest", label: "Vitest" },
+      { key: "jest", label: "Jest" },
+    ]
+  };
+
+  const detectedCategories = {};
+
+  if (Object.keys(dependencies).length > 0) {
+    Object.entries(CATEGORY_MAP).forEach(([category, list]) => {
+      const activeInCat = [];
+      list.forEach(({ key, label }) => {
+        if (key in dependencies) {
+          if (!activeInCat.includes(label)) {
+            activeInCat.push(label);
+          }
+        }
+      });
+
+      // Special contextual overrides
+      if (category === "Frontend") {
+        if (!activeInCat.includes("React") && ("react" in dependencies)) {
+          activeInCat.push("React");
+        }
+        if (!activeInCat.includes("JavaScript")) {
+          activeInCat.push("JavaScript");
+        }
+      }
+      if (category === "Tooling") {
+        const pmLabel = packageManager.toUpperCase();
+        if (!activeInCat.includes(pmLabel)) {
+          activeInCat.push(pmLabel);
+        }
+      }
+
+      if (activeInCat.length > 0) {
+        detectedCategories[category] = activeInCat;
+      }
+    });
+  } else {
+    // Fallback using selectedProject flags
+    const frontend = ["React", "JavaScript"];
+    if (selectedProject?.hasTypeScript) frontend.push("TypeScript");
+    detectedCategories["Frontend"] = frontend;
+
+    const styling = [];
+    if (selectedProject?.hasTailwind) styling.push("Tailwind CSS");
+    if (styling.length > 0) detectedCategories["Styling"] = styling;
+
+    const state = [];
+    if (selectedProject?.hasRedux) state.push("Redux Toolkit");
+    else state.push("Context API");
+    detectedCategories["State"] = state;
+
+    const routing = [];
+    if (selectedProject?.hasRouter) routing.push("React Router");
+    if (routing.length > 0) detectedCategories["Routing"] = routing;
+
+    detectedCategories["Tooling"] = [packageManager.toUpperCase()];
+  }
+
   // Redirect to Hub if no project is loaded
   useEffect(() => {
     if (!selectedProject) {
@@ -732,6 +874,23 @@ const Workspace = () => {
   const coreCX = vw * 0.38;
   const coreCY = vh * 0.5;
 
+  const brainX = (introStep === "intro" || introStep === "charging") ? (vw / 2) : coreCX;
+  const brainY = (introStep === "intro" || introStep === "charging") ? (vh / 2) : coreCY;
+
+  const startOnboardingTransition = () => {
+    if (analysis && analysis.status === "analyzing") return;
+    setIntroStep("charging");
+    setTimeout(() => {
+      setIntroStep("shrinking");
+      setTimeout(() => {
+        setIntroStep("revealing");
+        setTimeout(() => {
+          setIntroStep("ready");
+        }, 1200);
+      }, 1000);
+    }, 900);
+  };
+
   // Orbit ring -> line start just outside the Core edge
   const EDGE = CORE_R + 14;
 
@@ -889,7 +1048,7 @@ const Workspace = () => {
         <div
           className="absolute inset-0 pointer-events-none"
           style={{
-            background: `radial-gradient(ellipse 880px 680px at ${coreCX}px ${coreCY}px, ${displayColor}16 0%, transparent 62%)`,
+            background: `radial-gradient(ellipse 880px 680px at ${brainX}px ${brainY}px, ${displayColor}16 0%, transparent 62%)`,
             transition: "background 1.1s ease",
           }}
         />
@@ -914,7 +1073,11 @@ const Workspace = () => {
 
         {/* -- Rotating Orbital System Container -- */}
         <motion.div
-          animate={{ rotate: orbitRotation + extraRotation }}
+          animate={{
+            rotate: orbitRotation + extraRotation,
+            scale: (introStep === "ready" || introStep === "revealing") ? 1 : 0,
+            opacity: (introStep === "ready" || introStep === "revealing") ? 1 : 0
+          }}
           transition={
             transitionPhase === "acknowledgement" ? { duration: 0.12, ease: "easeOut" } :
             transitionPhase === "acceleration" ? { duration: 0.35, ease: "easeIn" } :
@@ -1132,36 +1295,64 @@ const Workspace = () => {
         <motion.div
           className="absolute"
           animate={{
-            scale: transitionPhase === "acknowledgement" ? 1.05 :
+            left: brainX,
+            top: brainY,
+            scale: (introStep === "intro") ? 1.45 :
+                   (introStep === "charging") ? 1.55 :
+                   (introStep === "shrinking") ? 1.0 :
+                   transitionPhase === "acknowledgement" ? 1.05 :
                    transitionPhase === "acceleration" ? 1.02 :
                    transitionPhase === "charge" ? 1.15 :
                    transitionPhase === "expansion" ? 30.0 : 1.0,
             borderRadius: transitionPhase === "expansion" ? "0%" : "50%"
           }}
           transition={
+            introStep === "shrinking" ? { type: "spring", stiffness: 80, damping: 15 } :
             transitionPhase === "expansion" ? { duration: 0.3, ease: [0.4, 0, 0.2, 1] } :
             transitionPhase === "acknowledgement" ? { duration: 0.12, ease: "easeOut" } :
-            { duration: 0.22, ease: "easeInOut" }
+            { duration: 0.8, ease: "easeInOut" }
           }
           style={{
-            left: coreCX, top: coreCY,
+            position: "absolute",
             width: CORE_R * 2, height: CORE_R * 2,
             marginLeft: -CORE_R, marginTop: -CORE_R,
             zIndex: transitionPhase === "expansion" ? 50 : 4,
             overflow: "visible"
           }}
         >
+          {/* Super glow radial burst — fires during charging */}
+          <motion.div
+            className="absolute rounded-full"
+            style={{
+              inset: -80,
+              background: `radial-gradient(circle, ${displayColor}40 0%, ${displayColor}18 30%, ${displayColor}08 55%, transparent 75%)`,
+              filter: `blur(8px)`,
+              pointerEvents: "none",
+            }}
+            animate={{
+              opacity: introStep === "charging" ? 1 : 0,
+              scale: introStep === "charging" ? [1, 1.35, 1.15] : 0.6,
+            }}
+            transition={
+              introStep === "charging"
+                ? { opacity: { duration: 0.3 }, scale: { duration: 0.9, times: [0, 0.6, 1], ease: "easeInOut" } }
+                : { duration: 0.6, ease: "easeOut" }
+            }
+          />
+
           {/* Outer glow halo */}
           <motion.div
             className="absolute inset-0 rounded-full"
             animate={{
-              boxShadow: transitionPhase === "acknowledgement" ? `0 0 90px 24px ${displayColor}35, 0 0 180px 48px ${displayColor}1A` :
+              boxShadow: introStep === "charging" ? `0 0 200px 60px ${displayColor}70, 0 0 400px 120px ${displayColor}35, 0 0 600px 200px ${displayColor}12` :
+                         transitionPhase === "acknowledgement" ? `0 0 90px 24px ${displayColor}35, 0 0 180px 48px ${displayColor}1A` :
                          transitionPhase === "acceleration" ? `0 0 120px 32px ${displayColor}50, 0 0 200px 64px ${displayColor}2A` :
                          transitionPhase === "charge" ? `0 0 180px 48px ${displayColor}80, 0 0 300px 96px ${displayColor}4A` :
                          transitionPhase === "expansion" ? `0 0 350px 120px ${displayColor}FF, 0 0 600px 200px ${displayColor}80` :
+                         introStep === "shrinking" ? `0 0 120px 36px ${displayColor}30, 0 0 250px 72px ${displayColor}15` :
                          `0 0 70px 12px ${displayColor}1C, 0 0 140px 36px ${displayColor}09`
             }}
-            transition={{ duration: 0.25 }}
+            transition={{ duration: introStep === "charging" ? 0.5 : 0.25 }}
           />
 
           {/* Ring 1 - outermost, slow CW, with ticks (drifts outwards) */}
@@ -1323,240 +1514,745 @@ const Workspace = () => {
         </motion.div>
 
         {/* -- Header (Refined and Simplified) -- */}
-        <motion.div
-          className="absolute top-0 left-0 right-0 flex items-start justify-between"
-          animate={{ opacity: transitionPhase === "expansion" ? 0 : 1 }}
-          transition={{ duration: 0.15 }}
-          style={{ padding: "28px 36px", zIndex: 10 }}
-        >
-          {/* Left - project identity */}
-          <div>
-            <div 
-              onClick={handleReturnToHub}
-              style={{
-                fontFamily: "'JetBrains Mono', monospace",
-                fontSize: "8.5px", letterSpacing: "3px",
-                color: "rgba(255,255,255,0.22)", textTransform: "uppercase",
-                marginBottom: 6,
-                cursor: "pointer"
-              }}
-              onMouseEnter={e => (e.currentTarget.style.color = "rgba(255,255,255,0.72)")}
-              onMouseLeave={e => (e.currentTarget.style.color = "rgba(255,255,255,0.22)")}
-            >
-              React<span style={{ color: "#00E5FF", fontWeight: 700 }}>/</span>Architect * Return to Hub
-            </div>
-            <div style={{
-              fontFamily: "'Bodoni Moda', serif",
-              fontStyle: "italic", fontWeight: 500,
-              fontSize: "19px", color: "rgba(255,255,255,0.82)",
-              letterSpacing: "-0.3px",
-            }}>
-              {selectedProject?.name || "react-project"}
-            </div>
-            <div style={{
-              fontFamily: "'JetBrains Mono', monospace",
-              fontSize: "8.5px", color: "rgba(255,255,255,0.18)",
-              marginTop: 3, letterSpacing: "0.4px",
-            }}>
-              {selectedProject?.framework || "React"} * {analysis && analysis.projectDNA?.language || "JavaScript"}
-            </div>
-          </div>
-
-          {/* Right - quiet system status */}
-          <div className="flex flex-col gap-[7px] items-end">
-            {needsPermission ? (
-              <button 
-                onClick={handleRequestPermission}
-                className="font-mono text-[9px] uppercase tracking-widest px-3 py-1.5 bg-red-950/40 border border-red-500/30 text-red-400 rounded cursor-pointer hover:bg-red-900/50 transition-colors pointer-events-auto"
+        {(introStep === "ready" || introStep === "revealing") && (
+          <motion.div
+            className="absolute top-0 left-0 right-0 flex items-start justify-between"
+            animate={{ opacity: transitionPhase === "expansion" ? 0 : 1 }}
+            transition={{ duration: 0.15 }}
+            style={{ padding: "28px 36px", zIndex: 10 }}
+          >
+            {/* Left - project identity */}
+            <div>
+              <div 
+                onClick={handleReturnToHub}
+                style={{
+                  fontFamily: "'JetBrains Mono', monospace",
+                  fontSize: "8.5px", letterSpacing: "3px",
+                  color: "rgba(255,255,255,0.22)", textTransform: "uppercase",
+                  marginBottom: 6,
+                  cursor: "pointer"
+                }}
+                onMouseEnter={e => (e.currentTarget.style.color = "rgba(255,255,255,0.72)")}
+                onMouseLeave={e => (e.currentTarget.style.color = "rgba(255,255,255,0.22)")}
               >
-                Unlock Folder Permission
-              </button>
-            ) : analysis && analysis.status === "error" ? (
-              <div className="flex items-center gap-[9px]">
-                <div style={{
-                  fontFamily: "'JetBrains Mono', monospace",
-                  fontSize: "7.5px", letterSpacing: "1.6px",
-                  color: "#EF4444", textTransform: "uppercase",
-                }}>
-                  Analysis Failed
-                </div>
-                <div
-                  className="status-blink"
-                  style={{
-                    width: 5, height: 5, borderRadius: "50%",
-                    background: "#EF4444",
-                  }}
-                />
+                React<span style={{ color: "#00E5FF", fontWeight: 700 }}>/</span>Architect * Return to Hub
               </div>
-            ) : analysis && analysis.status === "analyzing" ? (
-              <div className="flex items-center gap-[9px]">
-                <div style={{
-                  fontFamily: "'JetBrains Mono', monospace",
-                  fontSize: "7.5px", letterSpacing: "1.6px",
-                  color: "#00E5FF", textTransform: "uppercase",
-                }}>
-                  Scanning Source Files
-                </div>
-                <div
-                  className="status-blink"
-                  style={{
-                    width: 5, height: 5, borderRadius: "50%",
-                    background: "#00E5FF",
-                  }}
-                />
+              <div style={{
+                fontFamily: "'Bodoni Moda', serif",
+                fontStyle: "italic", fontWeight: 500,
+                fontSize: "19px", color: "rgba(255,255,255,0.82)",
+                letterSpacing: "-0.3px",
+              }}>
+                {selectedProject?.name || "react-project"}
               </div>
-            ) : (
-              <div className="flex items-center gap-[9px]">
-                <div style={{
-                  fontFamily: "'JetBrains Mono', monospace",
-                  fontSize: "7.5px", letterSpacing: "2px",
-                  color: "#4ADE80", textTransform: "uppercase",
-                }}>
-                  Analysis Ready
-                </div>
-                <div
-                  style={{
-                    width: 5, height: 5, borderRadius: "50%",
-                    background: "#4ADE80",
-                    boxShadow: "0 0 10px #4ADE80",
-                  }}
-                />
+              <div style={{
+                fontFamily: "'JetBrains Mono', monospace",
+                fontSize: "8.5px", color: "rgba(255,255,255,0.18)",
+                marginTop: 3, letterSpacing: "0.4px",
+              }}>
+                {selectedProject?.framework || "React"} * {analysis && analysis.projectDNA?.language || "JavaScript"}
               </div>
-            )}
-          </div>
-        </motion.div>
+            </div>
+
+            {/* Right - quiet system status */}
+            <div className="flex flex-col gap-[7px] items-end">
+              {needsPermission ? (
+                <button 
+                  onClick={handleRequestPermission}
+                  className="font-mono text-[9px] uppercase tracking-widest px-3 py-1.5 bg-red-950/40 border border-red-500/30 text-red-400 rounded cursor-pointer hover:bg-red-900/50 transition-colors pointer-events-auto"
+                >
+                  Unlock Folder Permission
+                </button>
+              ) : analysis && analysis.status === "error" ? (
+                <div className="flex items-center gap-[9px]">
+                  <div style={{
+                    fontFamily: "'JetBrains Mono', monospace",
+                    fontSize: "7.5px", letterSpacing: "1.6px",
+                    color: "#EF4444", textTransform: "uppercase",
+                  }}>
+                    Analysis Failed
+                  </div>
+                  <div
+                    className="status-blink"
+                    style={{
+                      width: 5, height: 5, borderRadius: "50%",
+                      background: "#EF4444",
+                    }}
+                  />
+                </div>
+              ) : analysis && analysis.status === "analyzing" ? (
+                <div className="flex items-center gap-[9px]">
+                  <div style={{
+                    fontFamily: "'JetBrains Mono', monospace",
+                    fontSize: "7.5px", letterSpacing: "1.6px",
+                    color: "#00E5FF", textTransform: "uppercase",
+                  }}>
+                    Scanning Source Files
+                  </div>
+                  <div
+                    className="status-blink"
+                    style={{
+                      width: 5, height: 5, borderRadius: "50%",
+                      background: "#00E5FF",
+                    }}
+                  />
+                </div>
+              ) : (
+                <div className="flex items-center gap-[9px]">
+                  <div style={{
+                    fontFamily: "'JetBrains Mono', monospace",
+                    fontSize: "7.5px", letterSpacing: "2px",
+                    color: "#4ADE80", textTransform: "uppercase",
+                  }}>
+                    Analysis Ready
+                  </div>
+                  <div
+                    style={{
+                      width: 5, height: 5, borderRadius: "50%",
+                      background: "#4ADE80",
+                      boxShadow: "0 0 10px #4ADE80",
+                    }}
+                  />
+                </div>
+              )}
+            </div>
+          </motion.div>
+        )}
 
         {/* -- Bottom-left - live timestamp -- */}
-        <motion.div
-          className="absolute"
-          animate={{ opacity: transitionPhase === "expansion" ? 0 : 1 }}
-          transition={{ duration: 0.15 }}
-          style={{ left: 36, bottom: 30, zIndex: 10 }}
-        >
-          <div style={{
-            fontFamily: "'JetBrains Mono', monospace",
-            fontSize: "8px", letterSpacing: "1.5px",
-            color: "rgba(255,255,255,0.12)", textTransform: "uppercase",
-          }}>
-            SYSTEM * {timeStr}
-          </div>
-        </motion.div>
+        {(introStep === "ready" || introStep === "revealing") && (
+          <motion.div
+            className="absolute"
+            animate={{ opacity: transitionPhase === "expansion" ? 0 : 1 }}
+            transition={{ duration: 0.15 }}
+            style={{ left: 36, bottom: 30, zIndex: 10 }}
+          >
+            <div style={{
+              fontFamily: "'JetBrains Mono', monospace",
+              fontSize: "8px", letterSpacing: "1.5px",
+              color: "rgba(255,255,255,0.12)", textTransform: "uppercase",
+            }}>
+              SYSTEM * {timeStr}
+            </div>
+          </motion.div>
+        )}
 
         {/* -- Investigation Brief Panel (Relocated to Floating Right Side Card) -- */}
-        <div
-          className="absolute pointer-events-auto"
-          style={{
-            right: vw < 1200 ? 40 : 80,
-            top: "50%",
-            transform: "translateY(-50%)",
-            width: vw < 1200 ? 320 : 380,
-            textAlign: "left",
-            zIndex: 6,
-          }}
-        >
-          <motion.div
-            key={`brief-${intelKey}`}
-            initial={{ opacity: 0, x: 20 }}
-            animate={{ opacity: transitionPhase === "expansion" ? 0 : 1, x: 0 }}
-            transition={{ duration: 0.7, delay: 0.12, ease: [0.22, 1, 0.36, 1] }}
+        {(introStep === "ready" || introStep === "revealing") && (
+          <div
+            className="absolute pointer-events-auto"
+            style={{
+              right: vw < 1200 ? 40 : 80,
+              top: "50%",
+              transform: "translateY(-50%)",
+              width: vw < 1200 ? 320 : 380,
+              textAlign: "left",
+              zIndex: 6,
+            }}
           >
-            {/* Section Header */}
-            <div style={{
-              fontFamily: "'JetBrains Mono', monospace",
-              fontSize: "8.5px", letterSpacing: "3.3px",
-              color: "rgba(255,255,255,0.22)", textTransform: "uppercase",
-              marginBottom: 20,
-            }}>
-              Investigation Brief
+            <motion.div
+              key={`brief-${intelKey}`}
+              initial={{ opacity: 0, x: 20 }}
+              animate={{ opacity: transitionPhase === "expansion" ? 0 : 1, x: 0 }}
+              transition={{ duration: 0.7, delay: 0.12, ease: [0.22, 1, 0.36, 1] }}
+            >
+              {/* Section Header */}
+              <div style={{
+                fontFamily: "'JetBrains Mono', monospace",
+                fontSize: "8.5px", letterSpacing: "3.3px",
+                color: "rgba(255,255,255,0.22)", textTransform: "uppercase",
+                marginBottom: 20,
+              }}>
+                Investigation Brief
+              </div>
+
+              {/* Headline */}
+              <div style={{
+                fontFamily: "'Bricolage Grotesque', sans-serif",
+                fontSize: "18px", fontWeight: 700,
+                lineHeight: 1.4,
+                color: displayColor, marginBottom: 16,
+                transition: "color 0.9s",
+              }}>
+                {intel.headline}
+              </div>
+
+              {/* Body */}
+              <div style={{
+                fontFamily: "'Bricolage Grotesque', sans-serif",
+                fontSize: "13.5px", color: "rgba(255,255,255,0.45)",
+                lineHeight: 1.8, marginBottom: 24,
+              }}>
+                {intel.body}
+              </div>
+
+              {/* Recommendation Sub-Header */}
+              <div style={{
+                fontFamily: "'JetBrains Mono', monospace",
+                fontSize: "7.5px", letterSpacing: "1.8px",
+                color: "rgba(255,255,255,0.22)", textTransform: "uppercase",
+                marginBottom: 8
+              }}>
+                Recommended Action
+              </div>
+
+              {/* Recommendation */}
+              <div style={{
+                fontFamily: "'Bodoni Moda', serif",
+                fontStyle: "italic", fontSize: "16px",
+                color: "rgba(255,255,255,0.8)", lineHeight: 1.6,
+                marginBottom: 36,
+              }}>
+                {intel.recommendation}
+              </div>
+
+              {/* Studio Contextual Action Button (Primary Action) */}
+              {active && !transitionPhase && (
+                <motion.button
+                  onClick={startSignatureTransition}
+                  initial={{ opacity: 0, y: 8 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ duration: 0.4, delay: 0.2 }}
+                  className="group flex items-center gap-[18px] focus:outline-none cursor-pointer"
+                >
+                  <div style={{
+                    width: 40, height: 1,
+                    background: `linear-gradient(to right, transparent, ${displayColor}77)`,
+                  }} />
+                  <div
+                    style={{
+                      fontFamily: "'JetBrains Mono', monospace",
+                      fontSize: "9px", letterSpacing: "2.8px",
+                      color: "rgba(255,255,255,0.5)", textTransform: "uppercase",
+                      transition: "color 0.3s",
+                    }}
+                    onMouseEnter={e => (e.currentTarget.style.color = "rgba(255,255,255,0.95)")}
+                    onMouseLeave={e => (e.currentTarget.style.color = "rgba(255,255,255,0.5)")}
+                  >
+                    {intel.actionLabel}
+                  </div>
+                  <div style={{
+                    width: 40, height: 1,
+                    background: `linear-gradient(to left, transparent, ${displayColor}77)`,
+                  }} />
+                </motion.button>
+              )}
+
+              {/* Guidance Alert if no domain is selected */}
+              {!active && (
+                <div style={{
+                  fontFamily: "'JetBrains Mono', monospace",
+                  fontSize: "8.5px", letterSpacing: "2.5px",
+                  color: "rgba(255,255,255,0.22)", textTransform: "uppercase",
+                  marginTop: 24,
+                  borderTop: "1px solid rgba(255,255,255,0.06)",
+                  paddingTop: 20
+                }}>
+                  Select a domain node to brief
+                </div>
+              )}
+            </motion.div>
+          </div>
+        )}
+
+        {/* -- Onboarding Intro Overlay -- */}
+        {introStep !== "ready" && introStep !== "revealing" && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: introStep === "intro" ? 1 : 0 }}
+            transition={{ duration: 0.55, ease: "easeInOut" }}
+            className="absolute inset-0 z-20 flex flex-col justify-between pointer-events-none"
+            style={{ padding: "8vh 8vw" }}
+          >
+            {/* Back button to Project Hub (Absolute positioned further left to maintain title symmetry) */}
+            <div className="absolute top-[36px] left-[36px] pointer-events-auto z-30">
+              <button
+                onClick={handleReturnToHub}
+                className="group flex items-center justify-center w-10 h-10 rounded-full border border-white/10 bg-white/2 hover:bg-white/5 hover:border-white/25 transition-all duration-300 cursor-pointer focus:outline-none"
+                style={{
+                  boxShadow: "0 4px 12px rgba(0,0,0,0.2)",
+                }}
+                onMouseEnter={e => {
+                  e.currentTarget.style.borderColor = `${displayColor}66`;
+                  e.currentTarget.style.boxShadow = `0 0 16px ${displayColor}3A`;
+                }}
+                onMouseLeave={e => {
+                  e.currentTarget.style.borderColor = "rgba(255,255,255,0.1)";
+                  e.currentTarget.style.boxShadow = "0 4px 12px rgba(0,0,0,0.2)";
+                }}
+              >
+                <ArrowLeft size={16} className="text-white/60 group-hover:text-white transition-colors" />
+              </button>
             </div>
 
-            {/* Headline */}
-            <div style={{
-              fontFamily: "'Bricolage Grotesque', sans-serif",
-              fontSize: "18px", fontWeight: 700,
-              lineHeight: 1.4,
-              color: displayColor, marginBottom: 16,
-              transition: "color 0.9s",
-            }}>
-              {intel.headline}
-            </div>
+            {/* Top Bar Info */}
+            <div className="flex justify-between items-start">
+              <div>
+                <motion.div
+                  initial={{ opacity: 0, y: -10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ duration: 0.8, delay: 0.2 }}
+                  style={{
+                    fontFamily: "'JetBrains Mono', monospace",
+                    fontSize: "9px", letterSpacing: "4px",
+                    color: `${displayColor}CC`, textTransform: "uppercase",
+                    textShadow: `0 0 10px ${displayColor}33`,
+                    marginBottom: 10
+                  }}
+                >
+                  Project Operating System
+                </motion.div>
+                <motion.h1
+                  initial={{ opacity: 0, y: 15 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ duration: 0.8, delay: 0.3 }}
+                  style={{
+                    fontFamily: "'Bricolage Grotesque', sans-serif",
+                    fontWeight: 800, fontSize: "clamp(36px, 4.5vw, 54px)",
+                    color: "#FFFFFF", lineHeight: 1.1,
+                    letterSpacing: "-1.5px"
+                  }}
+                >
+                  {selectedProject?.name || "react-project"}
+                </motion.h1>
+              </div>
 
-            {/* Body */}
-            <div style={{
-              fontFamily: "'Bricolage Grotesque', sans-serif",
-              fontSize: "13.5px", color: "rgba(255,255,255,0.45)",
-              lineHeight: 1.8, marginBottom: 24,
-            }}>
-              {intel.body}
-            </div>
-
-            {/* Recommendation Sub-Header */}
-            <div style={{
-              fontFamily: "'JetBrains Mono', monospace",
-              fontSize: "7.5px", letterSpacing: "1.8px",
-              color: "rgba(255,255,255,0.22)", textTransform: "uppercase",
-              marginBottom: 8
-            }}>
-              Recommended Action
-            </div>
-
-            {/* Recommendation */}
-            <div style={{
-              fontFamily: "'Bodoni Moda', serif",
-              fontStyle: "italic", fontSize: "16px",
-              color: "rgba(255,255,255,0.8)", lineHeight: 1.6,
-              marginBottom: 36,
-            }}>
-              {intel.recommendation}
-            </div>
-
-            {/* Studio Contextual Action Button (Primary Action) */}
-            {active && !transitionPhase && (
-              <motion.button
-                onClick={startSignatureTransition}
-                initial={{ opacity: 0, y: 8 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.4, delay: 0.2 }}
-                className="group flex items-center gap-[18px] focus:outline-none cursor-pointer"
+              <motion.div
+                initial={{ opacity: 0, x: 15 }}
+                animate={{ opacity: 1, x: 0 }}
+                transition={{ duration: 0.8, delay: 0.4 }}
+                className="text-right"
               >
                 <div style={{
-                  width: 40, height: 1,
+                  fontFamily: "'JetBrains Mono', monospace",
+                  fontSize: "9px", letterSpacing: "2.5px",
+                  color: "rgba(255,255,255,0.25)", textTransform: "uppercase",
+                  marginBottom: 6
+                }}>
+                  SCAN INDEX
+                </div>
+                <div className="flex items-center justify-end gap-2.5">
+                  <div style={{
+                    fontFamily: "'JetBrains Mono', monospace",
+                    fontSize: "11px", letterSpacing: "1px",
+                    color: analysis && analysis.status === "analyzing" ? "#00E5FF" : "#4ADE80"
+                  }}>
+                    {analysis && analysis.status === "analyzing" ? "PARSING PROJECT DNA" : "VERIFICATION SECURED"}
+                  </div>
+                  <div
+                    className={`w-2 h-2 rounded-full ${
+                      analysis && analysis.status === "analyzing" ? "bg-[#00E5FF] shadow-[0_0_8px_#00E5FF]" : "bg-[#4ADE80] shadow-[0_0_8px_#4ADE80]"
+                    } animate-pulse`}
+                  />
+                </div>
+              </motion.div>
+            </div>
+
+            {/* Left and Right Columns */}
+            <div className="absolute inset-0 flex items-center justify-between px-[7vw] pointer-events-none" style={{ top: "15vh", height: "70vh" }}>
+              {/* Left Column */}
+              <div className="flex flex-col justify-between h-[56%] max-w-[280px] text-left">
+                
+                {/* 01 / PROJECT SCALE */}
+                <motion.div
+                  initial={{ opacity: 0, x: -20 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  transition={{ duration: 0.8, delay: 0.6 }}
+                  className="pointer-events-auto"
+                >
+                  <div className="font-mono text-[8px] tracking-[4px] text-neutral-500 uppercase mb-3">
+                    01 / PROJECT SCALE
+                  </div>
+                  
+                  <div className="relative">
+                    <div className="flex flex-col gap-2.5 font-mono text-[10px] text-neutral-400 w-[200px]">
+                      <div className="flex justify-between items-baseline border-b border-white/5 pb-1">
+                        <span className="text-neutral-400 uppercase tracking-wider text-[9px]">Components</span>
+                        <span className="font-bold text-neutral-200 text-right">{analysis?.projectDNA?.componentCount || 23}</span>
+                      </div>
+                      <div className="flex justify-between items-baseline border-b border-white/5 pb-1">
+                        <span className="text-neutral-400 uppercase tracking-wider text-[9px]">Pages</span>
+                        <span className="font-bold text-neutral-200 text-right">5</span>
+                      </div>
+                      
+                      {/* More details trigger */}
+                      <div
+                        onMouseEnter={() => setHoveredScale(true)}
+                        onMouseLeave={() => setHoveredScale(false)}
+                        className="text-[9px] text-cyan-400 hover:text-cyan-300 font-bold uppercase tracking-wider mt-1 cursor-pointer transition-colors"
+                      >
+                        + More
+                      </div>
+                    </div>
+
+                    {/* Floating Overlay for left panel details */}
+                    <AnimatePresence>
+                      {hoveredScale && (
+                        <motion.div
+                          initial={{ opacity: 0, x: -10, y: -5 }}
+                          animate={{ opacity: 1, x: 0, y: 0 }}
+                          exit={{ opacity: 0, x: -5, y: -2 }}
+                          transition={{ duration: 0.2 }}
+                          className="absolute left-[220px] top-0 z-40 p-4 rounded-xl border border-white/10 bg-slate-950/90 backdrop-blur-2xl w-[220px] flex flex-col gap-2.5 font-mono text-[10px] text-neutral-400"
+                          style={{
+                            boxShadow: "0 15px 30px rgba(0,0,0,0.4), inset 0 1px 0 rgba(255,255,255,0.06)",
+                          }}
+                        >
+                          <div className="text-[8px] text-neutral-500 uppercase tracking-widest mb-1.5 border-b border-white/5 pb-1 font-bold">PROJECT SCALE</div>
+                          <div className="flex justify-between items-baseline border-b border-white/5 pb-1">
+                            <span className="text-[9px]">Components</span>
+                            <span className="font-bold text-neutral-200">{analysis?.projectDNA?.componentCount || 23}</span>
+                          </div>
+                          <div className="flex justify-between items-baseline border-b border-white/5 pb-1">
+                            <span className="text-[9px]">Pages</span>
+                            <span className="font-bold text-neutral-200">5</span>
+                          </div>
+                          <div className="flex justify-between items-baseline border-b border-white/5 pb-1">
+                            <span className="text-[9px]">Layouts</span>
+                            <span className="font-bold text-neutral-200">2</span>
+                          </div>
+                          <div className="flex justify-between items-baseline border-b border-white/5 pb-1">
+                            <span className="text-[9px]">Hooks</span>
+                            <span className="font-bold text-neutral-200">{analysis?.projectDNA?.hookCount || 11}</span>
+                          </div>
+                          <div className="flex justify-between items-baseline border-b border-white/5 pb-1">
+                            <span className="text-[9px]">Context Providers</span>
+                            <span className="font-bold text-neutral-200">{analysis?.projectDNA?.contextCount || 4}</span>
+                          </div>
+                          <div className="flex justify-between items-baseline border-b border-white/5 pb-1">
+                            <span className="text-[9px]">Redux Slices</span>
+                            <span className="font-bold text-neutral-200">{analysis?.projectDNA?.reduxSliceCount || 3}</span>
+                          </div>
+                          <div className="flex justify-between items-baseline border-b border-white/5 pb-1">
+                            <span className="text-[9px]">Utilities</span>
+                            <span className="font-bold text-neutral-200">6</span>
+                          </div>
+                          <div className="flex justify-between items-baseline border-b border-white/5 pb-1">
+                            <span className="text-[9px]">Assets</span>
+                            <span className="font-bold text-neutral-200">8</span>
+                          </div>
+                        </motion.div>
+                      )}
+                    </AnimatePresence>
+                  </div>
+                </motion.div>
+
+                {/* 03 / TECHNOLOGY */}
+                <motion.div
+                  initial={{ opacity: 0, x: -20 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  transition={{ duration: 0.8, delay: 0.7 }}
+                  className="pointer-events-auto"
+                >
+                  <div className="font-mono text-[8px] tracking-[4px] text-neutral-500 uppercase mb-3">
+                    03 / TECHNOLOGY
+                  </div>
+                  
+                  <div className="relative">
+                    <div className="flex flex-col gap-2.5 font-mono text-[10px] text-neutral-400 w-[200px]">
+                      <div className="flex flex-col border-b border-white/5 pb-1 gap-1">
+                        <span className="text-neutral-400 uppercase tracking-wider text-[9px]">Stack Profile</span>
+                        <span className="font-bold text-neutral-200 text-left">
+                          {analysis?.projectDNA?.framework || selectedProject?.framework || "React"} &bull; {analysis?.projectDNA?.buildTool || selectedProject?.buildTool || "Vite"} &bull; {analysis?.projectDNA?.language || "JavaScript"}
+                        </span>
+                      </div>
+                      
+                      {/* More details trigger */}
+                      <div
+                        onMouseEnter={() => setHoveredStack(true)}
+                        onMouseLeave={() => setHoveredStack(false)}
+                        className="text-[9px] text-cyan-400 hover:text-cyan-300 font-bold uppercase tracking-wider mt-1 cursor-pointer transition-colors"
+                      >
+                        + Technologies
+                      </div>
+                    </div>
+
+                    {/* Floating Overlay for tech details */}
+                    <AnimatePresence>
+                      {hoveredStack && (
+                        <motion.div
+                          initial={{ opacity: 0, x: -10, y: 5 }}
+                          animate={{ opacity: 1, x: 0, y: 0 }}
+                          exit={{ opacity: 0, x: -5, y: 2 }}
+                          transition={{ duration: 0.2 }}
+                          className="absolute left-[220px] bottom-0 z-40 p-5 rounded-xl border border-white/8 bg-slate-950/85 backdrop-blur-2xl w-[460px] flex flex-col gap-4 text-left"
+                          style={{
+                            boxShadow: "0 25px 50px rgba(0,0,0,0.55), inset 0 1px 0 rgba(255,255,255,0.06)",
+                          }}
+                        >
+                          <div className="text-[8px] text-neutral-500 uppercase tracking-widest mb-1.5 border-b border-white/5 pb-1 font-bold">TECHNOLOGY</div>
+                          <div className="grid grid-cols-2 gap-x-6 gap-y-3 font-mono text-[10px] text-neutral-300">
+                            <div className="flex justify-between items-baseline border-b border-white/5 pb-0.5">
+                              <span className="text-neutral-400">Framework</span>
+                              <span className="font-bold text-neutral-200">{analysis?.projectDNA?.framework || selectedProject?.framework || "React"}</span>
+                            </div>
+                            <div className="flex justify-between items-baseline border-b border-white/5 pb-0.5">
+                              <span className="text-neutral-400">Routing</span>
+                              <span className="font-bold text-neutral-200">{analysis?.projectDNA?.router || (selectedProject?.hasRouter ? "React Router" : "None")}</span>
+                            </div>
+                            <div className="flex justify-between items-baseline border-b border-white/5 pb-0.5">
+                              <span className="text-neutral-400">State Management</span>
+                              <span className="font-bold text-neutral-200">{analysis?.projectDNA?.stateLibrary || (selectedProject?.hasRedux ? "Redux Toolkit" : "Context API")}</span>
+                            </div>
+                            <div className="flex justify-between items-baseline border-b border-white/5 pb-0.5">
+                              <span className="text-neutral-400">Styling</span>
+                              <span className="font-bold text-neutral-200">{selectedProject?.hasTailwind ? "Tailwind CSS" : "CSS Modules"}</span>
+                            </div>
+                            <div className="flex justify-between items-baseline border-b border-white/5 pb-0.5">
+                              <span className="text-neutral-400">Animation</span>
+                              <span className="font-bold text-neutral-200">
+                                {("gsap" in dependencies || "@gsap/react" in dependencies) && "framer-motion" in dependencies 
+                                  ? "GSAP, Framer Motion" 
+                                  : "framer-motion" in dependencies 
+                                  ? "Framer Motion" 
+                                  : "gsap" in dependencies 
+                                  ? "GSAP" 
+                                  : "None"}
+                              </span>
+                            </div>
+                            <div className="flex justify-between items-baseline border-b border-white/5 pb-0.5">
+                              <span className="text-neutral-400">Networking</span>
+                              <span className="font-bold text-neutral-200">{"axios" in dependencies ? "Axios" : "Fetch API"}</span>
+                            </div>
+                            <div className="flex justify-between items-baseline border-b border-white/5 pb-0.5">
+                              <span className="text-neutral-400">Visualization</span>
+                              <span className="font-bold text-neutral-200">Three.js, React Flow</span>
+                            </div>
+                            <div className="flex justify-between items-baseline border-b border-white/5 pb-0.5">
+                              <span className="text-neutral-400">Build Tools</span>
+                              <span className="font-bold text-neutral-200">{analysis?.projectDNA?.buildTool || selectedProject?.buildTool || "Vite"}</span>
+                            </div>
+                            <div className="flex justify-between items-baseline border-b border-white/5 pb-0.5 col-span-2">
+                              <span className="text-neutral-400">Development Tools</span>
+                              <span className="font-bold text-neutral-200">ESLint, Prettier ({packageManager.toUpperCase()})</span>
+                            </div>
+                          </div>
+                        </motion.div>
+                      )}
+                    </AnimatePresence>
+                  </div>
+                </motion.div>
+              </div>
+
+              {/* Right Column */}
+              <div className="flex flex-col justify-between h-[56%] max-w-[280px] text-right">
+                
+                {/* 02 / PROJECT HEALTH */}
+                <motion.div
+                  initial={{ opacity: 0, x: 20 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  transition={{ duration: 0.8, delay: 0.6 }}
+                  className="pointer-events-auto flex flex-col items-end"
+                >
+                  <div className="font-mono text-[8px] tracking-[4px] text-neutral-500 uppercase mb-3 text-right">
+                    02 / PROJECT HEALTH
+                  </div>
+                  
+                  <div className="relative flex flex-col items-end text-right">
+                    <div className="flex flex-col gap-2.5 font-mono text-[10px] text-neutral-400 w-[200px]">
+                      <div className="flex justify-between items-baseline border-b border-white/5 pb-1">
+                        <span className="text-neutral-400 uppercase tracking-wider text-[9px]">Health Score</span>
+                        <span className="font-bold text-cyan-400 text-right" style={{ textShadow: `0 0 8px ${displayColor}33` }}>
+                          {analysis?.architectureHealth?.score ?? 91}%
+                        </span>
+                      </div>
+                      <div className="flex justify-between items-baseline border-b border-white/5 pb-1">
+                        <span className="text-neutral-400 uppercase tracking-wider text-[9px]">Complexity</span>
+                        <span className="font-bold text-neutral-200 text-right">MEDIUM</span>
+                      </div>
+                      
+                      {/* More details trigger */}
+                      <div
+                        onMouseEnter={() => setHoveredHealth(true)}
+                        onMouseLeave={() => setHoveredHealth(false)}
+                        className="text-[9px] text-cyan-400 hover:text-cyan-300 font-bold uppercase tracking-wider mt-1 cursor-pointer transition-colors text-right"
+                      >
+                        + More
+                      </div>
+                    </div>
+
+                    {/* Floating Overlay for right panel details */}
+                    <AnimatePresence>
+                      {hoveredHealth && (
+                        <motion.div
+                          initial={{ opacity: 0, x: 10, y: -5 }}
+                          animate={{ opacity: 1, x: 0, y: 0 }}
+                          exit={{ opacity: 0, x: 5, y: -2 }}
+                          transition={{ duration: 0.2 }}
+                          className="absolute right-[220px] top-0 z-40 p-4 rounded-xl border border-white/10 bg-slate-950/90 backdrop-blur-2xl w-[220px] flex flex-col gap-2.5 font-mono text-[10px] text-neutral-400 text-left"
+                          style={{
+                            boxShadow: "0 15px 30px rgba(0,0,0,0.4), inset 0 1px 0 rgba(255,255,255,0.06)",
+                          }}
+                        >
+                          <div className="text-[8px] text-neutral-500 uppercase tracking-widest mb-1.5 border-b border-white/5 pb-1 text-right font-bold">PROJECT HEALTH</div>
+                          <div className="flex justify-between items-baseline border-b border-white/5 pb-1">
+                            <span className="text-[9px]">Health Score</span>
+                            <span className="font-bold text-cyan-400">{analysis?.architectureHealth?.score ?? 91}%</span>
+                          </div>
+                          <div className="flex justify-between items-baseline border-b border-white/5 pb-1">
+                            <span className="text-[9px]">Complexity</span>
+                            <span className="font-bold text-neutral-200">MEDIUM</span>
+                          </div>
+                          <div className="flex justify-between items-baseline border-b border-white/5 pb-1">
+                            <span className="text-[9px]">Warnings</span>
+                            <span className="font-bold text-amber-500">2</span>
+                          </div>
+                          <div className="flex justify-between items-baseline border-b border-white/5 pb-1">
+                            <span className="text-[9px]">Dead Code</span>
+                            <span className="font-bold text-neutral-200">3 segments</span>
+                          </div>
+                          <div className="flex justify-between items-baseline border-b border-white/5 pb-1">
+                            <span className="text-[9px]">Circular Dependencies</span>
+                            <span className="font-bold text-neutral-200">0</span>
+                          </div>
+                          <div className="flex justify-between items-baseline border-b border-white/5 pb-1">
+                            <span className="text-[9px]">Broken Imports</span>
+                            <span className="font-bold text-neutral-200">0</span>
+                          </div>
+                          <div className="flex justify-between items-baseline border-b border-white/5 pb-1">
+                            <span className="text-[9px]">Parser Confidence</span>
+                            <span className="font-bold text-neutral-200">98.8%</span>
+                          </div>
+                          <div className="flex justify-between items-baseline border-b border-white/5 pb-1">
+                            <span className="text-[9px]">Graph Validation</span>
+                            <span className="font-bold text-emerald-400">SECURED</span>
+                          </div>
+                        </motion.div>
+                      )}
+                    </AnimatePresence>
+                  </div>
+                </motion.div>
+
+                {/* 04 / ANALYSIS */}
+                <motion.div
+                  initial={{ opacity: 0, x: 20 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  transition={{ duration: 0.8, delay: 0.7 }}
+                  className="pointer-events-auto flex flex-col items-end"
+                >
+                  <div className="font-mono text-[8px] tracking-[4px] text-neutral-500 uppercase mb-3 text-right">
+                    04 / ANALYSIS
+                  </div>
+
+                  <div className="relative flex flex-col items-end text-right">
+                    <div className="flex flex-col gap-2.5 font-mono text-[10px] text-neutral-400 w-[200px]">
+                      <div className="flex justify-between items-baseline border-b border-white/5 pb-1">
+                        <span className="text-neutral-400 uppercase tracking-wider text-[9px]">Files Parsed</span>
+                        <span className="font-bold text-neutral-200 text-right">{analysis?.projectDNA?.fileCount || 34}</span>
+                      </div>
+                      <div className="flex justify-between items-baseline border-b border-white/5 pb-1">
+                        <span className="text-neutral-400 uppercase tracking-wider text-[9px]">Analysis Time</span>
+                        <span className="font-bold text-neutral-200 text-right">342ms</span>
+                      </div>
+
+                      {/* More details trigger */}
+                      <div
+                        onMouseEnter={() => setHoveredBottomDiagnostics(true)}
+                        onMouseLeave={() => setHoveredBottomDiagnostics(false)}
+                        className="text-[9px] text-cyan-400 hover:text-cyan-300 font-bold uppercase tracking-wider mt-1 cursor-pointer transition-colors text-right"
+                      >
+                        + Diagnostics
+                      </div>
+                    </div>
+
+                    {/* Floating Overlay for diagnostics details */}
+                    <AnimatePresence>
+                      {hoveredBottomDiagnostics && (
+                        <motion.div
+                          initial={{ opacity: 0, x: 10, y: 5 }}
+                          animate={{ opacity: 1, x: 0, y: 0 }}
+                          exit={{ opacity: 0, x: 5, y: 2 }}
+                          transition={{ duration: 0.2 }}
+                          className="absolute right-[220px] bottom-0 z-40 p-4 rounded-xl border border-white/10 bg-slate-950/90 backdrop-blur-2xl w-[220px] flex flex-col gap-2.5 font-mono text-[10px] text-neutral-400 text-left"
+                          style={{
+                            boxShadow: "0 15px 30px rgba(0,0,0,0.4), inset 0 1px 0 rgba(255,255,255,0.06)",
+                          }}
+                        >
+                          <div className="text-[8px] text-neutral-500 uppercase tracking-widest mb-1 border-b border-white/5 pb-1 text-right font-bold">ANALYSIS</div>
+                          <div className="flex justify-between items-baseline border-b border-white/5 pb-1">
+                            <span className="text-[9px]">Files Parsed</span>
+                            <span className="font-bold text-neutral-200">{analysis?.projectDNA?.fileCount || 34}</span>
+                          </div>
+                          <div className="flex justify-between items-baseline border-b border-white/5 pb-1">
+                            <span className="text-[9px]">Folders Indexed</span>
+                            <span className="font-bold text-neutral-200">12</span>
+                          </div>
+                          <div className="flex justify-between items-baseline border-b border-white/5 pb-1">
+                            <span className="text-[9px]">Analysis Duration</span>
+                            <span className="font-bold text-neutral-200">342ms</span>
+                          </div>
+                          <div className="flex justify-between items-baseline border-b border-white/5 pb-1">
+                            <span className="text-[9px]">Parser Version</span>
+                            <span className="font-bold text-neutral-200">v2.4.1</span>
+                          </div>
+                          <div className="flex justify-between items-baseline border-b border-white/5 pb-1">
+                            <span className="text-[9px]">Knowledge Graph Nodes</span>
+                            <span className="font-bold text-neutral-200">42</span>
+                          </div>
+                          <div className="flex justify-between items-baseline border-b border-white/5 pb-1">
+                            <span className="text-[9px]">Relationships</span>
+                            <span className="font-bold text-neutral-200">56</span>
+                          </div>
+                          <div className="flex justify-between items-baseline border-b border-white/5 pb-1">
+                            <span className="text-[9px]">Import Resolution</span>
+                            <span className="font-bold text-emerald-400">100%</span>
+                          </div>
+                          <div className="flex justify-between items-baseline border-b border-white/5 pb-1">
+                            <span className="text-[9px]">Alias Detection</span>
+                            <span className="font-bold text-emerald-400">ACTIVE (@/*)</span>
+                          </div>
+                        </motion.div>
+                      )}
+                    </AnimatePresence>
+                  </div>
+                </motion.div>
+              </div>
+            </div>
+
+            {/* Bottom Section - CTA */}
+            <div className="w-full flex flex-col items-center pb-4">
+              <motion.button
+                onClick={startOnboardingTransition}
+                initial={{ opacity: 0, y: 15 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.8, delay: 0.9 }}
+                disabled={analysis && analysis.status === "analyzing"}
+                className={`group flex items-center gap-[24px] focus:outline-none transition-all duration-300 pointer-events-auto ${
+                  analysis && analysis.status === "analyzing" ? "opacity-50 cursor-not-allowed" : "cursor-pointer"
+                }`}
+              >
+                <div style={{
+                  width: 50, height: 1,
                   background: `linear-gradient(to right, transparent, ${displayColor}77)`,
                 }} />
                 <div
                   style={{
                     fontFamily: "'JetBrains Mono', monospace",
-                    fontSize: "9px", letterSpacing: "2.8px",
-                    color: "rgba(255,255,255,0.5)", textTransform: "uppercase",
-                    transition: "color 0.3s",
+                    fontSize: "9px", letterSpacing: "3.5px",
+                    color: "rgba(255,255,255,0.6)", textTransform: "uppercase",
+                    transition: "all 0.3s ease",
                   }}
-                  onMouseEnter={e => (e.currentTarget.style.color = "rgba(255,255,255,0.95)")}
-                  onMouseLeave={e => (e.currentTarget.style.color = "rgba(255,255,255,0.5)")}
+                  onMouseEnter={e => {
+                    if (analysis && analysis.status !== "analyzing") {
+                      e.currentTarget.style.color = "rgba(255,255,255,0.98)";
+                      e.currentTarget.style.textShadow = `0 0 10px ${displayColor}77`;
+                    }
+                  }}
+                  onMouseLeave={e => {
+                    e.currentTarget.style.color = "rgba(255,255,255,0.6)";
+                    e.currentTarget.style.textShadow = "none";
+                  }}
                 >
-                  {intel.actionLabel}
+                  {analysis && analysis.status === "analyzing" ? "CALCULATING DNA..." : "INITIALIZE WORKSPACE EXPLORATION"}
                 </div>
                 <div style={{
-                  width: 40, height: 1,
+                  width: 50, height: 1,
                   background: `linear-gradient(to left, transparent, ${displayColor}77)`,
                 }} />
               </motion.button>
-            )}
-
-            {/* Guidance Alert if no domain is selected */}
-            {!active && (
-              <div style={{
-                fontFamily: "'JetBrains Mono', monospace",
-                fontSize: "8.5px", letterSpacing: "2.5px",
-                color: "rgba(255,255,255,0.22)", textTransform: "uppercase",
-                marginTop: 24,
-                borderTop: "1px solid rgba(255,255,255,0.06)",
-                paddingTop: 20
-              }}>
-                Select a domain node to brief
-              </div>
-            )}
+            </div>
           </motion.div>
-        </div>
+        )}
       </div>
     </>
   );
