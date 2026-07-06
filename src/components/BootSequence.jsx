@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import gsap from "gsap";
 import { BOOT } from "@/constants/testIds";
 
@@ -81,7 +81,7 @@ const BootSequence = ({ onComplete }) => {
           {BEATS.map((b, i) => {
             const isDone = i < activeIdx;
             const isActive = i === activeIdx;
-            const isPending = i > activeIdx;
+
 
             return (
               <li

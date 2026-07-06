@@ -1,4 +1,4 @@
-import React, { useEffect, useRef } from "react";
+import { useEffect, useRef } from "react";
 
 // Custom cursor blob — small dot + soft ring trailing the mouse
 const CursorBlob = () => {

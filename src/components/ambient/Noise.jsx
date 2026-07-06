@@ -1,4 +1,4 @@
-import React from "react";
+
 
 // Animated grain overlay — passive CSS-only
 const Noise = () => (

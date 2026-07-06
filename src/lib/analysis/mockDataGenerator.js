@@ -1,5 +1,3 @@
-const NW = 224;
-const NH = 110;
 
 /**
  * Generates dynamic fallback mock nodes and edges for showcase seed projects.

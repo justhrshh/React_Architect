@@ -1,12 +1,11 @@
-import React, { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useSelector, useDispatch } from "react-redux";
 import { useNavigate } from "react-router-dom";
 import { setActiveRoom } from "@/redux/slices/uiSlice";
 import { selectSelectedProject } from "@/redux/slices/hubSlice";
-import { motion } from "framer-motion";
 import gsap from "gsap";
 import {
-  ArrowLeft, ChevronRight, GitBranch, FileText, CheckCircle, BookOpen, Layers
+  ArrowLeft, ChevronRight, GitBranch, FileText, BookOpen
 } from "lucide-react";
 
 // ─── Constants ────────────────────────────────────────────────────────────────
@@ -356,7 +355,10 @@ All notable changes to this project will be documented in this file.
   // Set default selection
   useEffect(() => {
     if (docFiles.length > 0 && !selectedDocPath) {
-      setSelectedDocPath(docFiles[0].path);
+      const targetPath = docFiles[0].path;
+      requestAnimationFrame(() => {
+        setSelectedDocPath(targetPath);
+      });
     }
   }, [docFiles, selectedDocPath]);
 

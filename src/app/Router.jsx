@@ -1,4 +1,4 @@
-import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
+import { Routes, Route, Navigate } from "react-router-dom";
 import LandingLayout from "../layouts/LandingLayout.jsx";
 import WorkspaceLayout from "../layouts/WorkspaceLayout.jsx";
 import Landing from "../pages/Landing.jsx";

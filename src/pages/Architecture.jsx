@@ -1,14 +1,15 @@
-import React, { useState, useEffect, useCallback, useMemo } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 import { useSelector, useDispatch } from "react-redux";
 import { useNavigate } from "react-router-dom";
 import { setActiveRoom } from "@/redux/slices/uiSlice";
 import { selectSelectedProject } from "@/redux/slices/hubSlice";
-import { selectNodeId, clearSelection } from "@/redux/slices/graphSlice";
+import { selectNodeId } from "@/redux/slices/graphSlice";
 import { motion } from "framer-motion";
 import gsap from "gsap";
 import {
   Search, ZoomIn, ZoomOut, Maximize2, Maximize, Share2, Settings,
-  Layers, ChevronRight, GitBranch, ArrowLeft, FileCode, CheckCircle, GitMerge
+  Layers, ChevronRight, GitBranch, ArrowLeft, FileCode,
+  AlertTriangle, XCircle, ShieldAlert
 } from "lucide-react";
 import {
   ReactFlow,
@@ -769,7 +770,11 @@ function ArchitectureFlow() {
   
   const selectedProject = useSelector(selectSelectedProject);
   const knowledgeGraph = useSelector((state) => state.graph.knowledgeGraph);
-  const reduxFiles = useSelector((state) => state.graph.files) || [];
+  const reduxFiles = useSelector((state) => state.graph.files);
+
+  const validation = useMemo(() => {
+    return knowledgeGraph?.validation || { errors: [], warnings: [], suggestions: [] };
+  }, [knowledgeGraph]);
 
   const reduxNodes = useMemo(() => {
     return knowledgeGraph?.nodes.filter(n => n.kind === "component") || [];
@@ -840,16 +845,16 @@ function ArchitectureFlow() {
   }, [reduxNodes, selectedId]);
 
   const uniqueFiles = useMemo(() => {
-    return reduxFiles;
+    return reduxFiles || [];
   }, [reduxFiles]);
 
   const handleNodeClick = useCallback((event, node) => {
     setSelectedId(node.id);
-  }, []);
+  }, [setSelectedId]);
 
   const handlePaneClick = useCallback(() => {
     setSelectedId("");
-  }, []);
+  }, [setSelectedId]);
 
   const handleBack = () => {
     dispatch(setActiveRoom("project-brain"));
@@ -881,26 +886,101 @@ function ArchitectureFlow() {
         {/* Left Directory Tree Pane */}
         {!isGraphFullscreen && (
           <aside className="w-64 border-r border-neutral-200 bg-[#F9FAFB] p-6 flex flex-col gap-6 shrink-0 overflow-y-auto select-none">
-          <div>
-            <h4 className="font-mono text-[9px] uppercase tracking-widestest text-neutral-500 mb-3.5 font-bold">
-              Detected Files
-            </h4>
-            <div className="flex flex-col gap-2">
-              {uniqueFiles.map((f) => {
-                const active = selectedNode && selectedNode.file === f;
-                return (
-                  <div key={f} className={`flex items-center gap-2 px-3 py-1.5 rounded-lg border transition-colors ${
-                    active 
-                      ? "border-blue-200 bg-blue-50/60 text-blue-700 shadow-sm" 
-                      : "border-transparent text-neutral-600 hover:text-neutral-900 hover:bg-neutral-100/60"
-                  }`}>
-                    <FileCode size={12} className={active ? "text-blue-500" : "text-neutral-400"} />
-                    <span className="font-mono text-[10.5px] truncate" title={f}>{f.split("/").pop()}</span>
-                  </div>
-                );
-              })}
+            <div>
+              <h4 className="font-mono text-[9px] uppercase tracking-widestest text-neutral-500 mb-3.5 font-bold">
+                Detected Files
+              </h4>
+              <div className="flex flex-col gap-2">
+                {uniqueFiles.map((f) => {
+                  const active = selectedNode && selectedNode.file === f;
+                  const matchingNode = reduxNodes.find(n => n.file === f);
+                  return (
+                    <div
+                      key={f}
+                      onClick={() => {
+                        if (matchingNode) {
+                          setSelectedId(matchingNode.id);
+                        }
+                      }}
+                      className={`flex items-center gap-2 px-3 py-1.5 rounded-lg border transition-all duration-150 ${
+                        matchingNode ? "cursor-pointer" : "opacity-60 cursor-not-allowed"
+                      } ${
+                        active 
+                          ? "border-blue-200 bg-blue-50/60 text-blue-700 shadow-sm" 
+                          : matchingNode
+                          ? "border-transparent text-neutral-600 hover:text-neutral-900 hover:bg-neutral-100 hover:border-neutral-200"
+                          : "border-transparent text-neutral-400"
+                      }`}
+                    >
+                      <FileCode size={12} className={active ? "text-blue-500" : "text-neutral-400"} />
+                      <span className="font-mono text-[10.5px] truncate" title={f}>{f.split("/").pop()}</span>
+                    </div>
+                  );
+                })}
+              </div>
             </div>
-          </div>
+
+            {/* Diagnostics Alerts */}
+            {((validation.errors && validation.errors.length > 0) || (validation.warnings && validation.warnings.length > 0)) && (
+              <div className="mt-2 pt-4 border-t border-neutral-200/80">
+                <h4 className="font-mono text-[9px] uppercase tracking-widestest text-neutral-500 mb-3.5 font-bold flex items-center gap-1.5">
+                  <ShieldAlert size={11} className="text-amber-500" />
+                  Code Diagnostics
+                </h4>
+                <div className="flex flex-col gap-2.5 max-h-80 overflow-y-auto pr-1">
+                  {validation.errors.map((err, i) => {
+                    const matchingNode = err.file ? reduxNodes.find(n => n.file === err.file) : null;
+                    return (
+                      <div
+                        key={`err-${i}`}
+                        onClick={() => {
+                          if (matchingNode) setSelectedId(matchingNode.id);
+                        }}
+                        className={`p-2.5 rounded-xl border border-red-100 bg-red-50/40 text-red-800 text-[11px] leading-normal flex flex-col gap-1 transition-all duration-150 ${
+                          matchingNode ? "cursor-pointer hover:bg-red-50 hover:border-red-200" : ""
+                        }`}
+                      >
+                        <div className="flex items-start gap-1.5 font-bold text-red-700">
+                          <XCircle size={11} className="text-red-500 shrink-0 mt-0.5" />
+                          <span>{err.type || "Error"}</span>
+                        </div>
+                        <p className="text-neutral-600 font-sans text-[10px] leading-normal">{err.message}</p>
+                        {err.file && (
+                          <span className="font-mono text-[9px] text-neutral-400 truncate mt-0.5" title={err.file}>
+                            {err.file.split("/").pop()}
+                          </span>
+                        )}
+                      </div>
+                    );
+                  })}
+                  {validation.warnings.map((warn, i) => {
+                    const matchingNode = warn.file ? reduxNodes.find(n => n.file === warn.file) : null;
+                    return (
+                      <div
+                        key={`warn-${i}`}
+                        onClick={() => {
+                          if (matchingNode) setSelectedId(matchingNode.id);
+                        }}
+                        className={`p-2.5 rounded-xl border border-amber-100 bg-amber-50/40 text-amber-800 text-[11px] leading-normal flex flex-col gap-1 transition-all duration-150 ${
+                          matchingNode ? "cursor-pointer hover:bg-amber-50 hover:border-amber-200" : ""
+                        }`}
+                      >
+                        <div className="flex items-start gap-1.5 font-bold text-amber-700">
+                          <AlertTriangle size={11} className="text-amber-600 shrink-0 mt-0.5" />
+                          <span>{warn.type || "Warning"}</span>
+                        </div>
+                        <p className="text-neutral-600 font-sans text-[10px] leading-normal">{warn.message}</p>
+                        {warn.file && (
+                          <span className="font-mono text-[9px] text-neutral-400 truncate mt-0.5" title={warn.file}>
+                            {warn.file.split("/").pop()}
+                          </span>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
           </aside>
         )}
 
@@ -979,7 +1059,7 @@ function ArchitectureFlow() {
               zIndex: 10,
             }}
           >
-            {Object.entries(TYPE_CFG).map(([type, cfg]) => (
+            {Object.values(TYPE_CFG).map((cfg) => (
               <div key={cfg.label} style={{ display: "flex", alignItems: "center", gap: 5 }}>
                 <div style={{ width: 7, height: 7, borderRadius: 2, background: cfg.color, flexShrink: 0 }} />
                 <span style={{ fontSize: 10, color: "#9CA3AF", fontFamily: INTER, letterSpacing: "-0.01em" }}>

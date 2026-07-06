@@ -1,4 +1,4 @@
-import React, { useRef } from "react";
+import { useRef } from "react";
 import { LANDING } from "@/constants/testIds";
 import { ArrowUpRight } from "lucide-react";
 

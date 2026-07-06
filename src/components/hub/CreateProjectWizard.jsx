@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect, useCallback } from "react";
+import { useState, useRef, useEffect, useCallback } from "react";
 import { useDispatch } from "react-redux";
 import gsap from "gsap";
 import { addProject, selectProject } from "@/redux/slices/hubSlice";
@@ -607,7 +607,7 @@ const MultiSelectStep = ({ step, values, onToggle }) => (
   </div>
 );
 
-const OptionTile = ({ option, selected, multi, onClick }) => (
+const OptionTile = ({ option, selected, onClick }) => (
   <button
     onClick={onClick}
     disabled={option.comingSoon}

@@ -1,6 +1,37 @@
-import React, { useMemo, useRef } from "react";
+import { useMemo, useRef, useEffect } from "react";
 import { Canvas, useFrame } from "@react-three/fiber";
 import * as THREE from "three";
+
+// Decouple Math.random from render to comply with react-hooks/purity rule
+function generateNetworkFieldData(count, radius) {
+  const pos = new Float32Array(count * 3);
+  const points = [];
+  for (let i = 0; i < count; i++) {
+    const r = radius * (0.6 + Math.random() * 0.4);
+    const theta = Math.acos(2 * Math.random() - 1);
+    const phi = 2 * Math.PI * Math.random();
+    const x = r * Math.sin(theta) * Math.cos(phi);
+    const y = r * Math.sin(theta) * Math.sin(phi) * 0.7;
+    const z = r * Math.cos(theta);
+    pos[i * 3] = x; pos[i * 3 + 1] = y; pos[i * 3 + 2] = z;
+    points.push(new THREE.Vector3(x, y, z));
+  }
+
+  // Build neighbour lines (limited)
+  const linePositions = [];
+  const threshold = 1.6;
+  for (let i = 0; i < points.length; i++) {
+    for (let j = i + 1; j < points.length; j++) {
+      if (points[i].distanceTo(points[j]) < threshold) {
+        linePositions.push(points[i].x, points[i].y, points[i].z);
+        linePositions.push(points[j].x, points[j].y, points[j].z);
+      }
+    }
+  }
+  const lineGeometry = new THREE.BufferGeometry();
+  lineGeometry.setAttribute("position", new THREE.Float32BufferAttribute(linePositions, 3));
+  return { positions: pos, lineGeo: lineGeometry };
+}
 
 /**
  * NetworkField — a rotating cloud of nodes connected by thin
@@ -14,36 +45,10 @@ const NetworkField = ({ count = 140, radius = 6 }) => {
   const mouse = useRef({ x: 0, y: 0 });
 
   const { positions, lineGeo } = useMemo(() => {
-    const pos = new Float32Array(count * 3);
-    const points = [];
-    for (let i = 0; i < count; i++) {
-      const r = radius * (0.6 + Math.random() * 0.4);
-      const theta = Math.acos(2 * Math.random() - 1);
-      const phi = 2 * Math.PI * Math.random();
-      const x = r * Math.sin(theta) * Math.cos(phi);
-      const y = r * Math.sin(theta) * Math.sin(phi) * 0.7;
-      const z = r * Math.cos(theta);
-      pos[i * 3] = x; pos[i * 3 + 1] = y; pos[i * 3 + 2] = z;
-      points.push(new THREE.Vector3(x, y, z));
-    }
-
-    // Build neighbour lines (limited)
-    const linePositions = [];
-    const threshold = 1.6;
-    for (let i = 0; i < points.length; i++) {
-      for (let j = i + 1; j < points.length; j++) {
-        if (points[i].distanceTo(points[j]) < threshold) {
-          linePositions.push(points[i].x, points[i].y, points[i].z);
-          linePositions.push(points[j].x, points[j].y, points[j].z);
-        }
-      }
-    }
-    const lineGeometry = new THREE.BufferGeometry();
-    lineGeometry.setAttribute("position", new THREE.Float32BufferAttribute(linePositions, 3));
-    return { positions: pos, lineGeo: lineGeometry };
+    return generateNetworkFieldData(count, radius);
   }, [count, radius]);
 
-  React.useEffect(() => {
+  useEffect(() => {
     const onMove = (e) => {
       mouse.current.x = (e.clientX / window.innerWidth) * 2 - 1;
       mouse.current.y = -((e.clientY / window.innerHeight) * 2 - 1);

@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useEffect } from "react";
 import { useSelector, useDispatch } from "react-redux";
 import { useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
@@ -421,7 +421,7 @@ function getCoreContextOverview(displayRoom, analysis, projectName) {
       color: "#7B9CF4",
       headline: `Project structure is in ${baseDNA.healthScore >= 90 ? "optimal" : "concerning"} standing`,
       body: `The Knowledge Graph has mapped ${baseDNA.components} components, ${baseDNA.routes} routes, ${baseDNA.contexts} slices, and ${baseDNA.apis} API endpoints.`,
-      recommendation: `Investigate ${targetDomain}`,
+      recommendation: reason,
       actionLabel: `Investigate ${targetDomain}`
     };
   }
@@ -568,10 +568,8 @@ const Workspace = () => {
 
   const [active, setActive]     = useState(null);
   const [hovered, setHovered]   = useState(null);
-  const [entering, setEntering] = useState(false);
   const [vw, setVw]             = useState(1440);
   const [vh, setVh]             = useState(900);
-  const [tick, setTick]         = useState(0);
 
   const [transitionPhase, setTransitionPhase] = useState(null);
   const [extraRotation, setExtraRotation] = useState(0);
@@ -640,7 +638,7 @@ const Workspace = () => {
       } else {
         dispatch(setAnalysisStatus('analyzing'));
         const { getGraphDataForProject } = await import("@/lib/analysis/mockDataGenerator");
-        const { nodes, edges, files } = getGraphDataForProject(selectedProject);
+        const { files } = getGraphDataForProject(selectedProject);
 
         const mockFiles = files.map(f => ({
           path: f,
@@ -675,10 +673,7 @@ const Workspace = () => {
     return () => window.removeEventListener("resize", resize);
   }, []);
 
-  useEffect(() => {
-    const id = setInterval(() => setTick(t => t + 1), 1000);
-    return () => clearInterval(id);
-  }, []);
+
 
   const handleRequestPermission = async () => {
     if (!cachedHandle) return;
@@ -804,7 +799,7 @@ const Workspace = () => {
     { id: "documentation",label: "Documentation",color: "#6DB885", score: 85, count: "85% coverage",    ...toXY(198, ORBIT_R) },
   ];
 
-  const activeDomain = domains.find(d => d.id === active);
+
 
   // Dynamic rotate angle
   const orbitRotation = getTargetRotation(active);

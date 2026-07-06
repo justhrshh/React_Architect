@@ -59,13 +59,13 @@ export function buildRouteGraph(files, project) {
       // Look for JSX <Route path="/..." element={<Component />} />
       let match;
       while ((match = jsxRouteRegex.exec(content)) !== null) {
-        const [_, path, component] = match;
+        const [, path, component] = match;
         discoveredRoutes.set(path, { path, component, file: file.path });
       }
 
       // Look for object path: "/...", element: <Component />
       while ((match = objectRouteRegex.exec(content)) !== null) {
-        const [_, path, component] = match;
+        const [, path, component] = match;
         discoveredRoutes.set(path, { path, component, file: file.path });
       }
     });
