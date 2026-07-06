@@ -1,3 +1,33 @@
+# v5.0 — Cinematic Project DNA Onboarding & Progressive Disclosure HUD
+
+## Added
+* **Cinematic Onboarding Sequence (`Workspace.jsx`)**:
+  - Implemented a 4-step intro state machine (`intro` → `charging` → `shrinking` → `revealing` → `ready`) that plays a cinematic transition when the user clicks "Initialize Workspace Exploration".
+  - During `intro`, the Project Brain renders at `1.45x` scale centered in the viewport alongside 4 diagonal glassmorphic info cards (Project Scale, Project Health, Technology, Analysis).
+  - During `charging`, a massive super glow radial burst fires behind the core with a pulsing scale animation (`1.0 → 1.35 → 1.15`) and triple-layer halo expansion (`200px + 400px + 600px` spread).
+  - During `shrinking`, the Brain spring-animates down to its off-center workspace position with residual glow decay.
+  - During `revealing`, orbit rings, celestial nodes, and HUD elements stagger into the viewport.
+* **Progressive Disclosure Info Cards**:
+  - `01 / PROJECT SCALE`: Shows Components (with animated sonar radar widget) and Pages by default; hovering `+ More` reveals a glass overlay with Layouts, Hooks, Context Providers, Redux Slices, Utilities, Assets, Services, and Custom Hooks.
+  - `02 / PROJECT HEALTH`: Shows Health Score (with animated SVG radial gauge), Complexity, and Warnings by default; hovering `+ Details` reveals Dead Code, Circular Dependencies, Broken Imports, Unused Components, Parser Confidence, KG Integrity, and Graph Validation.
+  - `03 / TECHNOLOGY`: Shows a Stack Profile pill (`React • Vite • JavaScript`); hovering `+ Technologies` reveals dynamically detected categories parsed from the project's `package.json` dependencies.
+  - `04 / ANALYSIS`: Shows Files Parsed and Analysis Time by default; hovering `+ Diagnostics` reveals Folders Indexed, Parser version, Graph Node/Relationship counts, timestamp, and Import Resolution details.
+* **Dynamic Technology Detection**:
+  - The technology overlay scans `package.json` from `rawFiles` in the knowledge graph, mapping dependencies through a registry to clean display names.
+  - Categories auto-hide when empty; only actually detected technologies appear.
+* **Workspace HUD Visibility Gating**:
+  - The workspace header ("Return to Hub", project name, framework/language subtitle), system status indicator ("Analysis Ready"), and bottom-left live timestamp are now hidden during onboarding intro/charging/shrinking phases and only materialize when the workspace is initialized (`revealing`/`ready`).
+* **Glassmorphic Back Button**:
+  - Added a premium circular glass back button with `ArrowLeft` icon positioned at `top: 36px, left: 36px` during the intro screen.
+* **Core Backdrop Shroud**:
+  - Implemented a dark radial gradient overlay behind the Project Brain center metric text to prevent visual collisions with background SVG elements.
+
+## Changed
+* **`getContextualMetric`**: Updated fallback logic so projects with zero detected components, routes, or API endpoints display `0` rather than hardcoded placeholder values.
+* **Outer Glow Halo**: Now responds to all intro phases (`charging`, `shrinking`) in addition to the existing signature transition phases.
+
+---
+
 # v4.0 — Parser Accuracy & Architectural Merge
 
 ## Added

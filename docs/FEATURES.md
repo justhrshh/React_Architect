@@ -13,6 +13,19 @@ The single source of truth database representing your project DNA:
 
 ---
 
+## 0.1 Project DNA Onboarding
+The cinematic first-contact screen after importing a project. This is the **only** Project DNA view in React Architect — after this, users enter the full Workspace.
+
+* **Cinematic Intro Sequence**: A 4-step state machine (`intro` → `charging` → `shrinking` → `revealing` → `ready`) with spring physics, scale animations, and staggered element materialization.
+* **Super Glow Initialization Burst**: When the user clicks "Initialize Workspace Exploration", a radial energy burst and triple-layer halo expansion fires behind the Project Brain core.
+* **Progressive Disclosure Cards**: Four diagonal glassmorphic panels (Project Scale, Project Health, Technology, Analysis) show key metrics by default with `+ More` / `+ Details` / `+ Technologies` / `+ Diagnostics` hover actions that reveal floating glass overlays containing the complete architectural fingerprint.
+* **Sonar Radar Widget**: An animated circular sonar scanner visualizing component file nodes with a pulsing radar sweep ring.
+* **SVG Radial Health Gauge**: A glowing circular gauge with animated `strokeDashoffset` fill representing the project's architecture health score.
+* **Dynamic Technology Detection**: Scans `package.json` dependencies from the knowledge graph's `rawFiles`, mapping packages through a registry to clean display names. Categories auto-hide when empty.
+* **Workspace HUD Gating**: The workspace header, system status indicator, and live timestamp only appear after workspace initialization — never during the onboarding intro.
+
+---
+
 ## 0.5 Analysis Engine
 A reusable intelligence layer sitting directly above the Knowledge Graph. It never touches source files, Babel, or React Flow — it only ever reads the `{ nodes, edges }` graph, which means it automatically gets smarter as the parser improves without ever being rewritten.
 
