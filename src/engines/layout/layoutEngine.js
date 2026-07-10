@@ -28,7 +28,12 @@ export function layoutGraphNodes(nodes, edges) {
   const layers = {};
   const visited = new Set();
 
-  function assignLayer(nodeId, depth) {
+  function assignLayer(nodeId, depth, path = new Set()) {
+    if (path.has(nodeId)) {
+      // Loop cycle detected, return early
+      return;
+    }
+
     if (visited.has(nodeId)) {
       // Find current layer and remove to push deeper if needed
       for (const d in layers) {
@@ -42,9 +47,12 @@ export function layoutGraphNodes(nodes, edges) {
       layers[depth].push(nodeId);
     }
 
+    const nextPath = new Set(path);
+    nextPath.add(nodeId);
+
     const outgoingEdges = edges.filter(e => e.source === nodeId);
     outgoingEdges.forEach(e => {
-      assignLayer(e.target, depth + 1);
+      assignLayer(e.target, depth + 1, nextPath);
     });
   }
 

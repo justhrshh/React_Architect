@@ -181,7 +181,7 @@ export function computeDepths(nodes, edges, edgeType = "RENDERS") {
     const depth = depths.get(current);
     const neighbors = adj.get(current) || [];
     neighbors.forEach(next => {
-      if (!depths.has(next) || depths.get(next) < depth + 1) {
+      if (!depths.has(next)) {
         depths.set(next, depth + 1);
         queue.push(next);
       }
