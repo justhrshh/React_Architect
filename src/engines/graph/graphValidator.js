@@ -37,19 +37,6 @@ export function validateGraph(nodes, edges, diagnostics = []) {
     }
     seenIds.add(node.id);
 
-    // Large Component Check (LOC > 250)
-    if (node.kind === "component" && node.metadata && node.metadata.loc > 250) {
-      warnings.push({
-        type: "LARGE_COMPONENT",
-        message: `Component "${node.name}" is large (${node.metadata.loc} lines). Consider modularizing it.`,
-        file: node.file,
-      });
-      suggestions.push({
-        type: "SPLIT_COMPONENT",
-        message: `Split "${node.name}" component declaration into smaller sub-components.`,
-        file: node.file,
-      });
-    }
   });
 
   // 2. Missing Targets & Orphan tagging

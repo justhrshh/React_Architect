@@ -23,6 +23,7 @@ import {
 } from "@xyflow/react";
 import { toReactFlow } from "@/engines/adapters/reactFlowAdapter";
 import { buildArchitectureModel } from "@/engines/adapters/architectureAdapter";
+import { calculateMaintainability } from "@/engines/analysis/modules/maintainability";
 import "@xyflow/react/dist/style.css";
 
 
@@ -283,29 +284,34 @@ function InspectorPanel({ node, onNavigate, knowledgeGraph, treeNode }) {
     return cycles.length > 0;
   }, [knowledgeGraph, node]);
 
+  const maintainability = useMemo(() => {
+    if (!node || node.kind !== "component") return null;
+    return calculateMaintainability(node, knowledgeGraph);
+  }, [node, knowledgeGraph]);
+
   // Generate architectural recommendations
   const recommendations = useMemo(() => {
     if (!node) return [];
+    if (node.kind === "component") {
+      const list = [...(maintainability?.recommendations || [])];
+      if (isCyclic) {
+        list.push("Component is flagged inside a circular rendering loop. Refactor tree structure to break dependencies.");
+      }
+      return list;
+    }
     const list = [];
-    const loc = node.metadata?.loc || 0;
-    if (loc > 250) {
-      list.push("Component size exceeds 250 lines of code. Decompose into smaller components to keep modules focused.");
-    }
-    if (isCyclic) {
-      list.push("Component is flagged inside a circular rendering loop. Refactor tree structure to break dependencies.");
-    }
-    if (node.metadata?.children?.length > 12) {
-      list.push("Renders more than 12 child nodes. Group children inside layout containers or decompose rendering sections.");
-    }
-    const isOrphan = parentNodes.length === 0 && !["page", "layout", "provider", "context"].includes(node.subtype);
-    if (isOrphan) {
-      list.push("No components render this element. Consider checking if it represents unused/dead code.");
+    if (node.kind === "route") {
+      list.push("Ensure routing parameters are validated at the page component level.");
+    } else if (node.kind === "state") {
+      list.push("Keep slice reducers side-effect free. Use middleware or thunks for async logic.");
+    } else if (node.kind === "api") {
+      list.push("Centralize API calls in service modules. Avoid importing axios/fetch directly into UI components.");
     }
     if (list.length === 0) {
-      list.push("No violations. Component complies with project architecture standards.");
+      list.push("Node complies with project architecture standards.");
     }
     return list;
-  }, [node, parentNodes, isCyclic]);
+  }, [node, maintainability, isCyclic]);
 
   if (!node) {
     return (
@@ -463,26 +469,47 @@ function InspectorPanel({ node, onNavigate, knowledgeGraph, treeNode }) {
           )}
 
           {/* Architectural Health */}
-          {node.kind === "component" && (
+          {node.kind === "component" && maintainability && (
             <>
               <SectionLabel>Architecture Health</SectionLabel>
               <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
                 <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-                  <span style={{ fontSize: 11.5, color: "#4B5563", fontWeight: 500, fontFamily: INTER }}>Complexity (LOC)</span>
-                  <span style={{ fontSize: 11.5, color: "#111827", fontFamily: MONO, fontWeight: 600 }}>{node.metadata?.loc || 0} lines</span>
+                  <span style={{ fontSize: 11.5, color: "#4B5563", fontWeight: 500, fontFamily: INTER }}>Maintainability Score</span>
+                  <span style={{
+                    fontSize: 12.5,
+                    fontFamily: MONO,
+                    fontWeight: 700,
+                    color: maintainability.score >= 85 ? "#059669" : maintainability.score >= 70 ? "#D97706" : "#DC2626"
+                  }}>
+                    {maintainability.score} / 100
+                  </span>
                 </div>
-                {node.metadata?.loc > 250 && (
-                  <div className="flex gap-2 p-2.5 rounded-lg border border-amber-100 bg-amber-50/50 text-[10px] text-amber-800 font-sans leading-normal">
-                    <AlertTriangle size={12} className="text-amber-600 shrink-0 mt-0.5" />
-                    <span>Large Component Warning. Exceeds 250 LOC threshold.</span>
-                  </div>
-                )}
-                {isCyclic && (
-                  <div className="flex gap-2 p-2.5 rounded-lg border border-red-100 bg-red-50/50 text-[10px] text-red-800 font-sans leading-normal">
-                    <XCircle size={12} className="text-red-500 shrink-0 mt-0.5" />
-                    <span>Cyclic Render Loop detected for this module.</span>
-                  </div>
-                )}
+                
+                {/* Complexity Drivers */}
+                <div style={{ display: "flex", flexDirection: "column", gap: 6, marginTop: 4 }}>
+                  <p style={{ fontSize: 9.5, color: "#9CA3AF", fontFamily: INTER, fontWeight: 650, textTransform: "uppercase", letterSpacing: "0.02em", margin: "0 0 2px" }}>Complexity Drivers</p>
+                  {maintainability.drivers.map((drv, idx) => (
+                    <div key={idx} style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 10.5, color: "#4B5563", fontFamily: INTER }}>
+                      {drv.type === "success" ? (
+                        <CheckCircle size={11} className="text-emerald-500 shrink-0" />
+                      ) : (
+                        <AlertTriangle size={11} className="text-amber-500 shrink-0" />
+                      )}
+                      <span>{drv.text}</span>
+                    </div>
+                  ))}
+                  {isCyclic && (
+                    <div style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 10.5, color: "#DC2626", fontFamily: INTER }}>
+                      <XCircle size={11} className="text-red-500 shrink-0" />
+                      <span>Cyclic Render Loop detected</span>
+                    </div>
+                  )}
+                </div>
+
+                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", borderTop: "1px dashed #F1F3F5", paddingTop: 8, marginTop: 4 }}>
+                  <span style={{ fontSize: 11, color: "#6B7280", fontFamily: INTER }}>Complexity (LOC)</span>
+                  <span style={{ fontSize: 11, color: "#4B5563", fontFamily: MONO }}>{maintainability.loc} lines</span>
+                </div>
               </div>
               <Sep />
             </>
@@ -635,12 +662,19 @@ function InspectorPanel({ node, onNavigate, knowledgeGraph, treeNode }) {
           {/* Recommendations */}
           <SectionLabel>Architecture Recommendations</SectionLabel>
           <div style={{ display: "flex", flexDirection: "column", gap: 8, marginBottom: 16 }}>
-            {recommendations.map((rec, i) => (
-              <div key={i} className="flex gap-2 p-2.5 rounded-xl border border-neutral-100 bg-[#F9FAFB] text-[10.5px] text-neutral-600 font-sans leading-relaxed">
-                <CheckCircle size={12} className="text-emerald-500 shrink-0 mt-0.5" />
-                <span>{rec}</span>
-              </div>
-            ))}
+            {recommendations.map((rec, i) => {
+              const isInfo = rec.toLowerCase().includes("consider") || rec.toLowerCase().includes("split") || rec.toLowerCase().includes("decompose") || rec.toLowerCase().includes("separate");
+              return (
+                <div key={i} className="flex gap-2 p-2.5 rounded-xl border border-neutral-100 bg-[#F9FAFB] text-[10.5px] text-neutral-600 font-sans leading-relaxed">
+                  {isInfo ? (
+                    <Info size={12} className="text-blue-500 shrink-0 mt-0.5" />
+                  ) : (
+                    <CheckCircle size={12} className="text-emerald-500 shrink-0 mt-0.5" />
+                  )}
+                  <span>{rec}</span>
+                </div>
+              );
+            })}
           </div>
 
           {/* Imports */}
@@ -1003,6 +1037,588 @@ function TreeNode({ node, selectedId, onSelect, expandedNodes, toggleExpand }) {
   );
 }
 
+// ─── Flow Diagram Constants ───────────────────────────────────────────────────
+
+const FLOW_NODE_W = 200;
+const FLOW_NODE_H = 52;
+const FLOW_CAT_H = 28;
+const FLOW_H_GAP = 24;
+const FLOW_V_GAP = 56;
+const FLOW_CAT_V_GAP = 32;
+
+const FLOW_TYPE_COLORS = {
+  router:    { accent: "#3B82F6", bg: "#EFF6FF", border: "#BFDBFE" },
+  endpoint:  { accent: "#6366F1", bg: "#EEF2FF", border: "#C7D2FE" },
+  page:      { accent: "#3B82F6", bg: "#EFF6FF", border: "#BFDBFE" },
+  layout:    { accent: "#7C3AED", bg: "#F5F3FF", border: "#DDD6FE" },
+  component: { accent: "#059669", bg: "#ECFDF5", border: "#A7F3D0" },
+  provider:  { accent: "#D97706", bg: "#FFFBEB", border: "#FDE68A" },
+  context:   { accent: "#DB2777", bg: "#FDF2F8", border: "#FBCFE8" },
+  slice:     { accent: "#EA580C", bg: "#FFF7ED", border: "#FED7AA" },
+  gateway:   { accent: "#0891B2", bg: "#ECFEFF", border: "#A5F3FC" },
+  category:  { accent: "#9CA3AF", bg: "transparent", border: "transparent" },
+};
+
+// ─── Flow Layout Engine ───────────────────────────────────────────────────────
+
+function computeFlowLayout(roots, expandedSet) {
+  const layoutNodes = [];
+  const connections = [];
+  let globalId = 0;
+
+  function getNodeH(node) {
+    return node.kind === "category" ? FLOW_CAT_H : FLOW_NODE_H;
+  }
+  function getVGap(node) {
+    return node.kind === "category" ? FLOW_CAT_V_GAP : FLOW_V_GAP;
+  }
+
+  // Compute subtree width recursively
+  function subtreeWidth(node, depth) {
+    const isExpanded = expandedSet[node.id];
+    const visibleChildren = (isExpanded && node.children && node.children.length > 0) ? node.children : [];
+
+    if (visibleChildren.length === 0) {
+      return FLOW_NODE_W;
+    }
+
+    let totalW = 0;
+    visibleChildren.forEach((child, i) => {
+      if (i > 0) totalW += FLOW_H_GAP;
+      totalW += subtreeWidth(child, depth + 1);
+    });
+
+    return Math.max(FLOW_NODE_W, totalW);
+  }
+
+  // Position nodes
+  function layoutNode(node, x, y, depth, parentLayoutId) {
+    const layoutId = globalId++;
+    const nodeH = getNodeH(node);
+    const subtype = node.subtype || node.kind;
+    const colorCfg = FLOW_TYPE_COLORS[subtype] || FLOW_TYPE_COLORS.component;
+
+    layoutNodes.push({
+      layoutId,
+      id: node.id,
+      x,
+      y,
+      width: FLOW_NODE_W,
+      height: nodeH,
+      node,
+      depth,
+      colorCfg,
+    });
+
+    if (parentLayoutId !== null) {
+      const parentLN = layoutNodes.find(ln => ln.layoutId === parentLayoutId);
+      if (parentLN) {
+        connections.push({
+          fromId: parentLN.id,
+          toId: node.id,
+          fromX: parentLN.x + parentLN.width / 2,
+          fromY: parentLN.y + parentLN.height,
+          toX: x + FLOW_NODE_W / 2,
+          toY: y,
+          colorCfg,
+        });
+      }
+    }
+
+    const isExpanded = expandedSet[node.id];
+    const visibleChildren = (isExpanded && node.children && node.children.length > 0) ? node.children : [];
+
+    if (visibleChildren.length > 0) {
+      const childWidths = visibleChildren.map(c => subtreeWidth(c, depth + 1));
+      const totalChildrenW = childWidths.reduce((a, b) => a + b, 0) + (visibleChildren.length - 1) * FLOW_H_GAP;
+      let childX = x + FLOW_NODE_W / 2 - totalChildrenW / 2;
+      const childY = y + nodeH + getVGap(node);
+
+      visibleChildren.forEach((child, i) => {
+        const cw = childWidths[i];
+        const childCenterX = childX + cw / 2 - FLOW_NODE_W / 2;
+        layoutNode(child, childCenterX, childY, depth + 1, layoutId);
+        childX += cw + FLOW_H_GAP;
+      });
+    }
+  }
+
+  // Layout all roots side by side
+  const rootWidths = roots.map(r => subtreeWidth(r, 0));
+  const totalW = rootWidths.reduce((a, b) => a + b, 0) + (roots.length - 1) * FLOW_H_GAP * 2;
+  let startX = -totalW / 2;
+
+  roots.forEach((root, i) => {
+    const rw = rootWidths[i];
+    const rx = startX + rw / 2 - FLOW_NODE_W / 2;
+    layoutNode(root, rx, 0, 0, null);
+    startX += rw + FLOW_H_GAP * 2;
+  });
+
+  return { layoutNodes, connections };
+}
+
+// ─── Flow Node Component ──────────────────────────────────────────────────────
+
+function FlowNodeCard({ ln, isSelected, onSelect, onToggle, isExpanded, hasChildren }) {
+  const { node, colorCfg } = ln;
+  const isCategory = node.kind === "category";
+
+  if (isCategory) {
+    return (
+      <motion.div
+        initial={{ opacity: 0, y: -8 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.3 }}
+        onClick={(e) => { e.stopPropagation(); onToggle(node.id); }}
+        style={{
+          position: "absolute",
+          left: ln.x,
+          top: ln.y,
+          width: ln.width,
+          height: ln.height,
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          gap: 6,
+          cursor: "pointer",
+          userSelect: "none",
+        }}
+      >
+        <div style={{
+          width: 16, height: 1,
+          background: `linear-gradient(to right, transparent, #D1D5DB)`,
+        }} />
+        <span style={{
+          fontFamily: MONO,
+          fontSize: 9,
+          fontWeight: 600,
+          letterSpacing: "1.8px",
+          textTransform: "uppercase",
+          color: "#9CA3AF",
+          whiteSpace: "nowrap",
+        }}>
+          {node.name}
+        </span>
+        <div style={{
+          width: 16, height: 1,
+          background: `linear-gradient(to left, transparent, #D1D5DB)`,
+        }} />
+        {hasChildren && (
+          <ChevronRight
+            size={10}
+            color="#9CA3AF"
+            style={{
+              transform: isExpanded ? "rotate(90deg)" : "rotate(0deg)",
+              transition: "transform 0.2s",
+            }}
+          />
+        )}
+      </motion.div>
+    );
+  }
+
+  const subtypeLabel = node.subtype ? node.subtype.charAt(0).toUpperCase() + node.subtype.slice(1) : "";
+  const displayName = node.kind === "route" && node.subtype === "endpoint" ? (node.name || "/") : node.name;
+
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: -12, scale: 0.95 }}
+      animate={{
+        opacity: 1, y: 0, scale: 1,
+        boxShadow: isSelected
+          ? `0 0 0 2px ${colorCfg.accent}, 0 4px 16px ${colorCfg.accent}20`
+          : "0 1px 3px rgba(0,0,0,0.05), 0 0 0 1px " + colorCfg.border,
+      }}
+      transition={{ duration: 0.35, ease: [0.22, 1, 0.36, 1] }}
+      onClick={(e) => { e.stopPropagation(); onSelect(node.id); }}
+      style={{
+        position: "absolute",
+        left: ln.x,
+        top: ln.y,
+        width: ln.width,
+        height: ln.height,
+        background: isSelected ? colorCfg.bg : "#FFFFFF",
+        borderRadius: 10,
+        cursor: "pointer",
+        display: "flex",
+        alignItems: "center",
+        gap: 10,
+        padding: "0 12px",
+        userSelect: "none",
+        transition: "background 0.2s",
+      }}
+    >
+      {/* Left accent bar */}
+      <div style={{
+        position: "absolute",
+        left: 0, top: 8, bottom: 8,
+        width: 3,
+        borderRadius: "0 2px 2px 0",
+        background: colorCfg.accent,
+        opacity: isSelected ? 1 : 0.5,
+      }} />
+
+      {/* Content */}
+      <div style={{ flex: 1, minWidth: 0, paddingLeft: 6 }}>
+        <div style={{
+          display: "flex",
+          alignItems: "center",
+          gap: 6,
+          marginBottom: 2,
+        }}>
+          <span style={{
+            fontFamily: INTER,
+            fontSize: 12,
+            fontWeight: 600,
+            color: isSelected ? colorCfg.accent : "#1F2937",
+            overflow: "hidden",
+            textOverflow: "ellipsis",
+            whiteSpace: "nowrap",
+            maxWidth: ln.width - 80,
+          }}>
+            {displayName}
+          </span>
+          {subtypeLabel && (
+            <span style={{
+              fontFamily: MONO,
+              fontSize: 8,
+              fontWeight: 600,
+              color: colorCfg.accent,
+              background: colorCfg.bg,
+              padding: "1px 5px",
+              borderRadius: 4,
+              letterSpacing: "0.3px",
+              textTransform: "uppercase",
+              border: `1px solid ${colorCfg.border}`,
+              flexShrink: 0,
+            }}>
+              {subtypeLabel}
+            </span>
+          )}
+        </div>
+        {node.file && (
+          <div style={{
+            fontFamily: MONO,
+            fontSize: 9,
+            color: "#9CA3AF",
+            overflow: "hidden",
+            textOverflow: "ellipsis",
+            whiteSpace: "nowrap",
+          }}>
+            {node.file.split("/").pop()}
+          </div>
+        )}
+      </div>
+
+      {/* Expand/collapse chevron */}
+      {hasChildren && (
+        <div
+          onClick={(e) => { e.stopPropagation(); onToggle(node.id); }}
+          style={{
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            width: 20,
+            height: 20,
+            borderRadius: 6,
+            flexShrink: 0,
+            cursor: "pointer",
+          }}
+        >
+          <ChevronRight
+            size={12}
+            color={isSelected ? colorCfg.accent : "#9CA3AF"}
+            style={{
+              transform: isExpanded ? "rotate(90deg)" : "rotate(0deg)",
+              transition: "transform 0.2s ease",
+            }}
+          />
+        </div>
+      )}
+
+      {/* Loop indicator */}
+      {node.isLoop && (
+        <div style={{
+          position: "absolute",
+          top: -6,
+          right: -6,
+          width: 16,
+          height: 16,
+          borderRadius: "50%",
+          background: "#FEF2F2",
+          border: "1.5px solid #FECACA",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+        }}>
+          <AlertTriangle size={8} color="#EF4444" />
+        </div>
+      )}
+    </motion.div>
+  );
+}
+
+// ─── Flow Diagram Component ───────────────────────────────────────────────────
+
+function FlowDiagram({ architectureModel, selectedId, onSelectNode }) {
+  const [flowExpanded, setFlowExpanded] = useState({});
+  const [pan, setPan] = useState({ x: 0, y: 0 });
+  const [zoom, setZoom] = useState(1);
+  const [isPanning, setIsPanning] = useState(false);
+  const [panStart, setPanStart] = useState({ x: 0, y: 0 });
+
+  // Auto-expand top 2 levels on model change
+  useEffect(() => {
+    if (architectureModel.length > 0) {
+      const init = {};
+      architectureModel.forEach(root => {
+        init[root.id] = true;
+        if (root.children) {
+          root.children.forEach(child => {
+            init[child.id] = true;
+          });
+        }
+      });
+      setFlowExpanded(init);
+    }
+  }, [architectureModel]);
+
+  const toggleFlowExpand = useCallback((id) => {
+    setFlowExpanded(prev => ({ ...prev, [id]: !prev[id] }));
+  }, []);
+
+  const { layoutNodes, connections } = useMemo(() => {
+    return computeFlowLayout(architectureModel, flowExpanded);
+  }, [architectureModel, flowExpanded]);
+
+  // Compute bounding box for SVG
+  const bounds = useMemo(() => {
+    if (layoutNodes.length === 0) return { minX: 0, minY: 0, maxX: 800, maxY: 600 };
+    let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+    layoutNodes.forEach(ln => {
+      if (ln.x < minX) minX = ln.x;
+      if (ln.y < minY) minY = ln.y;
+      if (ln.x + ln.width > maxX) maxX = ln.x + ln.width;
+      if (ln.y + ln.height > maxY) maxY = ln.y + ln.height;
+    });
+    const pad = 80;
+    return { minX: minX - pad, minY: minY - pad, maxX: maxX + pad, maxY: maxY + pad };
+  }, [layoutNodes]);
+
+  // Auto-center on initial load
+  useEffect(() => {
+    if (layoutNodes.length > 0) {
+      const cx = (bounds.minX + bounds.maxX) / 2;
+      const cy = bounds.minY;
+      setPan({ x: -cx, y: -cy + 40 });
+      setZoom(1);
+    }
+  }, [architectureModel.length]); // only on model change, not every expand
+
+  // Pan handlers
+  const handleMouseDown = useCallback((e) => {
+    if (e.button === 0) {
+      setIsPanning(true);
+      setPanStart({ x: e.clientX - pan.x * zoom, y: e.clientY - pan.y * zoom });
+    }
+  }, [pan, zoom]);
+
+  const handleMouseMove = useCallback((e) => {
+    if (!isPanning) return;
+    setPan({
+      x: (e.clientX - panStart.x) / zoom,
+      y: (e.clientY - panStart.y) / zoom,
+    });
+  }, [isPanning, panStart, zoom]);
+
+  const handleMouseUp = useCallback(() => {
+    setIsPanning(false);
+  }, []);
+
+  const handleWheel = useCallback((e) => {
+    e.preventDefault();
+    const delta = e.deltaY > 0 ? -0.08 : 0.08;
+    setZoom(prev => Math.max(0.15, Math.min(2.5, prev + delta)));
+  }, []);
+
+  if (architectureModel.length === 0) {
+    return (
+      <div style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", color: "#B8BEC9", fontSize: 13, fontFamily: INTER }}>
+        No architecture model to visualize.
+      </div>
+    );
+  }
+
+  return (
+    <div
+      style={{ flex: 1, position: "relative", overflow: "hidden", cursor: isPanning ? "grabbing" : "grab", background: "#F8F9FB" }}
+      onMouseDown={handleMouseDown}
+      onMouseMove={handleMouseMove}
+      onMouseUp={handleMouseUp}
+      onMouseLeave={handleMouseUp}
+      onWheel={handleWheel}
+    >
+      {/* Transform container */}
+      <div
+        style={{
+          position: "absolute",
+          left: "50%",
+          top: 0,
+          transformOrigin: "0 0",
+          transform: `scale(${zoom}) translate(${pan.x}px, ${pan.y}px)`,
+          transition: isPanning ? "none" : "transform 0.15s ease-out",
+        }}
+      >
+        {/* SVG connections layer */}
+        <svg
+          style={{
+            position: "absolute",
+            left: bounds.minX,
+            top: bounds.minY,
+            width: bounds.maxX - bounds.minX,
+            height: bounds.maxY - bounds.minY,
+            pointerEvents: "none",
+            overflow: "visible",
+          }}
+        >
+          {connections.map((conn, i) => {
+            const x1 = conn.fromX - bounds.minX;
+            const y1 = conn.fromY - bounds.minY;
+            const x2 = conn.toX - bounds.minX;
+            const y2 = conn.toY - bounds.minY;
+            const midY = (y1 + y2) / 2;
+
+            return (
+              <motion.path
+                key={`${conn.fromId}-${conn.toId}-${i}`}
+                d={`M ${x1} ${y1} C ${x1} ${midY}, ${x2} ${midY}, ${x2} ${y2}`}
+                fill="none"
+                stroke={conn.colorCfg.accent}
+                strokeWidth={1.2}
+                strokeOpacity={0.3}
+                initial={{ pathLength: 0, opacity: 0 }}
+                animate={{ pathLength: 1, opacity: 1 }}
+                transition={{ duration: 0.5, delay: i * 0.02, ease: "easeOut" }}
+              />
+            );
+          })}
+        </svg>
+
+        {/* Node cards layer */}
+        {layoutNodes.map((ln) => (
+          <FlowNodeCard
+            key={ln.id}
+            ln={ln}
+            isSelected={selectedId === ln.id}
+            onSelect={onSelectNode}
+            onToggle={toggleFlowExpand}
+            isExpanded={!!flowExpanded[ln.id]}
+            hasChildren={ln.node.children && ln.node.children.length > 0}
+          />
+        ))}
+      </div>
+
+      {/* Zoom controls overlay */}
+      <div
+        style={{
+          position: "absolute",
+          bottom: 20,
+          left: 20,
+          display: "flex",
+          alignItems: "center",
+          background: "#FFFFFF",
+          border: "1px solid #E8EAED",
+          borderRadius: 12,
+          boxShadow: "0 1px 4px rgba(0,0,0,0.06)",
+          padding: 4,
+          gap: 0,
+          zIndex: 10,
+        }}
+      >
+        <IconBtn onClick={() => setZoom(z => Math.min(2.5, z + 0.15))} title="Zoom in">
+          <ZoomIn size={13} />
+        </IconBtn>
+        <span style={{
+          fontSize: 10,
+          fontFamily: MONO,
+          color: "#9CA3AF",
+          width: 40,
+          textAlign: "center",
+          fontWeight: 500,
+        }}>
+          {Math.round(zoom * 100)}%
+        </span>
+        <IconBtn onClick={() => setZoom(z => Math.max(0.15, z - 0.15))} title="Zoom out">
+          <ZoomOut size={13} />
+        </IconBtn>
+        <div style={{ width: 1, height: 14, background: "#E8EAED", margin: "0 3px" }} />
+        <IconBtn onClick={() => {
+          const cx = (bounds.minX + bounds.maxX) / 2;
+          const cy = bounds.minY;
+          setPan({ x: -cx, y: -cy + 40 });
+          setZoom(1);
+        }} title="Reset view">
+          <Maximize size={12} />
+        </IconBtn>
+      </div>
+
+      {/* Flow legend */}
+      <div
+        style={{
+          position: "absolute",
+          bottom: 20,
+          right: 20,
+          display: "flex",
+          alignItems: "center",
+          gap: 12,
+          background: "rgba(255,255,255,0.88)",
+          backdropFilter: "blur(8px)",
+          border: "1px solid #E8EAED",
+          borderRadius: 10,
+          padding: "7px 12px",
+          zIndex: 10,
+        }}
+      >
+        {[
+          { label: "Page", color: "#3B82F6" },
+          { label: "Layout", color: "#7C3AED" },
+          { label: "Component", color: "#059669" },
+          { label: "Provider", color: "#D97706" },
+          { label: "Route", color: "#6366F1" },
+          { label: "State", color: "#EA580C" },
+        ].map(item => (
+          <div key={item.label} style={{ display: "flex", alignItems: "center", gap: 5 }}>
+            <div style={{ width: 7, height: 7, borderRadius: 2, background: item.color, flexShrink: 0 }} />
+            <span style={{ fontSize: 10, color: "#9CA3AF", fontFamily: INTER, letterSpacing: "-0.01em" }}>
+              {item.label}
+            </span>
+          </div>
+        ))}
+      </div>
+
+      {/* Expand hint */}
+      <div
+        style={{
+          position: "absolute",
+          top: 16,
+          left: "50%",
+          transform: "translateX(-50%)",
+          fontFamily: MONO,
+          fontSize: 9,
+          letterSpacing: "1.5px",
+          color: "#D1D5DB",
+          textTransform: "uppercase",
+          pointerEvents: "none",
+          zIndex: 10,
+        }}
+      >
+        Click chevrons to expand architecture · Scroll to zoom · Drag to pan
+      </div>
+    </div>
+  );
+}
+
 // ─── Inner React Flow Canvas Component ─────────────────────────────────────────
 
 function ArchitectureFlow() {
@@ -1014,7 +1630,7 @@ function ArchitectureFlow() {
   const reduxFiles = useSelector((state) => state.graph.files);
   const analysis = useSelector((state) => state.analysis);
 
-  // Tab Selection Switcher: "summary" | "explore" | "graph"
+  // Tab Selection Switcher: "summary" | "explore" | "flow" | "graph"
   const [activeTab, setActiveTab] = useState("summary");
 
   const validation = useMemo(() => {
@@ -1178,6 +1794,16 @@ function ArchitectureFlow() {
     // Dead component check
     const deadComps = analysis.deadCode?.unusedComponents || [];
 
+    // Poor maintainability components
+    const poorMaintainabilityComps = [];
+    reduxNodes.forEach(c => {
+      const m = calculateMaintainability(c, knowledgeGraph);
+      if (m && m.score < 70) {
+        poorMaintainabilityComps.push({ component: c, score: m.score });
+      }
+    });
+    poorMaintainabilityComps.sort((a, b) => a.score - b.score);
+
     return {
       componentCount,
       routeCount,
@@ -1186,7 +1812,8 @@ function ArchitectureFlow() {
       stateCount,
       largestComp,
       cycles,
-      deadComps
+      deadComps,
+      poorMaintainabilityComps
     };
   }, [reduxNodes, knowledgeGraph, validation, analysis]);
 
@@ -1219,6 +1846,7 @@ function ArchitectureFlow() {
         {[
           { id: "summary", label: "Summary", desc: "Overall Health Diagnostics" },
           { id: "explore", label: "Explore", desc: "Component Traversal Tree" },
+          { id: "flow",    label: "Flow",    desc: "Architecture Flow Diagram" },
           { id: "graph",   label: "Graph",   desc: "Interactive React Flow View" }
         ].map((tab) => {
           const isActive = activeTab === tab.id;
@@ -1250,7 +1878,7 @@ function ArchitectureFlow() {
       <div style={{ display: "flex", flex: 1, overflow: "hidden" }}>
         
         {/* Left Directory Tree Pane (Shown only in Graph and Explore modes) */}
-        {!isGraphFullscreen && activeTab !== "summary" && (
+        {!isGraphFullscreen && activeTab !== "summary" && activeTab !== "flow" && (
           <aside className="w-64 border-r border-neutral-200 bg-[#F9FAFB] p-6 flex flex-col gap-6 shrink-0 overflow-y-auto select-none">
             <div>
               <h4 className="font-mono text-[9px] uppercase tracking-widest text-neutral-500 mb-3.5 font-bold">
@@ -1450,11 +2078,11 @@ function ArchitectureFlow() {
                           Investigate circular component rendering loop between <strong>{summaryMetrics.cycles[0].message.split('"')[1] || "modules"}</strong>.
                         </p>
                       </div>
-                    ) : summaryMetrics.largestComp && (summaryMetrics.largestComp.metadata?.loc || 0) > 250 ? (
+                    ) : summaryMetrics.poorMaintainabilityComps.length > 0 ? (
                       <div style={{ display: "flex", gap: 8 }}>
                         <AlertTriangle size={14} className="text-amber-500 shrink-0 mt-0.5" />
                         <p style={{ fontSize: 11.5, color: "#4B5563", margin: 0, leading: "normal" }}>
-                          Refactor large component <strong>{summaryMetrics.largestComp.name}</strong> ({summaryMetrics.largestComp.metadata?.loc} LOC) by breaking it down.
+                          Improve component <strong>{summaryMetrics.poorMaintainabilityComps[0].component.name}</strong> (Maintainability Score: {summaryMetrics.poorMaintainabilityComps[0].score}/100) to resolve architectural risks.
                         </p>
                       </div>
                     ) : summaryMetrics.deadComps.length > 0 ? (
@@ -1614,7 +2242,16 @@ function ArchitectureFlow() {
             </div>
           )}
 
-          {/* TAB 3: GRAPH VIEW */}
+          {/* TAB 3: FLOW VIEW */}
+          {activeTab === "flow" && (
+            <FlowDiagram
+              architectureModel={architectureModel}
+              selectedId={selectedId}
+              onSelectNode={setSelectedId}
+            />
+          )}
+
+          {/* TAB 4: GRAPH VIEW */}
           {activeTab === "graph" && (
             <div style={{ flex: 1, display: "flex", flexDirection: "column", position: "relative" }}>
               <ReactFlow

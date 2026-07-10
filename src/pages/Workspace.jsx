@@ -110,12 +110,12 @@ function getSystemMessage(analysis) {
   const deadComponents = analysis.deadCode?.unusedComponents?.length ?? 0;
   
   const ruleResults = analysis.architectureHealth?.ruleResults ?? [];
-  const largeComponents = ruleResults.find(r => r.rule === 'LARGE_COMPONENTS')?.findings?.length ?? 0;
-  const circularDeps = ruleResults.find(r => r.rule === 'CIRCULAR_DEPENDENCIES')?.findings?.length ?? 0;
+  const poorMaintainability = ruleResults.find(r => r.id === 'POOR_MAINTAINABILITY')?.findingCount ?? 0;
+  const circularDeps = ruleResults.find(r => r.id === 'CIRCULAR_DEPENDENCIES')?.findingCount ?? 0;
 
   if (circularDeps > 0) return "Circular dependencies detected.";
   if (deadRoutes > 5) return "Routing complexity requires investigation.";
-  if (largeComponents > 3) return "Large components require attention.";
+  if (poorMaintainability > 3) return "Poor maintainability components detected.";
   if (deadComponents > 8) return "Significant dead code detected.";
   if (health < 50) return "Architectural risks detected.";
   if (health >= 85) return "Project in good standing.";
@@ -565,7 +565,7 @@ function getCoreContextOverview(displayRoom, analysis, projectName) {
     apis: analysis?.projectDNA?.apiCount || 0,
     healthScore: analysis?.architectureHealth?.score ?? 91,
     circulars: (analysis?.architectureHealth?.errors || []).concat(analysis?.architectureHealth?.warnings || []).filter(item => item.type === "CIRCULAR_DEPENDENCIES").length,
-    largeComps: (analysis?.architectureHealth?.errors || []).concat(analysis?.architectureHealth?.warnings || []).filter(item => item.type === "LARGE_COMPONENTS").length,
+    largeComps: (analysis?.architectureHealth?.errors || []).concat(analysis?.architectureHealth?.warnings || []).filter(item => item.type === "POOR_MAINTAINABILITY").length,
     unusedComps: analysis?.deadCode?.unusedComponents?.length || 0,
     deadRoutes: analysis?.deadCode?.unusedRoutes?.length || 0,
     unusedHooks: analysis?.deadCode?.unusedHooks?.length || 0,
@@ -602,7 +602,7 @@ function getCoreContextOverview(displayRoom, analysis, projectName) {
   if (displayRoom === "architecture") {
     const headline = baseDNA.circulars > 0 ? "Circular import issues detected" : "Structural integrity is strong";
     const body = baseDNA.circulars > 0 
-      ? `A circular dependency chain has begun attracting satellite imports. ${baseDNA.largeComps} monolithic component modules require decomposition.`
+      ? `A circular dependency chain has begun attracting satellite imports. ${baseDNA.largeComps} components with poor maintainability require decomposition.`
       : `${baseDNA.components} active components mapped with clear separation of modular boundaries.`;
     return {
       metric: baseDNA.healthScore,

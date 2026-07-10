@@ -10,6 +10,7 @@
  */
 
 import { getNodesByKind, findCycles, buildReverseAdjacency } from "./metrics.js";
+import { calculateMaintainability } from "./maintainability.js";
 
 const STARTING_SCORE = 100;
 
@@ -70,18 +71,25 @@ function gradeFor(score) {
 // evaluate(graph, context) => { deduction: number, findings: [{severity, message, file}] }
 // ---------------------------------------------------------------------------
 
-const largeComponentsRule = {
-  id: "LARGE_COMPONENTS",
-  label: "Large Components",
+const poorMaintainabilityRule = {
+  id: "POOR_MAINTAINABILITY",
+  label: "Poor Maintainability Components",
   evaluate(graph) {
     const components = getNodesByKind(graph.nodes, "component");
-    const offenders = components.filter(c => (c.metadata?.loc || 0) > 250);
+    const offenders = [];
+    components.forEach(c => {
+      const m = calculateMaintainability(c, graph);
+      if (m && m.score < 70) {
+        offenders.push({ component: c, maintainability: m });
+      }
+    });
+
     return {
-      deduction: offenders.length * 2,
-      findings: offenders.map(c => ({
+      deduction: offenders.length * 3,
+      findings: offenders.map(({ component, maintainability }) => ({
         severity: "warning",
-        message: `Component "${c.name}" is large (${c.metadata.loc} lines).`,
-        file: c.file,
+        message: `Component "${component.name}" has poor maintainability (Score: ${maintainability.score}/100) due to: ${maintainability.drivers.filter(d => d.type === "warning").map(d => d.text).join(", ")}.`,
+        file: component.file,
       })),
     };
   },
@@ -257,7 +265,7 @@ const missingProvidersRule = {
 };
 
 const rules = [
-  largeComponentsRule,
+  poorMaintainabilityRule,
   circularDependenciesRule,
   deadRoutesRule,
   duplicateHooksRule,
