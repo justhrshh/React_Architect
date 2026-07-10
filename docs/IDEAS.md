@@ -19,3 +19,6 @@ Potential feature ideas for next versions of React Architect.
 
 ## 4. Multi-Framework Adapters
 - **Idea**: Extend parsing helpers to map Vue templates (`.vue`) and Svelte wrappers (`.svelte`).
+
+## 5. Explicit Route-to-Component Edges
+- **Idea**: Currently, route nodes map to components dynamically in the Architecture Adapter via name or file matching (a temporary compatibility layer). In a future parser sprint, the Knowledge Graph builder should be updated to explicitly emit `ROUTE_TARGET` edges that connect `route` nodes to their actual target `component` nodes. The adapter can then consume these explicit edges for a perfectly accurate topological representation.

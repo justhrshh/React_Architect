@@ -240,7 +240,7 @@ function Sep() {
   return <div style={{ height: 1, background: "#F1F3F5", margin: "16px 0" }} />;
 }
 
-function InspectorPanel({ node, onNavigate, knowledgeGraph }) {
+function InspectorPanel({ node, onNavigate, knowledgeGraph, treeNode }) {
   // Query Parent and Children nodes from graph edges
   const parentNodes = useMemo(() => {
     if (!knowledgeGraph || !node) return [];
@@ -338,6 +338,9 @@ function InspectorPanel({ node, onNavigate, knowledgeGraph }) {
 
   // Derive Component Architectural Role Label
   const getRoleLabel = () => {
+    if (node.kind === "route") {
+      return node.subtype === "router" ? "Application Router" : "Route Endpoint";
+    }
     if (node.subtype === "layout") return "Layout Template Wrapper";
     if (node.subtype === "page") return "Page View Controller";
     if (node.subtype === "provider") return "React Context Provider";
@@ -421,28 +424,69 @@ function InspectorPanel({ node, onNavigate, knowledgeGraph }) {
 
           <Sep />
 
-          {/* Architectural Health */}
-          <SectionLabel>Architecture Health</SectionLabel>
-          <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-              <span style={{ fontSize: 11.5, color: "#4B5563", fontWeight: 500, fontFamily: INTER }}>Complexity (LOC)</span>
-              <span style={{ fontSize: 11.5, color: "#111827", fontFamily: MONO, fontWeight: 600 }}>{node.metadata?.loc || 0} lines</span>
-            </div>
-            {node.metadata?.loc > 250 && (
-              <div className="flex gap-2 p-2.5 rounded-lg border border-amber-100 bg-amber-50/50 text-[10px] text-amber-800 font-sans leading-normal">
-                <AlertTriangle size={12} className="text-amber-600 shrink-0 mt-0.5" />
-                <span>Large Component Warning. Exceeds 250 LOC threshold.</span>
+          {/* Route Info */}
+          {node.kind === "route" && (
+            <>
+              <SectionLabel>Routing Metadata</SectionLabel>
+              <div style={{ display: "flex", flexDirection: "column", gap: 10, marginBottom: 16 }}>
+                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                  <span style={{ fontSize: 11.5, color: "#4B5563", fontWeight: 500, fontFamily: INTER }}>Router Type</span>
+                  <span style={{ fontSize: 11.5, color: "#111827", fontFamily: MONO, fontWeight: 600 }}>{treeNode?.metadata?.routerType || node.metadata?.source || "Router"}</span>
+                </div>
+                {node.subtype === "endpoint" && node.metadata?.componentName && (
+                  <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                    <span style={{ fontSize: 11.5, color: "#4B5563", fontWeight: 500, fontFamily: INTER }}>Target Component</span>
+                    <span style={{ fontSize: 11.5, color: "#2563EB", fontFamily: MONO, fontWeight: 600 }}>{node.metadata.componentName}</span>
+                  </div>
+                )}
               </div>
-            )}
-            {isCyclic && (
-              <div className="flex gap-2 p-2.5 rounded-lg border border-red-100 bg-red-50/50 text-[10px] text-red-800 font-sans leading-normal">
-                <XCircle size={12} className="text-red-500 shrink-0 mt-0.5" />
-                <span>Cyclic Render Loop detected for this module.</span>
+              <Sep />
+            </>
+          )}
+          {treeNode?.metadata?.entryRoute && (
+            <>
+              <SectionLabel>Routing Entry</SectionLabel>
+              <div style={{ display: "flex", flexDirection: "column", gap: 10, marginBottom: 16 }}>
+                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                  <span style={{ fontSize: 11.5, color: "#4B5563", fontWeight: 500, fontFamily: INTER }}>Entry Route</span>
+                  <span style={{ fontSize: 11.5, color: "#111827", fontFamily: MONO, fontWeight: 600 }}>{treeNode.metadata.entryRoute}</span>
+                </div>
+                {treeNode.metadata.routerType && (
+                  <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                    <span style={{ fontSize: 11.5, color: "#4B5563", fontWeight: 500, fontFamily: INTER }}>Router Type</span>
+                    <span style={{ fontSize: 11.5, color: "#111827", fontFamily: MONO, fontWeight: 600 }}>{treeNode.metadata.routerType}</span>
+                  </div>
+                )}
               </div>
-            )}
-          </div>
+              <Sep />
+            </>
+          )}
 
-          <Sep />
+          {/* Architectural Health */}
+          {node.kind === "component" && (
+            <>
+              <SectionLabel>Architecture Health</SectionLabel>
+              <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                  <span style={{ fontSize: 11.5, color: "#4B5563", fontWeight: 500, fontFamily: INTER }}>Complexity (LOC)</span>
+                  <span style={{ fontSize: 11.5, color: "#111827", fontFamily: MONO, fontWeight: 600 }}>{node.metadata?.loc || 0} lines</span>
+                </div>
+                {node.metadata?.loc > 250 && (
+                  <div className="flex gap-2 p-2.5 rounded-lg border border-amber-100 bg-amber-50/50 text-[10px] text-amber-800 font-sans leading-normal">
+                    <AlertTriangle size={12} className="text-amber-600 shrink-0 mt-0.5" />
+                    <span>Large Component Warning. Exceeds 250 LOC threshold.</span>
+                  </div>
+                )}
+                {isCyclic && (
+                  <div className="flex gap-2 p-2.5 rounded-lg border border-red-100 bg-red-50/50 text-[10px] text-red-800 font-sans leading-normal">
+                    <XCircle size={12} className="text-red-500 shrink-0 mt-0.5" />
+                    <span>Cyclic Render Loop detected for this module.</span>
+                  </div>
+                )}
+              </div>
+              <Sep />
+            </>
+          )}
 
           {/* Hierarchy Connections */}
           <SectionLabel>Hierarchy Connections</SectionLabel>
@@ -814,6 +858,10 @@ function TreeNode({ node, selectedId, onSelect, expandedNodes, toggleExpand }) {
 
   const getIcon = () => {
     if (node.kind === "category") return null;
+    if (node.kind === "route") {
+      if (node.subtype === "router") return <div style={{ color: "#3B82F6", marginTop: 2 }}><Share2 size={11} /></div>;
+      return <div style={{ color: "#6366F1", marginTop: 2 }}><GitBranch size={11} /></div>;
+    }
     if (node.kind === "component") {
       if (node.subtype === "page") return <div style={{ width: 6, height: 6, borderRadius: "50%", background: "#3B82F6", flexShrink: 0 }} />;
       if (node.subtype === "layout") return <div style={{ width: 6, height: 6, borderRadius: "50%", background: "#7C3AED", flexShrink: 0 }} />;
@@ -827,6 +875,7 @@ function TreeNode({ node, selectedId, onSelect, expandedNodes, toggleExpand }) {
 
   const getSubtypeLabel = () => {
     if (node.kind === "category") return null;
+    if (node.kind === "route") return node.subtype === "router" ? "Router" : "Route";
     if (node.kind === "component") return node.subtype || "component";
     return node.kind;
   };
@@ -1075,6 +1124,8 @@ function ArchitectureFlow() {
     if (!selectedId) return [];
     return findPathToNode(architectureModel, selectedId) || [];
   }, [architectureModel, selectedId]);
+
+  const treeNode = breadcrumbs.length > 0 ? breadcrumbs[breadcrumbs.length - 1] : null;
 
   // Tree expand/collapse states
   const [expandedNodes, setExpandedNodes] = useState({});
@@ -1655,7 +1706,7 @@ function ArchitectureFlow() {
 
         {/* Right Inspector Panel */}
         {!isGraphFullscreen && (
-          <InspectorPanel nodes={reduxNodes} node={selectedNode} onNavigate={setSelectedId} knowledgeGraph={knowledgeGraph} />
+          <InspectorPanel nodes={reduxNodes} node={selectedNode} treeNode={treeNode} onNavigate={setSelectedId} knowledgeGraph={knowledgeGraph} />
         )}
       </div>
     </div>

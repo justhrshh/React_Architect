@@ -1,3 +1,5 @@
+import JSZip from "jszip";
+
 /**
  * projectDetector.js
  *
@@ -73,14 +75,49 @@ export async function detectFromDirectoryHandle(dirHandle) {
 
 /**
  * Extracts project metadata from a ZIP File object.
- * Full ZIP parsing (via JSZip) will be added in Sprint 6.
- * For now we derive the name from the filename.
+ * Reads the ZIP, locates package.json (either at root or inside a folder),
+ * and parses it to retrieve accurate project metadata.
  *
  * @param {File} zipFile
  * @returns {Promise<DetectedProject>}
  */
 export async function detectFromZip(zipFile) {
   const baseName = zipFile.name.replace(/\.zip$/i, "");
+  
+  try {
+    const zip = await JSZip.loadAsync(zipFile);
+    
+    // Look for package.json in the zip
+    let pkgJsonFile = null;
+    let pkgJsonPath = "";
+    
+    // Find the shallowest package.json
+    for (const [path, file] of Object.entries(zip.files)) {
+      if (!file.dir && path.match(/(^|\/)package\.json$/)) {
+        if (!pkgJsonFile || path.split('/').length < pkgJsonPath.split('/').length) {
+          pkgJsonFile = file;
+          pkgJsonPath = path;
+        }
+      }
+    }
+
+    if (pkgJsonFile) {
+      const text = await pkgJsonFile.async("string");
+      const pkg = JSON.parse(text);
+      const detected = detectFromPackageJson(pkg);
+      
+      return {
+        ...detected,
+        importMethod: "zip",
+        folderName: baseName,
+        _zipParsePending: true, // consumed by Sprint 6
+      };
+    }
+  } catch (err) {
+    console.error("Failed to parse ZIP or package.json:", err);
+  }
+
+  // Fallback if no valid package.json was found
   return {
     ...fallback(baseName),
     importMethod: "zip",

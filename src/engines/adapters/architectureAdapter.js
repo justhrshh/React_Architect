@@ -23,91 +23,71 @@ export function buildArchitectureModel(knowledgeGraph) {
   const nodes = knowledgeGraph.nodes;
   const edges = knowledgeGraph.edges;
 
-  // 1. Filter out only component nodes
+  // 1. Separate components and routes
   const componentNodes = nodes.filter(n => n.kind === "component");
   const componentMap = new Map(componentNodes.map(n => [n.id, n]));
 
-  // Build adjacency mappings for components
-  const rendersAdjacency = new Map(); // parent -> array of targets
-  const rendersIncoming = new Map(); // target -> array of parents
+  const routeNodes = nodes.filter(n => n.kind === "route");
+  const routeMap = new Map(routeNodes.map(n => [n.id, n]));
 
+  // Adjacency for routes
+  const routeAdjacency = new Map();
+  routeNodes.forEach(r => routeAdjacency.set(r.id, []));
+
+  edges.forEach(e => {
+    if (e.type === "ROUTE_PARENT" && routeAdjacency.has(e.source)) {
+      routeAdjacency.get(e.source).push(e.target);
+    }
+  });
+
+  // Adjacency for components
+  const rendersAdjacency = new Map();
+  const rendersIncoming = new Map();
   componentNodes.forEach(c => {
     rendersAdjacency.set(c.id, []);
     rendersIncoming.set(c.id, []);
   });
 
   edges.forEach(e => {
-    if (e.type === "RENDERS") {
-      if (rendersAdjacency.has(e.source) && rendersAdjacency.has(e.target)) {
-        rendersAdjacency.get(e.source).push(e.target);
-        rendersIncoming.get(e.target).push(e.source);
-      }
+    if (e.type === "RENDERS" && rendersAdjacency.has(e.source) && rendersAdjacency.has(e.target)) {
+      rendersAdjacency.get(e.source).push(e.target);
+      rendersIncoming.get(e.target).push(e.source);
     }
   });
 
-  // Calculate in-degree for all component nodes
   const inDegree = {};
   componentNodes.forEach(c => {
     inDegree[c.id] = rendersIncoming.get(c.id).length;
   });
 
-  // 2. Root Detection
-  // Find nodes with in-degree = 0
-  let roots = componentNodes.filter(c => inDegree[c.id] === 0);
-
-  // If there are no nodes with in-degree = 0 (e.g. because of rendering cycles),
-  // default to looking for App, Router, layout, page, main, index components
-  if (roots.length === 0 && componentNodes.length > 0) {
-    const appOrPage = componentNodes.filter(c => 
-      /app|router|layout|page|main|index/i.test(c.name) || /app|router|layout|page|main|index/i.test(c.file)
-    );
-    if (appOrPage.length > 0) {
-      roots = appOrPage;
-    } else {
-      // Pick the component with the highest out-degree (renders the most children)
-      let maxOut = -1;
-      let bestNode = componentNodes[0];
-      componentNodes.forEach(c => {
-        const outCount = rendersAdjacency.get(c.id).length;
-        if (outCount > maxOut) {
-          maxOut = outCount;
-          bestNode = c;
-        }
-      });
-      roots = [bestNode];
-    }
-  }
-
-  // Sort roots deterministically (App first, then layouts, then pages, then alphabetical)
-  roots.sort((a, b) => {
-    const aApp = /app/i.test(a.name);
-    const bApp = /app/i.test(b.name);
-    if (aApp && !bApp) return -1;
-    if (!aApp && bApp) return 1;
-
-    const aLayout = a.subtype === "layout";
-    const bLayout = b.subtype === "layout";
-    if (aLayout && !bLayout) return -1;
-    if (!aLayout && bLayout) return 1;
-
-    const aPage = a.subtype === "page";
-    const bPage = b.subtype === "page";
-    if (aPage && !bPage) return -1;
-    if (!aPage && bPage) return 1;
-
-    return a.name.localeCompare(b.name);
-  });
-
-  // Keep a global set of nodes that have been added somewhere in the tree.
-  // This is used to capture isolated/unreached components.
+  // Keep a global set of component nodes that have been added somewhere in the tree.
   const allTouchedInTree = new Set();
 
-  // DFS function to build subtree
-  function buildSubtree(nodeId, visited = new Set()) {
+  // Helper to match a route endpoint to a component
+  function matchRouteToComponent(routeNode) {
+    const targetName = routeNode.metadata?.componentName;
+    if (targetName) {
+      const matchByName = componentNodes.find(c => c.name === targetName);
+      if (matchByName) return matchByName;
+    }
+    
+    // File-path fallback for file-based routing
+    if (routeNode.file) {
+      const matchByFile = componentNodes.find(c => {
+        // e.g. routeNode.file = "app/page.tsx", c.file = "src/app/page.tsx"
+        return c.file && (c.file === routeNode.file || c.file.endsWith("/" + routeNode.file));
+      });
+      if (matchByFile) return matchByFile;
+    }
+    
+    return null;
+  }
+
+  // Component DFS
+  function buildSubtree(nodeId, visited = new Set(), entryRoute = null, routerType = null) {
     const compNode = componentMap.get(nodeId);
     if (!compNode) return null;
 
-    // Check for circular dependency loops
     if (visited.has(nodeId)) {
       return {
         id: `${nodeId}-loop`,
@@ -125,67 +105,38 @@ export function buildArchitectureModel(knowledgeGraph) {
     newVisited.add(nodeId);
     allTouchedInTree.add(nodeId);
 
-    // Build categories for children and dependencies
-    const categoryChildren = []; // categories containing children
-
-    // Group 1: Layouts rendered
+    const categoryChildren = [];
     const layoutTargets = [];
-    // Group 2: Sub-components rendered
     const componentTargets = [];
-    // Group 3: Contexts / Providers rendered or associated
     const providerTargets = [];
-    // Group 4: Redux slices or states consumed
     const stateTargets = [];
-    // Group 5: API endpoints consumed (uses USES_API edges)
     const apiTargets = [];
 
-    // Find rendered children
     const childIds = rendersAdjacency.get(nodeId) || [];
-    // Sort childIds deterministically by component name
-    childIds.sort((a, b) => {
-      const aNode = componentMap.get(a);
-      const bNode = componentMap.get(b);
-      return (aNode?.name || "").localeCompare(bNode?.name || "");
-    });
+    childIds.sort((a, b) => (componentMap.get(a)?.name || "").localeCompare(componentMap.get(b)?.name || ""));
 
     childIds.forEach(cId => {
       const childComp = componentMap.get(cId);
       if (!childComp) return;
-
-      if (childComp.subtype === "layout") {
-        layoutTargets.push(cId);
-      } else if (childComp.subtype === "provider" || childComp.subtype === "context") {
-        providerTargets.push(cId);
-      } else {
-        componentTargets.push(cId);
-      }
+      if (childComp.subtype === "layout") layoutTargets.push(cId);
+      else if (childComp.subtype === "provider" || childComp.subtype === "context") providerTargets.push(cId);
+      else componentTargets.push(cId);
     });
 
-    // Find associated State Consumers (incoming STATE_CONSUMER edges)
     edges.forEach(e => {
       if (e.type === "STATE_CONSUMER" && e.target === nodeId) {
         const stateNode = nodes.find(n => n.id === e.source && n.kind === "state");
-        if (stateNode && !stateTargets.some(t => t.id === stateNode.id)) {
-          stateTargets.push(stateNode);
-        }
+        if (stateNode && !stateTargets.some(t => t.id === stateNode.id)) stateTargets.push(stateNode);
       }
-    });
-    // Sort stateTargets deterministically
-    stateTargets.sort((a, b) => a.name.localeCompare(b.name));
-
-    // Find associated API endpoint usages (outgoing USES_API edges)
-    edges.forEach(e => {
       if (e.type === "USES_API" && e.source === nodeId) {
         const apiNode = nodes.find(n => n.id === e.target && n.kind === "api");
-        if (apiNode && !apiTargets.some(t => t.id === apiNode.id)) {
-          apiTargets.push(apiNode);
-        }
+        if (apiNode && !apiTargets.some(t => t.id === apiNode.id)) apiTargets.push(apiNode);
       }
     });
-    // Sort apiTargets deterministically
+
+    stateTargets.sort((a, b) => a.name.localeCompare(b.name));
     apiTargets.sort((a, b) => a.name.localeCompare(b.name));
 
-    // Helper to push category if it has items
     const addCategory = (categoryName, items, mapFn) => {
       if (items.length > 0) {
         categoryChildren.push({
@@ -197,35 +148,16 @@ export function buildArchitectureModel(knowledgeGraph) {
       }
     };
 
-    // 1. Add Layouts
     addCategory("Layout", layoutTargets, (cId) => buildSubtree(cId, newVisited));
-
-    // 2. Add Components
     addCategory("Components", componentTargets, (cId) => buildSubtree(cId, newVisited));
-
-    // 3. Add Providers
     addCategory("Providers", providerTargets, (cId) => buildSubtree(cId, newVisited));
-
-    // 4. Add State Slices
+    
     addCategory("State", stateTargets, (stateNode) => ({
-      id: stateNode.id,
-      name: stateNode.name,
-      kind: "state",
-      subtype: stateNode.subtype,
-      file: stateNode.file,
-      metadata: stateNode.metadata,
-      children: []
+      ...stateNode, children: []
     }));
-
-    // 5. Add Services / API Calls
+    
     addCategory("Services", apiTargets, (apiNode) => ({
-      id: apiNode.id,
-      name: apiNode.name,
-      kind: "api",
-      subtype: apiNode.subtype,
-      file: apiNode.file,
-      metadata: apiNode.metadata,
-      children: []
+      ...apiNode, children: []
     }));
 
     return {
@@ -234,24 +166,117 @@ export function buildArchitectureModel(knowledgeGraph) {
       kind: "component",
       subtype: compNode.subtype,
       file: compNode.file,
-      metadata: compNode.metadata,
+      metadata: {
+        ...compNode.metadata,
+        entryRoute: entryRoute,
+        routerType: routerType
+      },
       children: categoryChildren
     };
   }
 
-  // Build subtrees for all roots
-  const forest = roots.map(r => buildSubtree(r.id)).filter(Boolean);
+  // Route DFS
+  function buildRouteSubtree(routeId, visited = new Set(), routerType = null) {
+    const routeNode = routeMap.get(routeId);
+    if (!routeNode) return null;
 
-  // If there are components that were NEVER reached by the root DFS (isolated components),
-  // add them as individual roots.
+    if (visited.has(routeId)) return null;
+    const newVisited = new Set(visited);
+    newVisited.add(routeId);
+
+    const children = [];
+    const childRouteIds = routeAdjacency.get(routeId) || [];
+    
+    // Sort child routes
+    childRouteIds.sort((a, b) => (routeMap.get(a)?.name || "").localeCompare(routeMap.get(b)?.name || ""));
+    
+    childRouteIds.forEach(cId => {
+      const childSubtree = buildRouteSubtree(cId, newVisited, routerType || routeNode.name);
+      if (childSubtree) children.push(childSubtree);
+    });
+
+    // If it's an endpoint, map to a component
+    if (routeNode.subtype === "endpoint") {
+      const targetComponent = matchRouteToComponent(routeNode);
+      if (targetComponent) {
+        const compSubtree = buildSubtree(targetComponent.id, new Set(), routeNode.name, routerType);
+        if (compSubtree) children.push(compSubtree);
+      }
+    }
+
+    return {
+      id: routeNode.id,
+      name: routeNode.name,
+      kind: "route",
+      subtype: routeNode.subtype,
+      file: routeNode.file,
+      metadata: routeNode.metadata,
+      children: children
+    };
+  }
+
+  // 2. Roots Detection
+  const forest = [];
+
+  // First, add all router nodes as primary roots
+  const routers = routeNodes.filter(r => r.subtype === "router");
+  routers.sort((a, b) => a.name.localeCompare(b.name));
+  
+  routers.forEach(router => {
+    const routerSubtree = buildRouteSubtree(router.id, new Set(), router.name);
+    if (routerSubtree) forest.push(routerSubtree);
+  });
+
+  // Next, find component roots that were NOT reached by routing
+  let compRoots = componentNodes.filter(c => inDegree[c.id] === 0 && !allTouchedInTree.has(c.id));
+
+  // If no isolated unreached roots are found but we still have untouched components, 
+  // try heuristics (like App, main, index)
+  if (compRoots.length === 0 && componentNodes.length > 0) {
+    const untouchedComps = componentNodes.filter(c => !allTouchedInTree.has(c.id));
+    if (untouchedComps.length > 0) {
+      const appOrPage = untouchedComps.filter(c => 
+        /app|layout|page|main|index/i.test(c.name) || /app|layout|page|main|index/i.test(c.file)
+      );
+      if (appOrPage.length > 0) {
+        compRoots = appOrPage;
+      } else {
+        let maxOut = -1;
+        let bestNode = untouchedComps[0];
+        untouchedComps.forEach(c => {
+          const outCount = rendersAdjacency.get(c.id).length;
+          if (outCount > maxOut) {
+            maxOut = outCount;
+            bestNode = c;
+          }
+        });
+        compRoots = [bestNode];
+      }
+    }
+  }
+
+  compRoots.sort((a, b) => {
+    const aApp = /app/i.test(a.name);
+    const bApp = /app/i.test(b.name);
+    if (aApp && !bApp) return -1;
+    if (!aApp && bApp) return 1;
+    return a.name.localeCompare(b.name);
+  });
+
+  compRoots.forEach(c => {
+    if (!allTouchedInTree.has(c.id)) {
+      const subtree = buildSubtree(c.id);
+      if (subtree) forest.push(subtree);
+    }
+  });
+
+  // Finally, catch any remaining isolated components
   const unreachedComponents = componentNodes.filter(c => !allTouchedInTree.has(c.id));
   if (unreachedComponents.length > 0) {
     unreachedComponents.sort((a, b) => a.name.localeCompare(b.name));
     unreachedComponents.forEach(c => {
       const subtree = buildSubtree(c.id);
-      if (subtree) {
-        forest.push(subtree);
-      }
+      if (subtree) forest.push(subtree);
     });
   }
 

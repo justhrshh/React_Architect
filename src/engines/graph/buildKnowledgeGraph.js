@@ -130,7 +130,7 @@ export function buildKnowledgeGraph(files, project) {
   });
 
   // 6. Route hierarchy (JSX / object-based, including nested `children`) + Next.js file-based routing
-  buildRouteGraph(parsedFiles, graphFiles, nodes, edges);
+  buildRouteGraph(parsedFiles, graphFiles, nodes, edges, project);
 
   // 7. Fallback seeding for empty projects or seed templates
   seedFallbackGraphIfEmpty(nodes, edges);
@@ -367,7 +367,7 @@ function resolveChildComponent(childName, parentCompNode, parentFileObj, fileMap
 // Route graph construction (nested hierarchy + Next.js file-based routing)
 // ---------------------------------------------------------------------------
 
-function buildRouteGraph(parsedFiles, graphFiles, nodes, edges) {
+function buildRouteGraph(parsedFiles, graphFiles, nodes, edges, project) {
   parsedFiles.forEach((file) => {
     const summary = file.summary;
     if (!summary.routes || summary.routes.length === 0) return;
@@ -380,47 +380,49 @@ function buildRouteGraph(parsedFiles, graphFiles, nodes, edges) {
     });
   });
 
-  const { pageRoutes, apiRoutes } = extractFileBasedRoutes(graphFiles);
+  if (project?.framework === "Next.js") {
+    const { pageRoutes, apiRoutes } = extractFileBasedRoutes(graphFiles);
 
-  if (pageRoutes.length > 0) {
-    const fileRouterId = "router:file-based:nextjs";
-    nodes.push(createNode({ id: fileRouterId, kind: "route", subtype: "router", name: "Next.js File Router", file: "app/" }));
+    if (pageRoutes.length > 0) {
+      const fileRouterId = "router:file-based:nextjs";
+      nodes.push(createNode({ id: fileRouterId, kind: "route", subtype: "router", name: "Next.js File Router", file: "app/" }));
 
-    pageRoutes.forEach((route) => {
-      const routeId = `route:${route.file}:${route.path}`;
+      pageRoutes.forEach((route) => {
+        const routeId = `route:${route.file}:${route.path}`;
+        nodes.push(
+          createNode({
+            id: routeId,
+            kind: "route",
+            subtype: "endpoint",
+            name: route.path,
+            file: route.file,
+            metadata: { componentName: route.component, source: route.source },
+          })
+        );
+        edges.push(createEdge({ type: "ROUTE_PARENT", source: fileRouterId, target: routeId }));
+      });
+    }
+
+    if (apiRoutes.length > 0) {
+      const gatewayId = "api:file-based:nextjs:gateway";
       nodes.push(
-        createNode({
-          id: routeId,
-          kind: "route",
-          subtype: "endpoint",
-          name: route.path,
-          file: route.file,
-          metadata: { componentName: route.component, source: route.source },
-        })
+        createNode({ id: gatewayId, kind: "api", subtype: "gateway", name: "Next.js API Routes", file: "app/", metadata: { baseURL: "/api", source: "nextjs" } })
       );
-      edges.push(createEdge({ type: "ROUTE_PARENT", source: fileRouterId, target: routeId }));
-    });
-  }
-
-  if (apiRoutes.length > 0) {
-    const gatewayId = "api:file-based:nextjs:gateway";
-    nodes.push(
-      createNode({ id: gatewayId, kind: "api", subtype: "gateway", name: "Next.js API Routes", file: "app/", metadata: { baseURL: "/api", source: "nextjs" } })
-    );
-    apiRoutes.forEach((api) => {
-      const endpointId = `api:${api.file}:${api.method}:${api.path}`;
-      nodes.push(
-        createNode({
-          id: endpointId,
-          kind: "api",
-          subtype: "endpoint",
-          name: `${api.method} ${api.path}`,
-          file: api.file,
-          metadata: { method: api.method, path: api.path, source: api.source },
-        })
-      );
-      edges.push(createEdge({ type: "DEPENDENCY", source: gatewayId, target: endpointId }));
-    });
+      apiRoutes.forEach((api) => {
+        const endpointId = `api:${api.file}:${api.method}:${api.path}`;
+        nodes.push(
+          createNode({
+            id: endpointId,
+            kind: "api",
+            subtype: "endpoint",
+            name: `${api.method} ${api.path}`,
+            file: api.file,
+            metadata: { method: api.method, path: api.path, source: api.source },
+          })
+        );
+        edges.push(createEdge({ type: "DEPENDENCY", source: gatewayId, target: endpointId }));
+      });
+    }
   }
 }
 
