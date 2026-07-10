@@ -10,6 +10,7 @@ import {
   clearSelectedProject,
 } from "@/redux/slices/hubSlice";
 import { setProject } from "@/redux/slices/projectSlice";
+import { startProjectAnalysis } from "@/services/analysisService";
 
 // Components
 import ImportProjectModal from "@/components/hub/ImportProjectModal";
@@ -754,14 +755,17 @@ const Hub = () => {
     dispatch(selectProject(project.id));
     dispatch(updateLastOpened(project.id));
     dispatch(setProject({ name: project.name, path: null }));
+    dispatch(startProjectAnalysis({ projectId: project.id, project }));
     setLoading(project);
   }, [dispatch]);
 
   // Wizard complete → trigger loading
   const handleWizardComplete = useCallback(({ projectId, projectName }) => {
     setShowWizard(false);
-    setLoading({ id: projectId, name: projectName });
-  }, []);
+    const mockProj = { id: projectId, name: projectName };
+    dispatch(startProjectAnalysis({ projectId, project: mockProj }));
+    setLoading(mockProj);
+  }, [dispatch]);
 
   // Load Transition complete → navigate to Workspace Page
   const handleLoadComplete = useCallback(() => {

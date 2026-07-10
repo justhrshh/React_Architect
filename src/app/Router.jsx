@@ -1,4 +1,5 @@
-import { Routes, Route, Navigate } from "react-router-dom";
+import { Routes, Route, Navigate, useLocation } from "react-router-dom";
+import { useEffect } from "react";
 import LandingLayout from "../layouts/LandingLayout.jsx";
 import WorkspaceLayout from "../layouts/WorkspaceLayout.jsx";
 import Landing from "../pages/Landing.jsx";
@@ -10,10 +11,19 @@ import StateFlow from "../pages/StateFlow.jsx";
 import ApiFlow from "../pages/ApiFlow.jsx";
 import Documentation from "../pages/Documentation.jsx";
 
+function ScrollToTop() {
+  const { pathname } = useLocation();
+  useEffect(() => {
+    window.scrollTo(0, 0);
+  }, [pathname]);
+  return null;
+}
+
 function Router() {
   return (
-    <Routes>
-      {/* Landing */}
+    <>
+      <ScrollToTop />
+      <Routes>
       <Route path="/" element={<LandingLayout />}>
         <Route index element={<Landing />} />
       </Route>
@@ -32,6 +42,7 @@ function Router() {
       {/* Fallback */}
       <Route path="*" element={<Navigate to="/hub" replace />} />
     </Routes>
+    </>
   );
 }
 

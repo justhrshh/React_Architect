@@ -2,6 +2,8 @@ import { createSlice } from '@reduxjs/toolkit';
 
 const initialState = {
   status: 'idle', // idle | analyzing | ready | error
+  phase: null,    // scanning | building-graph | resolving | analyzing | complete
+  needsPermission: false,
   projectDNA: null,
   architectureHealth: null,
   dependencyHeatmap: null,
@@ -18,6 +20,12 @@ const analysisSlice = createSlice({
     setAnalysisStatus(state, action) {
       state.status = action.payload;
     },
+    setAnalysisPhase(state, action) {
+      state.phase = action.payload;
+    },
+    setNeedsPermission(state, action) {
+      state.needsPermission = action.payload;
+    },
     setAnalysisResults(state, action) {
       const { projectDNA, architectureHealth, dependencyHeatmap, deadCode, complexity } = action.payload;
       state.projectDNA = projectDNA;
@@ -26,6 +34,7 @@ const analysisSlice = createSlice({
       state.deadCode = deadCode;
       state.complexity = complexity;
       state.status = 'ready';
+      state.phase = 'complete';
     },
     setAnalysisError(state, action) {
       state.error = action.payload;
@@ -39,6 +48,8 @@ const analysisSlice = createSlice({
 
 export const {
   setAnalysisStatus,
+  setAnalysisPhase,
+  setNeedsPermission,
   setAnalysisResults,
   setAnalysisError,
   resetAnalysis,

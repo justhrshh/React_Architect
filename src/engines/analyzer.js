@@ -10,9 +10,11 @@ import { runAnalysis } from "./analysis";
  * @param {object} project - selected project metadata details
  * @param {FileSystemDirectoryHandle|null} dirHandle
  * @param {File|null} zipFile
+ * @param {function|null} onProgress - optional progress callback
  * @returns {Promise<object>} knowledgeGraph - central single source of truth
  */
-export async function analyzeProject(project, dirHandle, zipFile) {
+export async function analyzeProject(project, dirHandle, zipFile, onProgress) {
+  onProgress?.("scanning");
   let files;
 
   if (dirHandle) {
@@ -24,9 +26,11 @@ export async function analyzeProject(project, dirHandle, zipFile) {
   }
 
   // 1. Build Knowledge Graph (internally parses ASTs and extracts relationships)
+  onProgress?.("building-graph");
   const kg = buildKnowledgeGraph(files, project);
 
   // 2. Compute Node Coordinates (Layout Engine)
+  onProgress?.("resolving");
   const layoutedNodes = layoutGraphNodes(kg.nodes, kg.edges);
   kg.nodes = layoutedNodes;
 
@@ -34,7 +38,9 @@ export async function analyzeProject(project, dirHandle, zipFile) {
   kg.rawFiles = files;
 
   // 4. Run Analysis Engine
+  onProgress?.("analyzing");
   kg.analysis = runAnalysis(kg);
 
+  onProgress?.("complete");
   return kg;
 }
