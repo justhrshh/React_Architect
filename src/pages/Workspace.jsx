@@ -122,6 +122,75 @@ function getSystemMessage(analysis) {
   return "Project understood.";
 }
 
+// ── Core Boot Messages (Cinematic Sequence) ────────────────────────────────────
+function CoreBootMessages({ introStep, analysis, color }) {
+  const [msg, setMsg] = useState("");
+  const [isFinal, setIsFinal] = useState(false);
+
+  useEffect(() => {
+    if (introStep === "dormant") {
+      setMsg("");
+      setIsFinal(false);
+    } else if (introStep === "booting") {
+      setMsg("INITIALIZING...");
+      const t1 = setTimeout(() => setMsg("SCANNING SOURCE"), 600);
+      const t2 = setTimeout(() => setMsg("BUILDING KNOWLEDGE GRAPH"), 1200);
+      return () => { clearTimeout(t1); clearTimeout(t2); };
+    } else if (introStep === "awakening") {
+      setMsg("ANALYZING ARCHITECTURE");
+    } else if (introStep === "understood") {
+      setMsg("PROJECT UNDERSTOOD");
+      const t3 = setTimeout(() => {
+        setMsg(getSystemMessage(analysis));
+        setIsFinal(true);
+      }, 700);
+      return () => clearTimeout(t3);
+    } else {
+      setMsg("");
+      setIsFinal(false);
+    }
+  }, [introStep, analysis]);
+
+  return (
+    <AnimatePresence mode="wait">
+      {msg && (
+        <motion.div
+          key={msg}
+          initial={{ opacity: 0, filter: "blur(4px)", scale: 0.95 }}
+          animate={{ opacity: 1, filter: "blur(0px)", scale: 1 }}
+          exit={{ opacity: 0, filter: "blur(4px)", scale: 1.05 }}
+          transition={{ duration: 0.4, ease: "easeOut" }}
+          style={{
+            position: "absolute",
+            inset: 0,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            textAlign: "center",
+            padding: "0 20px",
+            color: color,
+            ...(isFinal ? {
+              fontFamily: "'Bodoni Moda', serif",
+              fontStyle: "italic",
+              fontSize: "20px",
+              letterSpacing: "-0.5px",
+              textShadow: `0 0 30px ${color}40`,
+            } : {
+              fontFamily: "'JetBrains Mono', monospace",
+              fontSize: "9px",
+              letterSpacing: "3px",
+              textTransform: "uppercase",
+              textShadow: `0 0 12px ${color}60`,
+            })
+          }}
+        >
+          {msg}
+        </motion.div>
+      )}
+    </AnimatePresence>
+  );
+}
+
 // --- Core Visualization Components ---
 function CoreViz({ domain, color }) {
   const o = 0.22;
@@ -1560,7 +1629,7 @@ const Workspace = () => {
             animate={{
               inset: transitionPhase === "expansion" ? 0 : CHAMBER_INSET,
               borderRadius: transitionPhase === "expansion" ? "0%" : "50%",
-              opacity: (introStep === "dormant" || introStep === "booting") ? 0 : 1
+              opacity: transitionPhase === "expansion" ? 0 : 1
             }}
             transition={
               transitionPhase === "expansion" ? { duration: 0.3, ease: "easeIn" } :
@@ -1585,8 +1654,11 @@ const Workspace = () => {
               <motion.div
                 key={`viz-${intelKey}`}
                 initial={{ opacity: 0 }}
-                animate={{ opacity: transitionPhase === "charge" || transitionPhase === "expansion" ? 0 : 1 }}
-                transition={{ duration: 0.2 }}
+                animate={{ 
+                  opacity: (introStep === "dormant" || introStep === "booting" || introStep === "awakening" || introStep === "understood") ? 0 : 
+                           (transitionPhase === "charge" || transitionPhase === "expansion" ? 0 : 1) 
+                }}
+                transition={{ duration: 0.8 }}
                 className="w-full h-full"
               >
                 <CoreViz domain={intelKey} color={displayColor} />
@@ -1612,27 +1684,16 @@ const Workspace = () => {
 
             {/* Metric (Dynamic contextual values based on active domain) */}
             <div className="absolute inset-0 flex flex-col items-center justify-center">
-              {analysis && analysis.status === "analyzing" ? (
-                <div className="flex flex-col items-center animate-pulse">
-                  <div style={{
-                    fontFamily: "'JetBrains Mono', monospace",
-                    fontSize: "9px",
-                    letterSpacing: "1.5px",
-                    color: "#00E5FF",
-                    textTransform: "uppercase"
-                  }}>
-                    Scanning...
-                  </div>
-                </div>
-              ) : (
+              {analysis && analysis.status === "analyzing" ? null : (
                 <motion.div
                   key={`metric-${intelKey}`}
                   initial={{ opacity: 0, scale: 0.92 }}
                   animate={{ 
-                    opacity: transitionPhase === "charge" || transitionPhase === "expansion" ? 0 : 1, 
+                    opacity: (introStep === "dormant" || introStep === "booting" || introStep === "awakening" || introStep === "understood") ? 0 : 
+                             (transitionPhase === "charge" || transitionPhase === "expansion" ? 0 : 1), 
                     scale: transitionPhase === "expansion" ? 0.8 : 1 
                   }}
-                  transition={{ duration: 0.2 }}
+                  transition={{ duration: 0.8 }}
                   className="flex flex-col items-center"
                 >
                   <div
@@ -1666,6 +1727,8 @@ const Workspace = () => {
                 </motion.div>
               )}
             </div>
+
+            <CoreBootMessages introStep={introStep} analysis={analysis} color={displayColor} />
           </motion.div>
 
           {/* Framework info text below the Core */}
@@ -1944,38 +2007,6 @@ const Workspace = () => {
             </motion.div>
           </div>
         )}
-
-        {/* -- System Briefing Message ("Project understood", etc.) -- */}
-        <AnimatePresence>
-          {introStep === "understood" && (
-            <motion.div
-              initial={{ opacity: 0, y: 10 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -10 }}
-              transition={{ duration: 0.35, ease: "easeInOut" }}
-              className="absolute pointer-events-none z-[100]"
-              style={{
-                left: "50%",
-                top: "38%",
-                transform: "translate(-50%, -50%)",
-                textAlign: "center"
-              }}
-            >
-              <h3
-                style={{
-                  fontFamily: "'Bodoni Moda', serif",
-                  fontStyle: "italic",
-                  fontSize: "22px",
-                  color: displayColor,
-                  letterSpacing: "-0.5px",
-                  textShadow: `0 0 30px ${displayColor}40`,
-                }}
-              >
-                {getSystemMessage(analysis)}
-              </h3>
-            </motion.div>
-          )}
-        </AnimatePresence>
       </div>
     </>
   );
