@@ -40,41 +40,40 @@ A reusable intelligence layer sitting directly above the Knowledge Graph. It nev
 
 ## 1. Architecture Studio
 
-The Architecture Studio is the primary environment for understanding how a React application is structured. It presents the same Architecture Model through multiple synchronized perspectives.
+The Architecture Studio is the primary environment for understanding how a React application is structured. It presents the same Architecture Model through four synchronized perspectives:
 
 ### Summary
-* Overall Architecture Health
+* Overall Architecture Health (Poor Maintainability rule deductions)
 * Project DNA
-* Largest Components
-* Circular Rendering Detection
-* Complexity Metrics
+* Largest Components & Render Cycles
 * Recommended Actions
 
 ### Explorer
-* Semantic component hierarchy
+* Semantic component tree hierarchy
 * Automatic root detection
-* Layout / Component / Provider / API grouping
-* Expandable architecture tree
-* Breadcrumb navigation
-* Inspector synchronization
+* Category folders (Layouts, Components, Providers, State, Services)
+* Expand/collapse navigation
+
+### Flow
+* Automatically generated software architecture & execution flow diagram
+* Directed top-to-bottom vertical layout
+* Interactive pan & zoom canvas
+* Progressive disclosure nodes (App → Router → Pages → Components)
 
 ### Graph
-* Interactive React Flow visualization
-* Shared selection state
-* Component relationship visualization
-* Visual dependency inspection
+* Interactive React Flow diagram
+* Raw node/relationship dependency investigation
 
 ### Shared Inspector
-Selecting a component from any view updates a single synchronized inspector showing:
-
-* Component metadata
-* Parent / child relationships
-* Hooks
-* Complexity
-* Recommendations
-* File location.
-
----
+Selecting any element from any perspective updates a synchronized side inspector showing:
+* **Identity specs**: subtype labels, role descriptions, file path
+* **Architecture Health**: Maintainability Score (0-100) and positive checkmarks/warning Complexity Drivers
+* **Recommendations**: Actionable, evidence-based recommendations
+* **Hierarchy Connections**: Rendered By parents and Renders children list
+* **Properties**: typed props list
+* **State / Services**: redux slices and API services consumed
+* **Custom Hooks**: list of standard and custom hooks used
+* **Imports**: imported module paths list
 
 ## 2. Route Studio
 Trace navigation mappings, paths, layouts, and endpoints.

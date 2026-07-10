@@ -38,14 +38,16 @@ Trace milestones and sprints for the React Architect workspace platform.
 - **On-Demand Impact Analysis**: `analyzeImpact(graph, nodeId)` traverses the graph in both directions to compute blast radius — laying the groundwork for Live Refactoring (Feature 1) and the Refactor Simulator (Feature 10).
 
 ### Sprint 10: Architecture Explorer Foundation
+- **Architecture Adapter**: Created a reusable Architecture Model independent of React Flow.
+- **Synchronized Exploration**: Built synchronized Summary, Explorer, and Graph views.
+- **Semantic Traversal**: Added semantic DFS hierarchy traversal with automatic root detection and cycle protection.
+- **Shared Inspector**: Synchronized component properties, rendering connections, and recommendations.
 
-* Introduced the Architecture Adapter layer.
-* Created a reusable Architecture Model independent of React Flow.
-* Built synchronized Summary, Explorer, and Graph architecture views.
-* Added semantic DFS hierarchy traversal with automatic root detection.
-* Added cycle protection for recursive rendering.
-* Introduced shared inspector synchronization across every architecture representation.
-* Established the foundation for future Impact Analysis, Refactoring, Feature Maps, and AI-powered architecture reasoning.
+### Sprint 10.2: Core Boot, Flow Views & Maintainability Analytics
+- **Cinematic Core Boot**: Reworked Project Brain core to serve as the exclusive voice during startup, displaying cross-fading typography.
+- **Architecture Flow View**: Built a top-to-bottom directed flow diagram using a custom layout solver, pannable canvas, and progressive disclosure toggles.
+- **Maintainability Scoring**: Removed simplistic LOC thresholds; deployed a multi-signal health scoring engine evaluating hooks, imports, dependencies, responsibilities, and complexity.
+- **Actionable Advice**: Context-aware recommendations detailing *why* components require refactoring.
 
 ---
 
