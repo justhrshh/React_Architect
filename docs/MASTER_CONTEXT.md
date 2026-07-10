@@ -388,12 +388,12 @@ Architecture Explorer Foundation
 
 
 ## Current Version
-React/Architect v4.0 - Advanced Parser Accuracy, Unified Resolution & High-Fidelity Carousel
+React Architect v6.0 - Architecture Explorer Foundation
 
 ---
 
 ## Current Milestone
-Sprint 9.1 & 9.2 Complete
+Sprint 10.0 Complete
 
 ------------------------------------------------------------------------
 

@@ -30,7 +30,7 @@ Trace milestones and sprints for the React Architect workspace platform.
 - **Layout coordinator**: Decoupled visual layer calculations (`layoutEngine.js`) from visual client adapters.
 - **Studios Refactoring**: Updated all five studios to load, inspect, and map nodes/edges directly from the central Knowledge Graph database.
 
-### Sprint 9.2: Analysis Engine (Active Sprint)
+### Sprint 9.2: Analysis Engine
 - **Reusable Analysis Engine**: Built `src/engines/analysis/` as a pure consumer of the Knowledge Graph — no parsing, no AST, no Babel, no React Flow dependency of any kind.
 - **Modular Design**: Six independent modules (`projectDNA`, `architectureHealth`, `dependencyHeatmap`, `deadCode`, `complexity`, `impactAnalysis`) orchestrated by `analysisEngine.js`, each exposing a common `analyze(graph)` interface.
 - **Pluggable Health Scoring**: `architectureHealth.js` uses an array-of-rules pattern — every scoring rule is an independent function contributing its own deduction, so new rules never require touching existing ones.
