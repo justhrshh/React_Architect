@@ -1,3 +1,55 @@
+# v6.0 — Architecture Explorer Foundation
+
+## Added
+
+### Architecture Studio Foundation
+* Replaced the single React Flow visualization with a multi-view Architecture Studio.
+* Introduced three synchronized exploration modes:
+  - **Summary** — architectural diagnostics and project health overview.
+  - **Explorer** — semantic component hierarchy explorer (default view).
+  - **Graph** — existing React Flow visualization retained as an alternative representation.
+
+### Architecture Adapter
+* Added a dedicated Architecture Adapter layer that transforms the Knowledge Graph into an Architecture Model consumed by every Architecture Studio view.
+* React Flow is now a visualization of the Architecture Model instead of directly consuming parser output.
+
+### Semantic Component Explorer
+* Automatic root component detection using render relationships.
+* DFS-based traversal with circular render protection.
+* Semantic grouping of:
+  - Layouts
+  - Components
+  - Providers / Context
+  - State
+  - APIs / Services
+* Expand / collapse tree navigation.
+* Dynamic breadcrumb generation.
+* Inspector synchronization across Explorer and Graph.
+
+### Summary Dashboard
+* Architecture Health overview.
+* Project DNA metrics.
+* Largest modules.
+* Rendering cycle detection.
+* Recommended architectural actions.
+* Live inspector integration.
+
+## Changed
+
+* Architecture Studio is no longer React Flow-centric.
+* React Flow is now one exploration mode rather than the primary experience.
+* Inspector now consumes shared Architecture Model data.
+* Selection state is synchronized across every Architecture Studio representation.
+
+## Status
+
+Sprint 10.0 Foundation Complete.
+Architecture Studio now operates on a reusable Architecture Model prepared for future architectural tooling.
+
+
+
+
+
 # v5.0 — Cinematic Project DNA Onboarding & Progressive Disclosure HUD
 
 ## Added

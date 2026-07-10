@@ -38,15 +38,41 @@ A reusable intelligence layer sitting directly above the Knowledge Graph. It nev
 
 ---
 
-## 1. Component Architecture Studio
-Understand component organization and composition instantly.
-* **Component Nesting**: Charts parent-child boundaries dynamically using AST analysis.
-* **Component Inspector**: Click any component node to inspect:
-  - Destructured Props
-  - Hooks used
-  - File locations
-  - Custom metrics (Lines of code, complexity indices)
-* **Collapse View**: Hides sidebars with a single click for a clutter-free chart view.
+## 1. Architecture Studio
+
+The Architecture Studio is the primary environment for understanding how a React application is structured. It presents the same Architecture Model through multiple synchronized perspectives.
+
+### Summary
+* Overall Architecture Health
+* Project DNA
+* Largest Components
+* Circular Rendering Detection
+* Complexity Metrics
+* Recommended Actions
+
+### Explorer
+* Semantic component hierarchy
+* Automatic root detection
+* Layout / Component / Provider / API grouping
+* Expandable architecture tree
+* Breadcrumb navigation
+* Inspector synchronization
+
+### Graph
+* Interactive React Flow visualization
+* Shared selection state
+* Component relationship visualization
+* Visual dependency inspection
+
+### Shared Inspector
+Selecting a component from any view updates a single synchronized inspector showing:
+
+* Component metadata
+* Parent / child relationships
+* Hooks
+* Complexity
+* Recommendations
+* File location.
 
 ---
 

@@ -37,6 +37,16 @@ Trace milestones and sprints for the React Architect workspace platform.
 - **Shared Metrics Toolbox**: `metrics.js` centralizes graph math (degree maps, centrality, cycle detection, BFS depth, orphan detection) so no module duplicates the same traversal logic.
 - **On-Demand Impact Analysis**: `analyzeImpact(graph, nodeId)` traverses the graph in both directions to compute blast radius — laying the groundwork for Live Refactoring (Feature 1) and the Refactor Simulator (Feature 10).
 
+### Sprint 10: Architecture Explorer Foundation
+
+* Introduced the Architecture Adapter layer.
+* Created a reusable Architecture Model independent of React Flow.
+* Built synchronized Summary, Explorer, and Graph architecture views.
+* Added semantic DFS hierarchy traversal with automatic root detection.
+* Added cycle protection for recursive rendering.
+* Introduced shared inspector synchronization across every architecture representation.
+* Established the foundation for future Impact Analysis, Refactoring, Feature Maps, and AI-powered architecture reasoning.
+
 ---
 
 ## Future Roadmap
@@ -348,28 +358,19 @@ Project DNA should allow developers to understand a codebase within seconds.
 
 Development Priority
 
-> **Status note (Sprint 9.2):** items 3 and 4 below (Architecture Health,
-> Dependency & Impact Analysis) now have their engine-level logic built and
-> ready in `src/engines/analysis/`. What remains is wiring their output into
-> studio UI — no further graph-analysis work is required to unblock that.
+## Next Priority
 
-1. Improve parser accuracy
-   - Barrel exports
-   - Path aliases
-   - React.lazy()
-   - memo()
-   - forwardRef()
-   - Dynamic imports
+### Sprint 10.1 — Architecture Intelligence
 
-2. Build a reusable Knowledge Graph
-   Every studio should consume the same graph instead of maintaining separate parsers.
+Focus shifts from visualization to understanding.
 
-3. Architecture Health
+Planned work:
 
-4. Dependency & Impact Analysis
-
-5. Project DNA
-
-6. Live Refactoring
-
-7. AI-powered explanations built on top of the Knowledge Graph
+* Component Timeline
+* Dependency Heatmap UI
+* Feature Boundary Detection
+* Architecture Search
+* AI Project Understanding ("Ask Your Project")
+* Refactoring Preparation
+* Advanced Inspector
+* Impact Analysis UI
