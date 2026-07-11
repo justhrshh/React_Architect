@@ -795,13 +795,19 @@ function ArchitectureFlow() {
 export default function Architecture() {
   // Visual mount continuity transition
   useEffect(() => {
-    gsap.fromTo(".page-fade", {
-      opacity: 0,
-    }, {
-      opacity: 1,
-      duration: 0.8,
-      ease: "power2.out",
-    });
+    const timer = setTimeout(() => {
+      const el = document.querySelector(".page-fade");
+      if (el) {
+        gsap.fromTo(el, {
+          opacity: 0,
+        }, {
+          opacity: 1,
+          duration: 0.8,
+          ease: "power2.out",
+        });
+      }
+    }, 50);
+    return () => clearTimeout(timer);
   }, []);
 
   return (

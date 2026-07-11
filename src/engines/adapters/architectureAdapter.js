@@ -30,6 +30,14 @@ export function buildArchitectureModel(knowledgeGraph) {
   const routeNodes = nodes.filter(n => n.kind === "route");
   const routeMap = new Map(routeNodes.map(n => [n.id, n]));
 
+  // Map lazy load placeholders to their target components
+  const lazyTargetMap = new Map();
+  edges.forEach(e => {
+    if (e.type === "LAZY_LOADS") {
+      lazyTargetMap.set(e.source, e.target);
+    }
+  });
+
   // Adjacency for routes
   const routeAdjacency = new Map();
   routeNodes.forEach(r => routeAdjacency.set(r.id, []));
@@ -49,33 +57,41 @@ export function buildArchitectureModel(knowledgeGraph) {
   });
 
   edges.forEach(e => {
-    if (e.type === "RENDERS" && rendersAdjacency.has(e.source) && rendersAdjacency.has(e.target)) {
-      rendersAdjacency.get(e.source).push(e.target);
-      rendersIncoming.get(e.target).push(e.source);
+    if (e.type === "RENDERS") {
+      let source = e.source;
+      let target = e.target;
+
+      // Resolve lazy wrapper placeholders to their real component targets
+      if (lazyTargetMap.has(source)) source = lazyTargetMap.get(source);
+      if (lazyTargetMap.has(target)) target = lazyTargetMap.get(target);
+
+      if (rendersAdjacency.has(source) && rendersAdjacency.has(target)) {
+        rendersAdjacency.get(source).push(target);
+        rendersIncoming.get(target).push(source);
+      }
     }
   });
 
   const inDegree = {};
   componentNodes.forEach(c => {
-    inDegree[c.id] = rendersIncoming.get(c.id).length;
+    inDegree[c.id] = rendersIncoming.get(c.id)?.length || 0;
   });
 
-  // Keep a global set of component nodes that have been added somewhere in the tree.
+  // Keep a global set of component/route nodes that have been added somewhere in the tree.
   const allTouchedInTree = new Set();
 
   // Helper to match a route endpoint to a component
   function matchRouteToComponent(routeNode) {
     const targetName = routeNode.metadata?.componentName;
     if (targetName) {
-      const matchByName = componentNodes.find(c => c.name === targetName);
+      const matchByName = componentNodes.find(c => c.subtype !== "lazy" && c.name === targetName);
       if (matchByName) return matchByName;
     }
     
     // File-path fallback for file-based routing
     if (routeNode.file) {
       const matchByFile = componentNodes.find(c => {
-        // e.g. routeNode.file = "app/page.tsx", c.file = "src/app/page.tsx"
-        return c.file && (c.file === routeNode.file || c.file.endsWith("/" + routeNode.file));
+        return c.subtype !== "lazy" && c.file && (c.file === routeNode.file || c.file.endsWith("/" + routeNode.file));
       });
       if (matchByFile) return matchByFile;
     }
@@ -160,6 +176,18 @@ export function buildArchitectureModel(knowledgeGraph) {
       ...apiNode, children: []
     }));
 
+    // If this component is the Router component, append the route hierarchy under it!
+    if (compNode.name === "Router" || compNode.id.includes("Router")) {
+      const routers = routeNodes.filter(r => r.subtype === "router");
+      routers.forEach(router => {
+        const routerSubtree = buildRouteSubtree(router.id, newVisited, router.name);
+        if (routerSubtree) {
+          categoryChildren.push(routerSubtree);
+          allTouchedInTree.add(router.id);
+        }
+      });
+    }
+
     return {
       id: compNode.id,
       name: compNode.name,
@@ -199,7 +227,7 @@ export function buildArchitectureModel(knowledgeGraph) {
     if (routeNode.subtype === "endpoint") {
       const targetComponent = matchRouteToComponent(routeNode);
       if (targetComponent) {
-        const compSubtree = buildSubtree(targetComponent.id, new Set(), routeNode.name, routerType);
+        const compSubtree = buildSubtree(targetComponent.id, newVisited, routeNode.name, routerType);
         if (compSubtree) children.push(compSubtree);
       }
     }
@@ -218,8 +246,8 @@ export function buildArchitectureModel(knowledgeGraph) {
   // 2. Roots Detection
   const forest = [];
 
-  // First, add all router nodes as primary roots
-  const routers = routeNodes.filter(r => r.subtype === "router");
+  // Add all router nodes as primary roots ONLY if they haven't been nested inside components (like Router component)
+  const routers = routeNodes.filter(r => r.subtype === "router" && !allTouchedInTree.has(r.id));
   routers.sort((a, b) => a.name.localeCompare(b.name));
   
   routers.forEach(router => {
@@ -227,13 +255,13 @@ export function buildArchitectureModel(knowledgeGraph) {
     if (routerSubtree) forest.push(routerSubtree);
   });
 
-  // Next, find component roots that were NOT reached by routing
-  let compRoots = componentNodes.filter(c => inDegree[c.id] === 0 && !allTouchedInTree.has(c.id));
+  // Next, find component roots that were NOT reached by routing and are not lazy placeholders
+  let compRoots = componentNodes.filter(c => c.subtype !== "lazy" && inDegree[c.id] === 0 && !allTouchedInTree.has(c.id));
 
   // If no isolated unreached roots are found but we still have untouched components, 
   // try heuristics (like App, main, index)
   if (compRoots.length === 0 && componentNodes.length > 0) {
-    const untouchedComps = componentNodes.filter(c => !allTouchedInTree.has(c.id));
+    const untouchedComps = componentNodes.filter(c => c.subtype !== "lazy" && !allTouchedInTree.has(c.id));
     if (untouchedComps.length > 0) {
       const appOrPage = untouchedComps.filter(c => 
         /app|layout|page|main|index/i.test(c.name) || /app|layout|page|main|index/i.test(c.file)
@@ -244,7 +272,7 @@ export function buildArchitectureModel(knowledgeGraph) {
         let maxOut = -1;
         let bestNode = untouchedComps[0];
         untouchedComps.forEach(c => {
-          const outCount = rendersAdjacency.get(c.id).length;
+          const outCount = rendersAdjacency.get(c.id)?.length || 0;
           if (outCount > maxOut) {
             maxOut = outCount;
             bestNode = c;
@@ -270,8 +298,8 @@ export function buildArchitectureModel(knowledgeGraph) {
     }
   });
 
-  // Finally, catch any remaining isolated components
-  const unreachedComponents = componentNodes.filter(c => !allTouchedInTree.has(c.id));
+  // Finally, catch any remaining isolated components (excluding lazy placeholders)
+  const unreachedComponents = componentNodes.filter(c => c.subtype !== "lazy" && !allTouchedInTree.has(c.id));
   if (unreachedComponents.length > 0) {
     unreachedComponents.sort((a, b) => a.name.localeCompare(b.name));
     unreachedComponents.forEach(c => {

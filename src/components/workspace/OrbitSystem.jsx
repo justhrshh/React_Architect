@@ -92,10 +92,10 @@ export default function OrbitSystem({
           const isHov = hovered === domain.id && !active;
           const isAnyActive = active !== null;
           
-          const x1 = localC + nx * EDGE;
-          const y1 = localC + ny * EDGE;
-          const x2 = localC + domain.x - nx * 24;
-          const y2 = localC + domain.y - ny * 24;
+          const x1 = (localC + nx * EDGE) || 0;
+          const y1 = (localC + ny * EDGE) || 0;
+          const x2 = (localC + domain.x - nx * 24) || 0;
+          const y2 = (localC + domain.y - ny * 24) || 0;
           
           const lineOpacity = isTransitioning
             ? (isAct ? 0.75 : 0.3)
@@ -111,8 +111,10 @@ export default function OrbitSystem({
               <motion.line
                 x1={x1}
                 y1={y1}
-                x2={x2}
-                y2={y2}
+                initial={{
+                  x2: x1,
+                  y2: y1
+                }}
                 animate={{
                   x2: (introStep === "dormant" || introStep === "booting") ? x1 : x2,
                   y2: (introStep === "dormant" || introStep === "booting") ? y1 : y2,

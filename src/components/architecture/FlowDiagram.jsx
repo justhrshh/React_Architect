@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useMemo } from "react";
+import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { motion } from "framer-motion";
 import { ChevronRight, AlertTriangle, ZoomIn, ZoomOut, Maximize } from "lucide-react";
 import { INTER, MONO } from "./constants";
@@ -356,18 +356,44 @@ function FlowNodeCard({ ln, isSelected, onSelect, onToggle, isExpanded, hasChild
   );
 }
 
+// --- Filter to UI-only Nodes (exclude State, Services, Providers) ---
+function filterUiOnly(nodes) {
+  if (!nodes) return [];
+  return nodes
+    .filter(node => {
+      if (node.kind === "category") {
+        return node.name === "Layout" || node.name === "Components";
+      }
+      if (node.kind === "state" || node.kind === "api") return false;
+      if (node.subtype === "provider" || node.subtype === "context") return false;
+      return true;
+    })
+    .map(node => {
+      return {
+        ...node,
+        children: filterUiOnly(node.children)
+      };
+    });
+}
+
 export default function FlowDiagram({ architectureModel, selectedId, onSelectNode }) {
   const [flowExpanded, setFlowExpanded] = useState({});
   const [pan, setPan] = useState({ x: 0, y: 0 });
   const [zoom, setZoom] = useState(1);
   const [isPanning, setIsPanning] = useState(false);
   const [panStart, setPanStart] = useState({ x: 0, y: 0 });
+  const containerRef = useRef(null);
+
+  const rootIdsKey = useMemo(() => {
+    return architectureModel.map(r => r.id).join(",");
+  }, [architectureModel]);
 
   // Auto-expand top 2 levels on model change
   useEffect(() => {
     if (architectureModel.length > 0) {
       const init = {};
-      architectureModel.forEach(root => {
+      const uiOnlyModel = filterUiOnly(architectureModel);
+      uiOnlyModel.forEach(root => {
         init[root.id] = true;
         if (root.children) {
           root.children.forEach(child => {
@@ -379,14 +405,16 @@ export default function FlowDiagram({ architectureModel, selectedId, onSelectNod
         setFlowExpanded(init);
       }, 0);
     }
-  }, [architectureModel]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [rootIdsKey]);
 
   const toggleFlowExpand = useCallback((id) => {
     setFlowExpanded(prev => ({ ...prev, [id]: !prev[id] }));
   }, []);
 
   const { layoutNodes, connections } = useMemo(() => {
-    return computeFlowLayout(architectureModel, flowExpanded);
+    const uiOnlyModel = filterUiOnly(architectureModel);
+    return computeFlowLayout(uiOnlyModel, flowExpanded);
   }, [architectureModel, flowExpanded]);
 
   // Compute bounding box for SVG
@@ -402,10 +430,6 @@ export default function FlowDiagram({ architectureModel, selectedId, onSelectNod
     const pad = 80;
     return { minX: minX - pad, minY: minY - pad, maxX: maxX + pad, maxY: maxY + pad };
   }, [layoutNodes]);
-
-  const rootIdsKey = useMemo(() => {
-    return architectureModel.map(r => r.id).join(",");
-  }, [architectureModel]);
 
   // Auto-center on initial load / project change
   useEffect(() => {
@@ -440,10 +464,20 @@ export default function FlowDiagram({ architectureModel, selectedId, onSelectNod
     setIsPanning(false);
   }, []);
 
-  const handleWheel = useCallback((e) => {
-    e.preventDefault();
-    const delta = e.deltaY > 0 ? -0.08 : 0.08;
-    setZoom(prev => Math.max(0.15, Math.min(2.5, prev + delta)));
+  useEffect(() => {
+    const el = containerRef.current;
+    if (!el) return;
+
+    const onWheel = (e) => {
+      e.preventDefault();
+      const delta = e.deltaY > 0 ? -0.08 : 0.08;
+      setZoom(prev => Math.max(0.15, Math.min(2.5, prev + delta)));
+    };
+
+    el.addEventListener("wheel", onWheel, { passive: false });
+    return () => {
+      el.removeEventListener("wheel", onWheel);
+    };
   }, []);
 
   if (architectureModel.length === 0) {
@@ -456,12 +490,12 @@ export default function FlowDiagram({ architectureModel, selectedId, onSelectNod
 
   return (
     <div
+      ref={containerRef}
       style={{ flex: 1, position: "relative", overflow: "hidden", cursor: isPanning ? "grabbing" : "grab", background: "#F8F9FB" }}
       onMouseDown={handleMouseDown}
       onMouseMove={handleMouseMove}
       onMouseUp={handleMouseUp}
       onMouseLeave={handleMouseUp}
-      onWheel={handleWheel}
     >
       {/* Transform container */}
       <div
@@ -512,7 +546,7 @@ export default function FlowDiagram({ architectureModel, selectedId, onSelectNod
         {/* Node cards layer */}
         {layoutNodes.map((ln) => (
           <FlowNodeCard
-            key={ln.id}
+            key={ln.layoutId}
             ln={ln}
             isSelected={selectedId === ln.id}
             onSelect={onSelectNode}
@@ -588,9 +622,7 @@ export default function FlowDiagram({ architectureModel, selectedId, onSelectNod
           { label: "Page", color: "#3B82F6" },
           { label: "Layout", color: "#7C3AED" },
           { label: "Component", color: "#059669" },
-          { label: "Provider", color: "#D97706" },
           { label: "Route", color: "#6366F1" },
-          { label: "State", color: "#EA580C" },
         ].map(item => (
           <div key={item.label} style={{ display: "flex", alignItems: "center", gap: 5 }}>
             <div style={{ width: 7, height: 7, borderRadius: 2, background: item.color, flexShrink: 0 }} />

@@ -126,7 +126,7 @@ function CoreBootMessages({ introStep, analysis, color }) {
 
 // --- Core Tick Ring ---
 function TickRing({ size, ticks, color, opacity }) {
-  const r = size / 2 - 1;
+  const r = size / 2;
   const items = Array.from({ length: ticks }, (_, i) => {
     const a = (i * (360 / ticks) * Math.PI) / 180;
     const x1 = size / 2 + Math.cos(a) * (r - 5);
@@ -497,8 +497,8 @@ export default function CoreSystem({
   ring1Duration,
   ring2Duration,
   ring3Duration,
-  CORE_R,
-  CHAMBER_INSET,
+  CORE_R = 180,
+  CHAMBER_INSET = 68,
   analysis,
   coreMetric,
   intelKey,

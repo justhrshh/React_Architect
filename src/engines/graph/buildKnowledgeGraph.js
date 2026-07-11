@@ -288,13 +288,13 @@ function deriveComponentSubtype(filePath, comp) {
 // ---------------------------------------------------------------------------
 
 function resolveComponentEdges(parentCompNode, ctx) {
-  const { fileMap, fileIndex, aliasMap, componentMap, nodes, edges } = ctx;
+  const { fileMap, fileIndex, aliasMap, nodes, edges } = ctx;
   const parentFileObj = fileMap.get(parentCompNode.file);
   if (!parentFileObj) return;
 
   const childComponentNames = parentCompNode.metadata.children || [];
   childComponentNames.forEach((childName) => {
-    const resolved = resolveChildComponent(childName, parentCompNode, parentFileObj, fileMap, fileIndex, aliasMap, componentMap);
+    const resolved = resolveChildComponent(childName, parentCompNode, parentFileObj, fileMap, fileIndex, aliasMap, nodes);
     if (resolved) {
       edges.push(
         createEdge({
@@ -333,7 +333,7 @@ function resolveComponentEdges(parentCompNode, ctx) {
   }
 }
 
-function resolveChildComponent(childName, parentCompNode, parentFileObj, fileMap, fileIndex, aliasMap, componentMap) {
+function resolveChildComponent(childName, parentCompNode, parentFileObj, fileMap, fileIndex, aliasMap, nodes) {
   // 1. Declared in the same file
   const localDecl = parentFileObj.summary.components.some((c) => c.name === childName);
   if (localDecl) return { file: parentCompNode.file, name: childName };
@@ -357,8 +357,8 @@ function resolveChildComponent(childName, parentCompNode, parentFileObj, fileMap
   //    This preserves pre-Sprint-9.1 behavior for import patterns we can't
   //    statically resolve, at the cost of occasionally linking to a
   //    same-named component in an unrelated file (documented limitation).
-  const fallbackFile = componentMap.get(childName);
-  if (fallbackFile) return { file: fallbackFile, name: childName };
+  const fallbackComp = nodes.find(n => n.kind === "component" && n.subtype !== "lazy" && n.name === childName);
+  if (fallbackComp) return { file: fallbackComp.file, name: childName };
 
   return null;
 }
