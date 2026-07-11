@@ -1,4 +1,46 @@
+# v8.0 — Self-Architecture Optimization Pass (Sprint 10.3)
+
+## Added
+
+### Component Decomposition
+* Decomposed `Workspace.jsx` (previously ~2015 LOC) into four dedicated subcomponents under `src/components/workspace/`:
+  - **`WorkspaceHeader.jsx`** — HUD top header, project title, return-to-hub trigger, diagnostics status animations.
+  - **`OrbitSystem.jsx`** — Domain orbit rings, animated S-curve SVG paths, data flow streams, recommended node glows.
+  - **`CoreSystem.jsx`** — Central tick rings, morphing visual overlays (`CoreViz`), progress scanning sweeps, `CoreBootMessages` sequence.
+  - **`InvestigationBrief.jsx`** — Floating context information panel, recommendations engine, active studio navigation buttons.
+* Decomposed `Architecture.jsx` (previously ~2377 LOC) into six dedicated subcomponents under `src/components/architecture/`:
+  - **`constants.js`** — Shared variables (`TYPE_CFG`), recursive tree search helper (`findPathToNode`).
+  - **`CustomNode.jsx`** — React Flow custom node renderer with hook/child/API metadata counters.
+  - **`InspectorPanel.jsx`** — Detailed inspector panel: maintainability scores, complexity drivers, parent/child hierarchy, circular loop flags.
+  - **`TreeNode.jsx`** — Recursive interactive folder/component tree explorer with expand/collapse.
+  - **`FlowDiagram.jsx`** — Custom hierarchical layout solver (`computeFlowLayout`), zoom/pan controls, flow chart rendering.
+  - **`TopBar.jsx`** — Context-sensitive top bar with project path, diagnostic counters, and action buttons.
+
+## Fixed
+
+### Analyzer Engine Accuracy
+* **False-positive dead routes**: Tightened `hasRouteShape()` to require both a path/index key AND a routing-specific key (`element`, `children`, `loader`, `action`, `lazy`, `redirectTo`) — objects with only a `path` key in non-router code no longer create spurious route nodes.
+* **Route extraction in wrong files**: Added a file-path guard to the regex fallback in `routeExtractor.js` that prevents route scanning in `engines/`, `lib/`, `services/`, `redux/`, `utils/`, and `hooks/` subdirectories.
+* **Route componentName resolution**: `addRouteNodeRecursive()` in `buildKnowledgeGraph.js` now resolves each route's `componentName` through actual import declarations using `resolveModulePath` + `resolveComponentDeclaration`, instead of leaving raw alias text.
+* **False-positive circular dependencies (`TreeNode <-> TreeNode`)**: `findCycles()` in both `graphValidator.js` and `metrics.js` now skips self-edges. Recursive components (a component rendering itself) are a valid pattern, not an architectural defect.
+* **False-positive circular dependencies (`App <-> Router`)**: Added the full React Router v6/v5 JSX API to `REACT_BUILTIN_JSX_NAMES` in `componentExtractor.js` — `Routes`, `Route`, `Navigate`, `Outlet`, `Link`, `NavLink`, `BrowserRouter`, `RouterProvider`, `Switch`, `Redirect` — preventing them from generating RENDERS edges against user components.
+* **Orphaned catch-all routes**: Added `BUILTIN_ROUTER_COMPONENTS` allowlist in `deadCode.js` so `<Navigate>` in wildcard `*` routes is not flagged as an unresolved component.
+
+## Changed
+
+* `Workspace.jsx` reduced from ~2015 LOC to **771 LOC**.
+* `Architecture.jsx` reduced from ~2377 LOC to **530 LOC**.
+* `FILE_STRUCTURE.md` fully rewritten to reflect current directory layout including all new subcomponent directories.
+
+## Status
+
+Sprint 10.3 Complete.
+React Architect now passes its own architectural review with **0 dead routes**, **0 false-positive circular dependencies**, and all page components within maintainability guidelines.
+
+---
+
 # v7.0 — Architecture Flow Diagram & Maintainability Health Analysis
+
 
 ## Added
 

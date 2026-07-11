@@ -184,21 +184,34 @@ scannerSlice - settingsSlice - architectureSlice
 
 ## 14. Folder Structure
 
+```
 src/
-  app/
+  app/          ← App.jsx + Router.jsx
   assets/
-  animations/
   components/
-  hooks/
-  layout/
-  modules/
-  pages/
-  redux/
-  services/
-  styles/
-  utils/
+    ambient/    ← CursorBlob, Noise
+    architecture/ ← Architecture Studio subcomponents (CustomNode, InspectorPanel, FlowDiagram, TreeNode, TopBar, constants)
+    hub/        ← ImportProjectModal, CreateProjectWizard, ProjectLoadTransition, modals
+    landing/    ← HeroBackground, HeroCopy, LaunchButton
+    workspace/  ← WorkspaceHeader, OrbitSystem, CoreSystem, InvestigationBrief
+  constants/    ← testIds.js
+  engines/
+    scanner/    ← scanner.js
+    parser/     ← parser.js, aliasResolver.js, astUtils.js, walk.js, extractors/
+    graph/      ← buildKnowledgeGraph.js, importResolver.js, graphValidator.js, nodeFactory.js, edgeFactory.js
+    layout/     ← layoutEngine.js
+    analysis/   ← index.js, analysisEngine.js, modules/
+    adapters/   ← architectureAdapter.js, reactFlowAdapter.js
+  features/     ← Reserved for future self-contained feature modules
+  layouts/      ← LandingLayout.jsx, WorkspaceLayout.jsx
+  lib/          ← gsap.js, lenis.js, three.js, reactflow.js, projectDetector.js, analysis/
+  pages/        ← Landing, Hub, Workspace, Architecture, Routes, StateFlow, ApiFlow, Documentation
+  redux/        ← Store.js, slices/
+  services/     ← analysisService.js
+  styles/       ← global.css, typography.css, variables.css, animations.css, components.css, utilities.css
+```
 
-for more info read FILE_STRUCTURE.md
+For the full annotated file tree see `FILE_STRUCTURE.md`.
 
 ------------------------------------------------------------------------
 
@@ -384,16 +397,36 @@ Architecture Explorer Foundation
 * Introduced synchronized inspector state across all Architecture Studio views.
 * React Flow now serves as one visualization of the Architecture Model rather than the primary architecture engine.
 
+### ✅ Sprint 10.2 Complete
+
+Meaningful Component Health Analysis
+
+* Removed arbitrary 250 LOC large-component warnings.
+* Introduced multi-signal `maintainability.js` scoring engine (0–100) with weighted metrics: responsibilities, complexity, hook count, JSX nesting, branching, size, imports, dependencies.
+* Added dynamic Complexity Drivers showing positive checks (Well modularized, Imports organized) and warnings (High JSX nesting, Multiple responsibilities).
+* Contextual architecture recommendations shown in the Inspector Panel.
+* Added Architecture Flow view — custom hierarchical layout solver with SVG bezier edges and pan/zoom.
+
+### ✅ Sprint 10.3 Complete
+
+Self-Architecture Optimization Pass
+
+* Decomposed `Workspace.jsx` (~2015 LOC → 771 LOC) into `WorkspaceHeader`, `OrbitSystem`, `CoreSystem`, `InvestigationBrief` under `src/components/workspace/`.
+* Decomposed `Architecture.jsx` (~2377 LOC → 530 LOC) into `CustomNode`, `InspectorPanel`, `TreeNode`, `FlowDiagram`, `TopBar`, `constants` under `src/components/architecture/`.
+* Fixed false-positive dead routes from engine/service/lib files — `hasRouteShape()` tightened, file-path guards added, `componentName` resolution via real imports.
+* Fixed false-positive circular dependencies — self-edges excluded from DFS, React Router JSX API excluded from RENDERS edge generation.
+* React Architect now passes its own architectural analysis with 0 dead routes and 0 false circular dependencies.
+* ESLint: 0 errors, 0 warnings. Build: 0 errors.
+
 ---
 
-
 ## Current Version
-React Architect v6.0 - Architecture Explorer Foundation
+React Architect v8.0 — Self-Architecture Optimization Pass
 
 ---
 
 ## Current Milestone
-Sprint 10.0 Complete
+Sprint 10.3 Complete
 
 ------------------------------------------------------------------------
 
