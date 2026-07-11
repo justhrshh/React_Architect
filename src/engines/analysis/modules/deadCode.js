@@ -58,10 +58,15 @@ export function analyze(graph) {
 
   // Unused Routes: no ROUTE_PARENT edge connecting it to a router, or its
   // target component doesn't resolve to any component node in the graph.
+  const BUILTIN_ROUTER_COMPONENTS = new Set(["Navigate", "Link", "NavLink", "Outlet"]);
   const componentNames = new Set(components.map(c => c.name));
   const unusedRoutes = routes.filter(r => {
     const hasParent = (routeParentIncoming.get(r.id) || []).length > 0;
-    const targetExists = r.metadata?.componentName ? componentNames.has(r.metadata.componentName) : true;
+    const targetName = r.metadata?.componentName;
+    if (targetName && BUILTIN_ROUTER_COMPONENTS.has(targetName)) {
+      return !hasParent;
+    }
+    const targetExists = targetName ? componentNames.has(targetName) : true;
     return !hasParent || !targetExists;
   });
 

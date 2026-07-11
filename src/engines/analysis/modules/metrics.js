@@ -125,7 +125,7 @@ export function findCycles(nodes, edges, edgeType = "RENDERS") {
   function dfs(nodeId) {
     visited.add(nodeId);
     recStack.add(nodeId);
-    const neighbors = adj.get(nodeId) || [];
+    const neighbors = (adj.get(nodeId) || []).filter(n => n !== nodeId); // skip self-edges (recursive components)
     for (const neighbor of neighbors) {
       if (!visited.has(neighbor)) {
         dfs(neighbor);

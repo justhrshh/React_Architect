@@ -88,7 +88,7 @@ export function parseFile(code, filePath) {
     ["hooks", () => extractHooks(ast)],
     ["contexts", () => extractContexts(ast)],
     ["redux", () => extractRedux(ast)],
-    ["routes", () => extractRoutes(ast, code)],
+    ["routes", () => extractRoutes(ast, code, cleanPath)],
     ["api", () => extractApi(ast, code)],
   ];
 

@@ -67,9 +67,12 @@ export function validateGraph(nodes, edges, diagnostics = []) {
   });
 
   // 4. Circular Reference Detection (DFS on RENDERS edges)
+  // Self-edges (a component rendering itself) are intentional recursive
+  // component patterns (e.g. TreeNode rendering TreeNode) - they are not
+  // architecture problems and are excluded from cycle detection.
   const adj = new Map();
   edges.forEach(e => {
-    if (e.type === "RENDERS") {
+    if (e.type === "RENDERS" && e.source !== e.target) {
       if (!adj.has(e.source)) adj.set(e.source, []);
       adj.get(e.source).push(e.target);
     }

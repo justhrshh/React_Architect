@@ -15,7 +15,7 @@ import { walk } from "../walk";
  * @param {string} code
  * @returns {Array<object>} routes
  */
-export function extractRoutes(ast, code) {
+export function extractRoutes(ast, code, filePath = "") {
   const routes = [];
   const seenObjectNodes = new Set();
 
@@ -50,15 +50,18 @@ export function extractRoutes(ast, code) {
   // 3. Regex fallback only when structural parsing found nothing at all -
   //    covers syntax the AST plugins don't support (rare, but graceful degradation matters).
   if (routes.length === 0) {
-    const jsxRouteRegex = /<Route\s+[^>]*path=["']([^"']+)["'][^>]*(?:element=\{<([A-Z]\w*)|component=\{([A-Z]\w*)\})/g;
-    const objectRouteRegex = /path:\s*["']([^"']+)["']\s*,\s*element:\s*<([A-Z]\w*)/g;
-    let match;
+    const isRouterPath = !/(^|\/)(engines|lib|services|redux|utils|styles|assets|hooks)\//.test(filePath);
+    if (isRouterPath) {
+      const jsxRouteRegex = /<Route\s+[^>]*path=["']([^"']+)["'][^>]*(?:element=\{<([A-Z]\w*)|component=\{([A-Z]\w*)\})/g;
+      const objectRouteRegex = /path:\s*["']([^"']+)["']\s*,\s*element:\s*<([A-Z]\w*)/g;
+      let match;
 
-    while ((match = jsxRouteRegex.exec(code)) !== null) {
-      routes.push({ path: match[1], component: match[2] || match[3], type: "jsx-regex", line: null });
-    }
-    while ((match = objectRouteRegex.exec(code)) !== null) {
-      routes.push({ path: match[1], component: match[2], type: "object-regex", line: null });
+      while ((match = jsxRouteRegex.exec(code)) !== null) {
+        routes.push({ path: match[1], component: match[2] || match[3], type: "jsx-regex", line: null });
+      }
+      while ((match = objectRouteRegex.exec(code)) !== null) {
+        routes.push({ path: match[1], component: match[2], type: "object-regex", line: null });
+      }
     }
   }
 
@@ -94,7 +97,10 @@ function readJsxRouteAttributes(openingElement) {
 }
 
 function hasRouteShape(objectExpr) {
-  return objectExpr.properties.some((p) => p.key && (p.key.name === "path" || p.key.name === "index"));
+  const keys = new Set(objectExpr.properties.map(p => p.key && p.key.name).filter(Boolean));
+  const hasPathOrIndex = keys.has("path") || keys.has("index");
+  const hasRoutingKey = keys.has("element") || keys.has("Component") || keys.has("children") || keys.has("lazy") || keys.has("action") || keys.has("loader") || keys.has("redirectTo");
+  return hasPathOrIndex && hasRoutingKey;
 }
 
 function readObjectRoute(objectExpr, seenObjectNodes, parentPath) {

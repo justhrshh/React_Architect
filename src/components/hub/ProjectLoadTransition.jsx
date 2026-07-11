@@ -13,7 +13,9 @@ const ProjectLoadTransition = ({ projectName, onComplete }) => {
 
   useEffect(() => {
     // Fade in on mount
-    setMounted(true);
+    setTimeout(() => {
+      setMounted(true);
+    }, 0);
   }, []);
 
   useEffect(() => {

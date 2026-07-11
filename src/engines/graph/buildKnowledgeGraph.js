@@ -130,7 +130,7 @@ export function buildKnowledgeGraph(files, project) {
   });
 
   // 6. Route hierarchy (JSX / object-based, including nested `children`) + Next.js file-based routing
-  buildRouteGraph(parsedFiles, graphFiles, nodes, edges, project);
+  buildRouteGraph(parsedFiles, graphFiles, nodes, edges, project, { fileMap, fileIndex, aliasMap, componentMap });
 
   // 7. Fallback seeding for empty projects or seed templates
   seedFallbackGraphIfEmpty(nodes, edges);
@@ -367,7 +367,7 @@ function resolveChildComponent(childName, parentCompNode, parentFileObj, fileMap
 // Route graph construction (nested hierarchy + Next.js file-based routing)
 // ---------------------------------------------------------------------------
 
-function buildRouteGraph(parsedFiles, graphFiles, nodes, edges, project) {
+function buildRouteGraph(parsedFiles, graphFiles, nodes, edges, project, ctx) {
   parsedFiles.forEach((file) => {
     const summary = file.summary;
     if (!summary.routes || summary.routes.length === 0) return;
@@ -376,7 +376,7 @@ function buildRouteGraph(parsedFiles, graphFiles, nodes, edges, project) {
     nodes.push(createNode({ id: routerId, kind: "route", subtype: "router", name: "Router", file: file.path }));
 
     summary.routes.forEach((route, index) => {
-      addRouteNodeRecursive(route, routerId, file.path, `${index}`, nodes, edges);
+      addRouteNodeRecursive(route, routerId, file.path, `${index}`, nodes, edges, ctx);
     });
   });
 
@@ -426,7 +426,26 @@ function buildRouteGraph(parsedFiles, graphFiles, nodes, edges, project) {
   }
 }
 
-function addRouteNodeRecursive(route, parentId, filePath, positionKey, nodes, edges) {
+function addRouteNodeRecursive(route, parentId, filePath, positionKey, nodes, edges, ctx) {
+  const { fileMap, fileIndex, aliasMap } = ctx;
+  let componentName = route.component;
+
+  // Resolve componentName if it matches an import alias in the router file
+  const parentFileObj = fileMap.get(filePath);
+  if (parentFileObj && componentName) {
+    const matchedImport = parentFileObj.summary.imports.find((imp) => imp.name === componentName);
+    if (matchedImport) {
+      const resolvedPath = resolveModulePath(filePath, matchedImport.source, fileIndex, aliasMap);
+      if (resolvedPath) {
+        const symbolToResolve = matchedImport.kind === "default" ? "default" : matchedImport.importedName;
+        const declaration = resolveComponentDeclaration(resolvedPath, symbolToResolve, fileMap, fileIndex, aliasMap);
+        if (declaration) {
+          componentName = declaration.name; // Use the actual declared component name!
+        }
+      }
+    }
+  }
+
   const routeId = `route:${filePath}:${positionKey}:${route.path}`;
   nodes.push(
     createNode({
@@ -435,13 +454,13 @@ function addRouteNodeRecursive(route, parentId, filePath, positionKey, nodes, ed
       subtype: "endpoint",
       name: route.path,
       file: filePath,
-      metadata: { componentName: route.component, line: route.line, index: !!route.index },
+      metadata: { componentName, line: route.line, index: !!route.index },
     })
   );
   edges.push(createEdge({ type: "ROUTE_PARENT", source: parentId, target: routeId }));
 
   (route.children || []).forEach((child, i) => {
-    addRouteNodeRecursive(child, routeId, filePath, `${positionKey}.${i}`, nodes, edges);
+    addRouteNodeRecursive(child, routeId, filePath, `${positionKey}.${i}`, nodes, edges, ctx);
   });
 }
 

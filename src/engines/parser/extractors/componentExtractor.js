@@ -1,12 +1,21 @@
 import { walk } from "../walk";
 import { getCalleeName, guessNameFromFilePath } from "../astUtils";
 
-// React built-ins that are frequently used as JSX tags but are not
-// user-authored components. Treating them as "children" would create
-// noisy, meaningless RENDERS edges (every Suspense boundary, every StrictMode
-// wrapper). A real component happening to share one of these names is a
-// known, accepted edge case (see parser README "Known Limitations").
-const REACT_BUILTIN_JSX_NAMES = new Set(["Fragment", "StrictMode", "Suspense", "Profiler"]);
+// React built-ins and React Router components that are frequently used as JSX
+// tags but are not user-authored components. Treating them as "children" would
+// create noisy, meaningless RENDERS edges. A real component happening to share
+// one of these names is a known, accepted edge case (see parser README
+// "Known Limitations").
+const REACT_BUILTIN_JSX_NAMES = new Set([
+  // React core
+  "Fragment", "StrictMode", "Suspense", "Profiler",
+  // React Router v6 JSX API
+  "Routes", "Route", "Navigate", "Outlet", "Link", "NavLink",
+  "BrowserRouter", "HashRouter", "MemoryRouter", "RouterProvider",
+  "StaticRouter", "NativeRouter",
+  // React Router v5 legacy
+  "Switch", "Redirect",
+]);
 
 // Helper to extract destructured parameters (props)
 function getPropsFromParams(params) {

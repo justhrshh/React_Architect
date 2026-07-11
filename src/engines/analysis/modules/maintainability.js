@@ -17,14 +17,12 @@ export function calculateMaintainability(node, graph) {
   const children = meta.children || [];
   const imports = meta.imports || [];
 
-  // Query edges for parent nodes, child nodes, API calls, and redux states if graph is provided
-  let parentNodesCount = 0;
+  // Query edges for child nodes, API calls, and redux states if graph is provided
   let childNodesCount = children.length;
   let apiCallsCount = apiCalls.length;
   let consumedStatesCount = 0;
 
   if (graph) {
-    parentNodesCount = graph.edges.filter(e => e.type === "RENDERS" && e.target === node.id).length;
     childNodesCount = graph.edges.filter(e => e.type === "RENDERS" && e.source === node.id).length;
     apiCallsCount = graph.edges.filter(e => e.type === "USES_API" && e.source === node.id).length;
     consumedStatesCount = graph.edges.filter(e => e.type === "STATE_CONSUMER" && e.target === node.id).length;
