@@ -1,4 +1,4 @@
-import { walk } from "../walk";
+import { walk } from "../walk.js";
 
 /**
  * Extracts Redux Toolkit store setups, slice properties, and async thunks

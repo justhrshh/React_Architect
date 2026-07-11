@@ -1,5 +1,5 @@
-import { walk } from "../walk";
-import { getCalleeName, guessNameFromFilePath } from "../astUtils";
+import { walk } from "../walk.js";
+import { getCalleeName, guessNameFromFilePath } from "../astUtils.js";
 
 // React built-ins and React Router components that are frequently used as JSX
 // tags but are not user-authored components. Treating them as "children" would

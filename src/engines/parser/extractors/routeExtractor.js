@@ -1,4 +1,4 @@
-import { walk } from "../walk";
+import { walk } from "../walk.js";
 
 /**
  * Extracts route mappings from JSX <Route> trees and React Router v6.4+

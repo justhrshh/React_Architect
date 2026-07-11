@@ -1,12 +1,12 @@
 import { parse } from "@babel/parser";
-import { extractImports } from "./extractors/importExtractor";
-import { extractExports } from "./extractors/exportExtractor";
-import { extractComponents } from "./extractors/componentExtractor";
-import { extractHooks } from "./extractors/hookExtractor";
-import { extractContexts } from "./extractors/contextExtractor";
-import { extractRedux } from "./extractors/reduxExtractor";
-import { extractRoutes } from "./extractors/routeExtractor";
-import { extractApi } from "./extractors/apiExtractor";
+import { extractImports } from "./extractors/importExtractor.js";
+import { extractExports } from "./extractors/exportExtractor.js";
+import { extractComponents } from "./extractors/componentExtractor.js";
+import { extractHooks } from "./extractors/hookExtractor.js";
+import { extractContexts } from "./extractors/contextExtractor.js";
+import { extractRedux } from "./extractors/reduxExtractor.js";
+import { extractRoutes } from "./extractors/routeExtractor.js";
+import { extractApi } from "./extractors/apiExtractor.js";
 
 /**
  * Parses source code contents and orchestrates the extraction process.

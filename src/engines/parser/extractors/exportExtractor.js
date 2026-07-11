@@ -1,4 +1,4 @@
-import { getCalleeName } from "../astUtils";
+import { getCalleeName } from "../astUtils.js";
 
 /**
  * Extracts ES module export declarations from AST, including re-exports

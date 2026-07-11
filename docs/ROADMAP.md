@@ -6,6 +6,13 @@ Trace milestones and sprints for the React Architect workspace platform.
 
 ## Completed Sprints
 
+### Sprint 11: Production Hardening & Impact Analysis UI
+- Normalized store casing (`src/redux/store.js`) and hardened engine imports with explicit `.js` extensions for Node/Vite ESM compatibility.
+- Added route-level code splitting with `React.lazy`/`Suspense` so heavy studio pages load as separate chunks.
+- Surfaced on-demand Impact Analysis inside the Architecture Studio inspector, including blast radius, direct uses/used-by relationships, grouped affected counts, and low/medium/high risk labels.
+- Added a lightweight Node test harness covering parser extraction, import resolution, Knowledge Graph creation, analysis, and impact analysis.
+- Updated changelog documentation for Sprint 11 completion.
+
 ### Sprint 1 - 3: Baseline R3F Architecture
 - Setup 3D blueprint void environment, lights, star particles, and camera orbit controls.
 - Created central Project Brain platform.

@@ -1,10 +1,10 @@
-import { parseFile } from "../parser/parser";
-import { extractFileBasedRoutes } from "../parser/extractors/fileRouteExtractor";
-import { buildAliasMap } from "../parser/aliasResolver";
-import { buildFileIndex, resolveModulePath, resolveComponentDeclaration } from "./importResolver";
-import { createNode } from "./nodeFactory";
-import { createEdge } from "./edgeFactory";
-import { validateGraph } from "./graphValidator";
+import { parseFile } from "../parser/parser.js";
+import { extractFileBasedRoutes } from "../parser/extractors/fileRouteExtractor.js";
+import { buildAliasMap } from "../parser/aliasResolver.js";
+import { buildFileIndex, resolveModulePath, resolveComponentDeclaration } from "./importResolver.js";
+import { createNode } from "./nodeFactory.js";
+import { createEdge } from "./edgeFactory.js";
+import { validateGraph } from "./graphValidator.js";
 
 /**
  * Builds the centralized Knowledge Graph representing the entire project structure.

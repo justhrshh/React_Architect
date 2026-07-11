@@ -1,4 +1,4 @@
-import { stripJsonComments } from "./astUtils";
+import { stripJsonComments } from "./astUtils.js";
 
 /**
  * aliasResolver.js

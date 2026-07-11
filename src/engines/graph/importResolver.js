@@ -1,4 +1,4 @@
-import { resolveAlias } from "../parser/aliasResolver";
+import { resolveAlias } from "../parser/aliasResolver.js";
 
 /**
  * importResolver.js

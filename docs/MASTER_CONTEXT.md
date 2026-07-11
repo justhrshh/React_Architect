@@ -418,15 +418,25 @@ Self-Architecture Optimization Pass
 * React Architect now passes its own architectural analysis with 0 dead routes and 0 false circular dependencies.
 * ESLint: 0 errors, 0 warnings. Build: 0 errors.
 
+### ✅ Sprint 11 Complete
+
+Production Hardening & Impact Analysis UI
+
+* Normalized store casing (`src/redux/store.js`) and hardened engine imports with explicit `.js` extensions for Node/Vite ESM compatibility.
+* Added route-level code splitting with `React.lazy`/`Suspense` so heavy studio pages load as separate chunks.
+* Surfaced on-demand Impact Analysis inside the Architecture Studio inspector, including blast radius, direct uses/used-by relationships, grouped affected counts, and low/medium/high risk labels.
+* Added a lightweight Node test harness (`npm test`) covering parser extraction, import resolution, Knowledge Graph creation, analysis, and impact analysis.
+* Updated changelog documentation for Sprint 11 completion.
+
 ---
 
 ## Current Version
-React Architect v8.0 — Self-Architecture Optimization Pass
+React Architect v8.1 — Production Hardening & Impact Analysis UI
 
 ---
 
 ## Current Milestone
-Sprint 10.3 Complete
+Sprint 11 Complete
 
 ------------------------------------------------------------------------
 

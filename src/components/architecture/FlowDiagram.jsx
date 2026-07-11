@@ -403,7 +403,11 @@ export default function FlowDiagram({ architectureModel, selectedId, onSelectNod
     return { minX: minX - pad, minY: minY - pad, maxX: maxX + pad, maxY: maxY + pad };
   }, [layoutNodes]);
 
-  // Auto-center on initial load
+  const rootIdsKey = useMemo(() => {
+    return architectureModel.map(r => r.id).join(",");
+  }, [architectureModel]);
+
+  // Auto-center on initial load / project change
   useEffect(() => {
     if (layoutNodes.length > 0) {
       const cx = (bounds.minX + bounds.maxX) / 2;
@@ -413,7 +417,8 @@ export default function FlowDiagram({ architectureModel, selectedId, onSelectNod
         setZoom(1);
       }, 0);
     }
-  }, [architectureModel.length, bounds.maxX, bounds.minX, bounds.minY, layoutNodes.length]); // only on model change, not every expand
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [rootIdsKey]); // only on model change, not every expand
 
   // Pan handlers
   const handleMouseDown = useCallback((e) => {

@@ -549,3 +549,28 @@ Status:
 
 Sprint 1 Complete.
 Application boots successfully.
+# v8.1 - Production Hardening & Impact Analysis UI (Sprint 11)
+
+## Added
+
+### Impact Analysis Inspector
+* Added an Impact Analysis section to the Architecture Studio inspector.
+* Selecting a node now shows blast radius, risk level, affected component/route/state/API counts, direct dependencies, and direct dependents.
+* Extended `impactAnalysis.js` to return `direct.uses`, `direct.usedBy`, `affectedByKind`, and `riskLevel` in addition to the existing affected-node groups.
+
+### Engine Test Harness
+* Added a Node test script (`npm test`) using the built-in `node:test` runner.
+* Added focused engine coverage for parser extraction, import resolution, Knowledge Graph construction, and on-demand impact analysis.
+
+## Changed
+
+* Route-level code splitting added in `Router.jsx` with `React.lazy` and `Suspense`, moving heavy studio pages into separate chunks.
+* Engine/parser internal imports now use explicit `.js` extensions so the same modules can run under Vite and Node's ESM test runner.
+* Normalized the Redux store filename to `src/redux/store.js` for cross-platform casing safety.
+
+## Status
+
+Sprint 11 Complete.
+React Architect now has a visible refactor-risk surface in Architecture Studio, a lightweight engine verification suite, route-level code splitting, and improved ESM portability.
+
+---

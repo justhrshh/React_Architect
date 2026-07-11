@@ -1,5 +1,5 @@
-import { walk } from "../walk";
-import { getCalleeName, getCalleeProperty, extractStringOrTemplate } from "../astUtils";
+import { walk } from "../walk.js";
+import { getCalleeName, getCalleeProperty, extractStringOrTemplate } from "../astUtils.js";
 
 const DEFAULT_GATEWAY_VAR_NAMES = ["api", "axios", "axiosClient", "client", "http", "httpClient", "apiClient"];
 const HTTP_METHODS = ["get", "post", "put", "delete", "patch"];

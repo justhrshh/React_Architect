@@ -15,6 +15,7 @@ react-architect/
 ├── docs/
 ├── public/
 ├── src/
+├── test/
 ├── index.html
 ├── package.json
 ├── vite.config.js

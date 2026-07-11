@@ -1,4 +1,4 @@
-import { walk } from "../walk";
+import { walk } from "../walk.js";
 
 /**
  * Extracts both static ES module imports and dynamic `import()` expressions.

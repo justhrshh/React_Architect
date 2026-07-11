@@ -1,4 +1,4 @@
-import { walk } from "../walk";
+import { walk } from "../walk.js";
 
 /**
  * Extracts Context creations (createContext) from AST.

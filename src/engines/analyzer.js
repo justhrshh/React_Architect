@@ -1,7 +1,7 @@
-import { scanDirectory, scanZip } from "./scanner/scanner";
-import { buildKnowledgeGraph } from "./graph/buildKnowledgeGraph";
-import { layoutGraphNodes } from "./layout/layoutEngine";
-import { runAnalysis } from "./analysis";
+import { scanDirectory, scanZip } from "./scanner/scanner.js";
+import { buildKnowledgeGraph } from "./graph/buildKnowledgeGraph.js";
+import { layoutGraphNodes } from "./layout/layoutEngine.js";
+import { runAnalysis } from "./analysis/index.js";
 
 /**
  * Orchestrates the full architectural analysis pipeline using the new

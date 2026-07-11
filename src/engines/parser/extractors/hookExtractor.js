@@ -1,4 +1,4 @@
-import { walk } from "../walk";
+import { walk } from "../walk.js";
 
 /**
  * Extracts custom hook *declarations* from AST (not hook *usages* - those
