@@ -384,7 +384,7 @@ function TopBar({ nodeCount, projectName, handleBack }) {
             fontWeight: 700,
             marginTop: 1,
           }}>
-            API Studio — Endpoint Connectors
+            Network Studio — HTTP Endpoint Mappings
           </div>
         </div>
       </div>

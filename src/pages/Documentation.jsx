@@ -263,7 +263,7 @@ function TopBar({ projectName, handleBack }) {
             fontWeight: 700,
             marginTop: 1,
           }}>
-            Documentation Studio — Project Guides
+            Investigation Studio — Architectural Insights
           </div>
         </div>
       </div>
@@ -332,8 +332,8 @@ Welcome to the React Architect workspace documentation.
 ## Getting Started
 To view your project structure in real time:
 - Enter the **Architecture Studio** to see components.
-- Enter the **Route Studio** to examine endpoint mapping trees.
-- Browse slices in the **State Studio**.
+- Enter the **Navigation Studio** to examine user journeys.
+- Browse state slices in the **Data Flow Studio**.
 
 ---
 *Generated dynamically by the React Architect scanner engine.*`,

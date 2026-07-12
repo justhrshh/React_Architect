@@ -405,7 +405,7 @@ function TopBar({ nodeCount, projectName, handleBack }) {
             fontWeight: 700,
             marginTop: 1,
           }}>
-            State Studio — Redux Slices & Variables
+            Data Flow Studio — State Subscriptions & Hooks
           </div>
         </div>
       </div>

@@ -58,89 +58,88 @@ Trace milestones and sprints for the React Architect workspace platform.
 
 ---
 
-## Future Roadmap: React Architect Studio Philosophy (v2)
+## Future Roadmap: Product Direction & Studio Vision (v2)
 
-### Core Principle
+React Architect should no longer be designed as five independent visualization pages. It should evolve into an operating system for understanding React applications.
 
-React Architect is **not** a collection of visual dashboards. It is an operating system for understanding React applications.
+Every studio must answer a specific developer question instead of exposing raw project data.
 
-Every studio exists to answer a specific developer question. The developer should never have to think:
-> *"I want to open the Route Studio."*
-
-Instead, they should think:
-> *"I want to understand how users move through my app."*
-
-The studio simply becomes the dedicated space that answers that question.
-
----
-
-### Overall Product Structure
-
-Every studio represents a different way of understanding the same Knowledge Graph. The Knowledge Graph remains the single source of truth, and the Analysis Engine sits directly on top of it:
-
-```
-React Project
-      │
-      ▼
-   Scanner
-      │
-      ▼
- AST Parser
-      │
-      ▼
-Knowledge Graph (Single Source of Truth)
-      │
-      ▼
-Analysis Engine
-      │
- ┌────┼────┬────┬────┬────┐
- ▼    ▼    ▼    ▼    ▼    ▼
-Architecture  Navigation  Data Flow  Network  Investigation (AI)
-```
-
-1. **Project Import** → Scans codebase and builds the raw Knowledge Graph database.
-2. **Project DNA Analysis** → Analysis Engine processes the graph and calculates initial metrics/health scores.
-3. **Workspace Command Room** → Users enter the workspace and choose which aspect of their application they want to investigate.
+The Workspace is the central command room where developers choose which aspect of their application they want to investigate.
 
 ---
 
 ### Domain Investigation Studios
 
-#### 1. Architecture Studio
-* **Question**: *"How is this project built?"*
-* **Purpose**: Understand the structural blueprint of the application.
-* **Focus**: Component render hierarchy, Architecture Health score, Maintainability scores, dependency graph complexity, file structure, and Blast Radius impact analysis.
+#### • Architecture Studio — *"How is this project built?"*
+Focus on component hierarchy, maintainability, architecture health, dependency relationships, complexity, and impact analysis.
 * **Status**: Production Ready.
 
-#### 2. Navigation Studio
-* **Question**: *"How do users move through this application?"*
-* **Purpose**: Understand navigation flows instead of raw router configurations.
-* **Focus**: Route hierarchy, nested layout relationships, authentication gating flows, redirects, dynamic parameter routing, user journeys, navigation health, and route usage analytics.
+#### • Navigation Studio (formerly Routes Studio) — *"How do users move through this application?"*
+Focus on route hierarchy, layouts, authentication flow, redirects, dynamic routes, user journeys, route health, and navigation analytics.
 * **Status**: In Progress.
 
-#### 3. Data Flow Studio
-* **Question**: *"Where does my data come from and where does it go?"*
-* **Purpose**: Understand how information moves across the application.
-* **Focus**: Redux slices, Context providers, prop-drilling pathways, local state instances, custom hooks, state origins, state consumers, state update chains, duplicate state, and state health.
+#### • Data Flow Studio (formerly State Studio) — *"Where does my data come from and where does it go?"*
+Focus on Redux, Context, props, local state, custom hooks, state origins, update chains, state consumers, duplicate state detection, prop drilling, and overall data movement.
 * **Status**: In Progress.
 
-#### 4. Network Studio
-* **Question**: *"How does my frontend communicate with the backend?"*
-* **Purpose**: Understand communication pathways between UI components and external APIs.
-* **Focus**: API services, endpoint maps, request/response lifecycles, load states, error handling structures, duplicate requests, and API client health.
+#### • Network Studio (formerly API Studio) — *"How does the frontend communicate with the backend?"*
+Focus on components, services, API clients, endpoints, requests, responses, loading states, error handling, duplicate requests, request lifecycle, and API health.
 * **Status**: In Progress.
 
-#### 5. Investigation Studio (AI)
-* **Question**: *"Help me understand this project."*
-* **Purpose**: Serve as the flagship intelligent architect assistant.
-* **Focus**: Unlike traditional AI assistants, the Investigation Studio consumes the Knowledge Graph, Analysis Engine, maintainability metrics, and blast-radius maps directly to answer high-level questions:
-  * *"Explain authentication in this project."*
-  * *"Why does this component re-render?"*
-  * *"Can I safely delete this file?"*
-  * *"What breaks if this route changes?"*
-  * *"Find duplicate hooks and state logic."*
-  * *"Generate onboarding documentation and project implementation plans."*
+#### • Investigation Studio (new flagship AI experience) — *"Help me understand this project."*
+This studio is not a generic chatbot. It is an architectural investigation assistant powered by the Knowledge Graph, Architecture Model, Analysis Engine, Impact Analysis, Maintainability Engine, Route Graph, Data Graph, and Network Graph.
+
+The Investigation Studio should answer questions such as:
+* *Explain this component.*
+* *Explain authentication.*
+* *Why is this component re-rendering?*
+* *Can I safely delete this file?*
+* *What breaks if I change this?*
+* *Find duplicated logic.*
+* *Explain this hook.*
+* *Explain this route.*
+* *Which components should be refactored first?*
+* *Generate onboarding documentation.*
+* *Plan a new feature before implementation.*
 * **Status**: In Progress.
+
+---
+
+### Core Architecture Philosophy
+
+All studios must consume the same Knowledge Graph and Analysis Engine. No studio should perform its own parsing or duplicate architectural analysis.
+
+The long-term philosophy of React Architect is:
+
+```
+Import Project
+  │
+  ▼
+Analyze
+  │
+  ▼
+Build Knowledge Graph
+  │
+  ▼
+Enter Workspace
+  │
+  ▼
+Investigate Architecture  ("How is it built?")
+  │
+  ▼
+Investigate Navigation    ("How do users move?")
+  │
+  ▼
+Investigate Data Flow     ("Where does my data go?")
+  │
+  ▼
+Investigate Network       ("How does frontend communicate?")
+  │
+  ▼
+Investigate the Project through AI ("Help me understand everything.")
+```
+
+The product is no longer a visualization tool. It is an operating system for understanding React applications.
 
 ---
 

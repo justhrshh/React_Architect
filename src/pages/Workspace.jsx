@@ -45,13 +45,13 @@ function getCoreContextOverview(displayRoom, analysis, projectName) {
       targetDomain = "Architecture";
       reason = `${baseDNA.circulars} circular dependency loops were detected.`;
     } else if (baseDNA.deadRoutes > 0) {
-      targetDomain = "Routes";
+      targetDomain = "Navigation";
       reason = `${baseDNA.deadRoutes} dead routes were detected.`;
     } else if (baseDNA.unusedHooks > 0) {
-      targetDomain = "State";
+      targetDomain = "Data Flow";
       reason = `${baseDNA.unusedHooks} unused state slices or hooks carry cascade invalidation risks.`;
     } else if (baseDNA.unusedApis > 0) {
-      targetDomain = "API";
+      targetDomain = "Network";
       reason = `${baseDNA.unusedApis} stale API client endpoints were mapped.`;
     }
 
@@ -91,7 +91,7 @@ function getCoreContextOverview(displayRoom, analysis, projectName) {
       headline,
       body,
       recommendation: baseDNA.deadRoutes > 0 ? "Audit layout templates and remove unreachable navigation pathways." : "All route gates secure.",
-      actionLabel: "Investigate Routes"
+      actionLabel: "Investigate Navigation"
     };
   }
 
@@ -106,7 +106,7 @@ function getCoreContextOverview(displayRoom, analysis, projectName) {
       headline,
       body,
       recommendation: baseDNA.unusedHooks > 0 ? "Merge duplicate selectors and decouple stale component bindings." : "State store clear.",
-      actionLabel: "Analyze State"
+      actionLabel: "Analyze Data Flow"
     };
   }
 
@@ -121,7 +121,7 @@ function getCoreContextOverview(displayRoom, analysis, projectName) {
       headline,
       body,
       recommendation: baseDNA.unusedApis > 0 ? "Audit stale axios requests and cache redundant network fetches." : "Endpoints resolved.",
-      actionLabel: "Review APIs"
+      actionLabel: "Review Network"
     };
   }
 
@@ -132,7 +132,7 @@ function getCoreContextOverview(displayRoom, analysis, projectName) {
       headline: "Critical components undocumented",
       body: "Only 38% component coverage. Core components have zero JSDoc descriptors and lack Storybook examples.",
       recommendation: "Document high-leverage button and input components first.",
-      actionLabel: "Explore Documentation"
+      actionLabel: "Start Investigation"
     };
   }
 
@@ -577,10 +577,10 @@ const Workspace = () => {
 
   const domains = [
     { id: "architecture", label: "Architecture", color: "#D4A847", score: analysis?.architectureHealth?.score ?? 87, count: `${baseDNA.components} components`, ...toXY(-90, ORBIT_R) },
-    { id: "routes",       label: "Routes",       color: "#5BB8D4", score: Math.max(100 - (analysis?.deadCode?.unusedRoutes?.length * 12 || 0), 10), count: `${baseDNA.routes} routes`,       ...toXY(-18, ORBIT_R) },
-    { id: "state",        label: "State",        color: "#9B7AE8", score: Math.max(100 - (analysis?.deadCode?.unusedHooks?.length * 8 || 0), 10), count: `${baseDNA.contexts} contexts`,       ...toXY(54, ORBIT_R)  },
-    { id: "api",          label: "API",           color: "#E8705A", score: Math.max(100 - (analysis?.deadCode?.unusedApiServices?.length * 10 || 0), 10), count: `${baseDNA.apis} endpoints`,    ...toXY(126, ORBIT_R) },
-    { id: "documentation",label: "Documentation",color: "#6DB885", score: 85, count: "85% coverage",    ...toXY(198, ORBIT_R) },
+    { id: "routes",       label: "Navigation",   color: "#5BB8D4", score: Math.max(100 - (analysis?.deadCode?.unusedRoutes?.length * 12 || 0), 10), count: `${baseDNA.routes} routes`,       ...toXY(-18, ORBIT_R) },
+    { id: "state",        label: "Data Flow",    color: "#9B7AE8", score: Math.max(100 - (analysis?.deadCode?.unusedHooks?.length * 8 || 0), 10), count: `${baseDNA.contexts} contexts`,       ...toXY(54, ORBIT_R)  },
+    { id: "api",          label: "Network",      color: "#E8705A", score: Math.max(100 - (analysis?.deadCode?.unusedApiServices?.length * 10 || 0), 10), count: `${baseDNA.apis} endpoints`,    ...toXY(126, ORBIT_R) },
+    { id: "documentation",label: "Investigation",color: "#6DB885", score: 85, count: "85% coverage",    ...toXY(198, ORBIT_R) },
   ];
 
 
@@ -606,22 +606,22 @@ const Workspace = () => {
       case "routes":
         return {
           metric: analysis?.deadCode?.unusedRoutes?.length ?? 14,
-          label: "Dead Routes"
+          label: "Navigation Health"
         };
       case "state":
         return {
           metric: analysis?.projectDNA?.hookCount ?? 48,
-          label: "Redux Consumers"
+          label: "Data Flow Health"
         };
       case "api":
         return {
           metric: analysis?.deadCode?.unusedApiServices?.length ?? 2,
-          label: "Stale API Endpoints"
+          label: "Network Health"
         };
       case "documentation":
         return {
           metric: "61%",
-          label: "Documentation Coverage"
+          label: "Investigation Coverage"
         };
       default:
         return {

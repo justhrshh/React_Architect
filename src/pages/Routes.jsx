@@ -407,7 +407,7 @@ function TopBar({ routeCount, projectName, handleBack }) {
             fontWeight: 700,
             marginTop: 1,
           }}>
-            Route Studio — URL Navigation Flow
+            Navigation Studio — User Journey Mappings
           </div>
         </div>
       </div>
