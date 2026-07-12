@@ -57,29 +57,20 @@ The architecture becomes the interface.
 
 Analyze a React project and generate a complete architecture graph.
 
-### Component Explorer
+### Architecture Studio
+Examine component render hierarchies, maintainability complexity factors, and impact blast radiuses.
 
-Visualize parent-child relationships, dependencies, props, and reusable components.
+### Navigation Studio
+Explore routes, layouts, authentication gating, redirects, and dynamic parameters.
 
-### Route Explorer
+### Data Flow Studio
+Track application state cascades across Redux slices, Context, local state, and custom hooks.
 
-Understand application navigation through an interactive routing graph.
+### Network Studio
+Map component-to-service transactions and external API endpoint lifecycles.
 
-### State Flow
-
-Track how data moves across Context, Redux Toolkit, and local state.
-
-### API Flow
-
-Visualize every request from the UI to the backend and back.
-
-### Architecture Score
-
-Evaluate project quality and highlight architectural improvements.
-
-### Interactive Documentation
-
-Automatically generate documentation directly from the architecture graph.
+### Investigation Studio (AI)
+Answer high-level architectural queries (auth maps, refactoring dependencies, re-render tracing) using raw Knowledge Graph database context.
 
 ---
 

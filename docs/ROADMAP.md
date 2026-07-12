@@ -58,328 +58,111 @@ Trace milestones and sprints for the React Architect workspace platform.
 
 ---
 
-## Future Roadmap
+## Future Roadmap: React Architect Studio Philosophy (v2)
 
-The key insight is this:
+### Core Principle
 
-Every future feature should operate on the same AST graph.
+React Architect is **not** a collection of visual dashboards. It is an operating system for understanding React applications.
 
-Not separate parsers.
-Not separate scanners.
-One knowledge graph.
+Every studio exists to answer a specific developer question. The developer should never have to think:
+> *"I want to open the Route Studio."*
 
-------------------------------------------------------------
+Instead, they should think:
+> *"I want to understand how users move through my app."*
 
-Phase 1 — Build the Knowledge Graph (NOW)
+The studio simply becomes the dedicated space that answers that question.
 
-Don't think:
+---
 
-React Project
-      ↓
-React Flow
+### Overall Product Structure
 
-Think:
+Every studio represents a different way of understanding the same Knowledge Graph. The Knowledge Graph remains the single source of truth, and the Analysis Engine sits directly on top of it:
 
-React Project
-      │
-      ▼
-Scanner
-      │
-      ▼
-AST Parser
-      │
-      ▼
-Knowledge Graph
-      │
- ┌────┼────┬────┬────┐
- ▼    ▼    ▼    ▼    ▼
-Architecture
-Routes
-State
-API
-Docs
-
-Everything should consume the same graph.
-
-Update: the graph now has an Analysis Engine sitting directly on top of it
-(Sprint 9.2). The picture is now:
-
+```
 React Project
       │
       ▼
-Scanner
+   Scanner
       │
       ▼
-AST Parser
+ AST Parser
       │
       ▼
-Knowledge Graph
+Knowledge Graph (Single Source of Truth)
       │
       ▼
 Analysis Engine
       │
  ┌────┼────┬────┬────┬────┐
  ▼    ▼    ▼    ▼    ▼    ▼
-Architecture
-Routes
-State
-API
-Docs
-(+ Impact Analysis, on demand)
+Architecture  Navigation  Data Flow  Network  Investigation (AI)
+```
+
+1. **Project Import** → Scans codebase and builds the raw Knowledge Graph database.
+2. **Project DNA Analysis** → Analysis Engine processes the graph and calculates initial metrics/health scores.
+3. **Workspace Command Room** → Users enter the workspace and choose which aspect of their application they want to investigate.
+
+---
+
+### Domain Investigation Studios
+
+#### 1. Architecture Studio
+* **Question**: *"How is this project built?"*
+* **Purpose**: Understand the structural blueprint of the application.
+* **Focus**: Component render hierarchy, Architecture Health score, Maintainability scores, dependency graph complexity, file structure, and Blast Radius impact analysis.
+* **Status**: Production Ready.
+
+#### 2. Navigation Studio
+* **Question**: *"How do users move through this application?"*
+* **Purpose**: Understand navigation flows instead of raw router configurations.
+* **Focus**: Route hierarchy, nested layout relationships, authentication gating flows, redirects, dynamic parameter routing, user journeys, navigation health, and route usage analytics.
+* **Status**: In Progress.
+
+#### 3. Data Flow Studio
+* **Question**: *"Where does my data come from and where does it go?"*
+* **Purpose**: Understand how information moves across the application.
+* **Focus**: Redux slices, Context providers, prop-drilling pathways, local state instances, custom hooks, state origins, state consumers, state update chains, duplicate state, and state health.
+* **Status**: In Progress.
+
+#### 4. Network Studio
+* **Question**: *"How does my frontend communicate with the backend?"*
+* **Purpose**: Understand communication pathways between UI components and external APIs.
+* **Focus**: API services, endpoint maps, request/response lifecycles, load states, error handling structures, duplicate requests, and API client health.
+* **Status**: In Progress.
+
+#### 5. Investigation Studio (AI)
+* **Question**: *"Help me understand this project."*
+* **Purpose**: Serve as the flagship intelligent architect assistant.
+* **Focus**: Unlike traditional AI assistants, the Investigation Studio consumes the Knowledge Graph, Analysis Engine, maintainability metrics, and blast-radius maps directly to answer high-level questions:
+  * *"Explain authentication in this project."*
+  * *"Why does this component re-render?"*
+  * *"Can I safely delete this file?"*
+  * *"What breaks if this route changes?"*
+  * *"Find duplicate hooks and state logic."*
+  * *"Generate onboarding documentation and project implementation plans."*
+* **Status**: In Progress.
+
+---
+
+### Upcoming Sprints & Developmental Priority
+
+#### Sprint 12 — Navigation Studio (Routes to Journeys)
+- Transition the `/routes` view into the Navigation Studio.
+- Map layout nesting relationships and highlight auth-gated routes visually.
+- Expose redirects and route analytics inside the inspector.
+
+#### Sprint 13 — Data Flow Studio (State to Lifecycles)
+- Transition the `/state` view into the Data Flow Studio.
+- Build visual state consumer and update cascades mapping hooks to redux slices.
+- Highlight duplicate state variables and deep prop-drilling pathways.
+
+#### Sprint 14 — Network Studio (API to Lifecycles)
+- Transition the `/api` view into the Network Studio.
+- Map end-to-end component-to-service-to-endpoint network transactions.
+- Highlight duplicate/redundant API request loops.
+
+#### Sprint 15 — Investigation Studio (Flagship AI Onboarding)
+- Deploy the AI-powered architectural assistant chat interface.
+- Wire the assistant to query the centralized Redux `knowledgeGraph` state and `analysis` state.
+- Enable Graph-aware queries (explain auth, compute mock implementations, calculate blast radius).
 
-Studios and future features consume Analysis Engine output instead of
-recomputing their own graph traversals.
-
-------------------------------------------------------------
-
-Feature 1 — Live Synced Refactoring
-
-Instead of simply renaming a component, expose intelligent refactoring actions from the inspector.
-
-Actions:
-- Rename Component
-- Move Component
-- Extract Component
-- Inline Component
-- Convert to Lazy
-- Delete
-- Duplicate
-
-When a refactor is performed, automatically update:
-- File names
-- Imports
-- Exports
-- JSX usage
-- Component relationships
-
-Rebuild the knowledge graph automatically so every studio stays in sync.
-
-------------------------------------------------------------
-
-Feature 2 — Architecture Health
-
-Replace a generic architecture score with actionable insights.
-
-Example:
-
-Health: 92 (Good)
-
-Issues:
-- Large Components: 3
-- Circular Imports: 1
-- Unused Components: 8
-- Duplicate Hooks: 2
-- Dead Routes: 1
-
-The score should explain *why* it exists and how to improve it.
-
-------------------------------------------------------------
-
-Feature 3 — Dependency Heatmap
-
-Visualize how important each component is.
-
-Examples:
-
-Button
-██████████
-Used 142 times
-
-App
-██████
-Used 37 times
-
-LegacyCard
-█
-Used once
-
-Node size, color, or glow should communicate dependency importance.
-
-------------------------------------------------------------
-
-Feature 4 — Component Timeline
-
-Instead of only showing relationships, visualize the lifecycle of a component.
-
-Example:
-
-Imports
-   ↓
-Hooks
-   ↓
-State
-   ↓
-API Calls
-   ↓
-Children
-   ↓
-Render
-
-This gives developers an execution-oriented understanding.
-
-------------------------------------------------------------
-
-Feature 5 — Explain This Component
-
-Allow AI to explain a selected component using the generated knowledge graph instead of raw source code.
-
-Example:
-
-"HeroSection is rendered by HomePage. It composes CTAButton, FeatureGrid, and StatsCard. It owns local animation state while authentication is handled by AuthProvider."
-
-The explanation should be graph-aware rather than file-aware.
-
-------------------------------------------------------------
-
-Feature 6 — Architecture Diff
-
-Compare two versions of the same project.
-
-Example:
-
-Added
-- Navbar
-- Dashboard
-
-Removed
-- LegacyAuth
-
-Changed
-- App
-
-Visualize architectural changes between versions.
-
-------------------------------------------------------------
-
-Feature 7 — Impact Analysis
-
-Before deleting or modifying a component, show its impact.
-
-Example:
-
-Delete Button
-
-Affected:
-- 17 Components
-- 3 Pages
-- 12 Imports
-- 2 APIs
-
-This helps developers make safe refactoring decisions.
-
-------------------------------------------------------------
-
-Feature 8 — Semantic Search
-
-Search by intent rather than filenames.
-
-Searching:
-
-authentication
-
-Should highlight:
-
-- Login
-- AuthProvider
-- ProtectedRoute
-- JWTService
-
-Because they are architecturally connected.
-
-------------------------------------------------------------
-
-Feature 9 — Dead Code Detection
-
-Automatically detect:
-
-- Unused Components
-- Unused Hooks
-- Dead Routes
-- Orphaned Files
-
-Highlight them directly in the architecture graph.
-
-------------------------------------------------------------
-
-Feature 10 — Refactor Simulator
-
-Allow developers to simulate architectural changes before applying them.
-
-Example:
-
-Move AuthProvider
-
-↓
-
-Preview updated graph
-
-↓
-
-Warnings
-
-↓
-
-Affected components
-
-No files are modified until the user confirms.
-
-------------------------------------------------------------
-
-Project DNA
-
-Every imported project should generate a concise architectural fingerprint.
-
-Example:
-
-Framework:
-React 19
-
-Architecture:
-Feature-Based
-
-Complexity:
-Medium
-
-State:
-Redux Toolkit
-
-Routing:
-React Router
-
-Components:
-142
-
-Hooks:
-87
-
-Contexts:
-4
-
-API Clients:
-3
-
-Largest Component:
-Dashboard.jsx
-
-Project DNA should allow developers to understand a codebase within seconds.
-
-------------------------------------------------------------
-
-Development Priority
-
-## Next Priority
-
-### Sprint 10.1 — Architecture Intelligence
-
-Focus shifts from visualization to understanding.
-
-Planned work:
-
-* Component Timeline
-* Dependency Heatmap UI
-* Feature Boundary Detection
-* Architecture Search
-* AI Project Understanding ("Ask Your Project")
-* Refactoring Preparation
-* Advanced Inspector
-* Impact Analysis UI

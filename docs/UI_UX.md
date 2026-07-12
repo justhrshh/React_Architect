@@ -55,7 +55,7 @@ When the developer first enters the Workspace after importing a project, they la
 
 ## 4. Signature Portal Transition Sequence
 
-When the developer triggers a contextual Studio action (e.g. `Investigate Routes`), the system executes a 5-phase physical transition over `0.97 seconds`:
+When the developer triggers a contextual Studio action (e.g. `Investigate Navigation`), the system executes a 5-phase physical transition over `0.97 seconds`:
 
 ### Phase 1: Core Acknowledgement (~120ms)
 * **Trigger**: Accepts input.

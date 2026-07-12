@@ -75,28 +75,32 @@ Selecting any element from any perspective updates a synchronized side inspector
 * **Custom Hooks**: list of standard and custom hooks used
 * **Imports**: imported module paths list
 
-## 2. Route Studio
-Trace navigation mappings, paths, layouts, and endpoints.
-* **Router Schema Resolution**: Parses next-generation Next.js app folder schemes and standard React Router declarations (JSX or object-based).
-* **Properties Inspector**: Spot dynamic params (e.g. `:id`) and page access security modes (Public vs. Protected).
+## 2. Navigation Studio
+* **Question**: *"How do users move through this application?"*
+* **Router Schema Resolution**: Parses Next.js directory routing patterns and dynamic React Router maps (JSX or object config).
+* **Navigation Journeys**: Maps nested layout relationships, authentication gating gates, redirects, and dynamic path parameters.
+* **Properties Inspector**: Spots dynamic query/param hooks (e.g. `:id`), route access states (Public vs. Protected), and route analytics.
 
 ---
 
-## 3. State Studio
-Trace how application state is managed and consumed across your project.
-* **Slices & Providers**: Displays Redux slices, variables, keys, and Context Providers.
-* **Consumer Highlighting**: Connects state nodes to the specific React components that call state variables using selectors.
+## 3. Data Flow Studio
+* **Question**: *"Where does my data come from and where does it go?"*
+* **Slices & Providers**: Discovers and maps Redux slices, Context providers, local state variables, and custom hook flows.
+* **Consumer Highlighting**: Highlights consumer components and tracks the flow of state update chains.
+* **Health Diagnostics**: Detects deep prop-drilling pathways, duplicate states, and unused state hooks.
 
 ---
 
-## 4. API Studio
-Map every HTTP gateway service and client transaction.
-* **Endpoint Services**: Maps core service configurations (e.g., `axiosInstance`) and API route definitions.
-* **Action Connectors**: Links network operations directly to components that dispatch requests.
+## 4. Network Studio
+* **Question**: *"How does my frontend communicate with the backend?"*
+* **Endpoint Services**: Maps HTTP services (axios, fetch), base config layers, and API endpoint routes.
+* **Request Lifecycle Connectors**: Links network operations directly to components that trigger actions, tracing loading states and error handling.
+* **Network Health**: Automatically identifies duplicate/redundant API requests and orphans.
 
 ---
 
-## 5. Documentation Studio
-Keep your guide documents and codebase walkthroughs in sync.
-* **Markdown Viewer**: Discovers and indexes markdown documents (`.md`), rendering them inside a clean, light-themed documentation reader.
-* **Element Styling**: Renders headers, lists, code snippets, blockquotes, and dividers with custom styling.
+## 5. Investigation Studio (AI)
+* **Question**: *"Help me understand this project."*
+* **Centralized AI Assistant**: The flagship intelligent developer assistant.
+* **Graph-Aware Architecture Queries**: Unlike traditional developer chat widgets, the assistant queries the centralized Redux Knowledge Graph and Analysis Engine directly.
+* **Deep Insight Generation**: Explains complex auth systems, isolates component re-render roots, identifies blast radiuses for refactoring risk, produces implementation plans, and generates live markdown onboarding documentation.
