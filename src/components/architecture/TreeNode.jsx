@@ -44,6 +44,7 @@ export default function TreeNode({ node, selectedId, onSelect, expandedNodes, to
       {/* Node Row */}
       <div
         onClick={handleClick}
+        data-node-id={node.id}
         style={{
           display: "flex",
           alignItems: "center",
@@ -54,7 +55,8 @@ export default function TreeNode({ node, selectedId, onSelect, expandedNodes, to
           border: isSelected ? "1px solid #BFDBFE" : "1px solid transparent",
           transition: "background 0.12s, border-color 0.12s",
           gap: 6,
-          userSelect: "none"
+          userSelect: "none",
+          animation: isSelected ? "node-highlight-flash 0.8s ease-out" : "none",
         }}
         className={!isSelected && node.kind !== "category" ? "hover:bg-neutral-100/70" : ""}
       >

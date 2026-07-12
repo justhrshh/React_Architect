@@ -1,7 +1,100 @@
-import { ArrowLeft, Layers, ChevronRight, GitBranch, Search, Share2, Settings } from "lucide-react";
-import { INTER, SERIF } from "./constants";
+import { useState, useEffect, useRef, useMemo } from "react";
+import { ArrowLeft, Layers, ChevronRight, GitBranch, Search, Share2, Settings, X } from "lucide-react";
+import { INTER, SERIF, MONO } from "./constants";
 
-export default function TopBar({ nodeCount, projectName, handleBack, activeTab }) {
+export default function TopBar({ nodeCount, projectName, handleBack, activeTab, onSelectNode, knowledgeGraph }) {
+  const [searchQuery, setSearchQuery] = useState("");
+  const [debouncedQuery, setDebouncedQuery] = useState("");
+  const [isFocused, setIsFocused] = useState(false);
+  const searchRef = useRef(null);
+
+  useEffect(() => {
+    const handler = setTimeout(() => {
+      setDebouncedQuery(searchQuery);
+    }, 150);
+    return () => clearTimeout(handler);
+  }, [searchQuery]);
+
+  useEffect(() => {
+    function handleClickOutside(event) {
+      if (searchRef.current && !searchRef.current.contains(event.target)) {
+        setIsFocused(false);
+      }
+    }
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
+
+  const results = useMemo(() => {
+    if (!debouncedQuery || !knowledgeGraph?.nodes) return [];
+    const query = debouncedQuery.toLowerCase();
+
+    return knowledgeGraph.nodes.filter(node => {
+      if (node.subtype === "router" || (node.subtype === "gateway" && node.name.includes("Routes"))) {
+        return false;
+      }
+      const matchesName = node.name?.toLowerCase().includes(query);
+      const matchesFile = node.file?.toLowerCase().includes(query);
+      if (!matchesName && !matchesFile) return false;
+
+      if (node.kind === "component" ||
+          (node.kind === "state" && (node.subtype === "slice" || node.subtype === "store")) ||
+          (node.kind === "route" && node.subtype !== "router") ||
+          node.kind === "api") {
+        return true;
+      }
+      if (node.kind === "file" && (node.file.endsWith(".js") || node.file.endsWith(".ts") || node.file.endsWith(".jsx") || node.file.endsWith(".tsx"))) {
+        const hasRepresentation = knowledgeGraph.nodes.some(n =>
+          n.id !== node.id &&
+          n.file === node.file &&
+          (n.kind === "component" || n.kind === "state" || n.kind === "api")
+        );
+        return !hasRepresentation;
+      }
+      return false;
+    }).map(node => {
+      let typeLabel = "Component";
+      let iconColor = "#10B981";
+
+      if (node.kind === "component") {
+        if (node.subtype === "page") {
+          typeLabel = "Page";
+          iconColor = "#3B82F6";
+        } else if (node.subtype === "layout") {
+          typeLabel = "Layout";
+          iconColor = "#7C3AED";
+        } else if (node.subtype === "hook") {
+          typeLabel = "Hook";
+          iconColor = "#06B6D4";
+        } else if (node.subtype === "provider" || node.subtype === "context") {
+          typeLabel = "Context Provider";
+          iconColor = "#DB2777";
+        }
+      } else if (node.kind === "state") {
+        typeLabel = "Redux Slice";
+        iconColor = "#9B7AE8";
+      } else if (node.kind === "route") {
+        typeLabel = "Route";
+        iconColor = "#6366F1";
+      } else if (node.kind === "api") {
+        typeLabel = "API Service";
+        iconColor = "#F59E0B";
+      } else if (node.kind === "file") {
+        typeLabel = "Utility Module";
+        iconColor = "#6B7280";
+      }
+
+      const relativePath = node.file ? node.file.replace(/\\/g, "/") : "";
+      return {
+        id: node.id,
+        name: node.name,
+        typeLabel,
+        iconColor,
+        relativePath
+      };
+    }).slice(0, 30);
+  }, [debouncedQuery, knowledgeGraph]);
+
   const getSubTitle = () => {
     if (activeTab === "flow") {
       return "Architecture Flow — Automatically Generated Flow Chart";
@@ -114,6 +207,194 @@ export default function TopBar({ nodeCount, projectName, handleBack, activeTab }
 
       <div style={{ flex: 1 }} />
 
+      {/* Premium Search Bar */}
+      <div ref={searchRef} style={{ position: "relative", marginRight: 16 }}>
+        <div style={{
+          position: "relative",
+          display: "flex",
+          alignItems: "center",
+        }}>
+          <Search size={13} style={{ position: "absolute", left: 10, color: isFocused ? "#3B82F6" : "#9CA3AF", transition: "color 0.15s" }} />
+          <input
+            type="text"
+            placeholder="Search files, hooks, components..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            onFocus={() => setIsFocused(true)}
+            style={{
+              width: isFocused || searchQuery ? 250 : 160,
+              height: 32,
+              padding: "0 28px 0 30px",
+              fontSize: 11.5,
+              borderRadius: 8,
+              border: isFocused ? "1px solid #3B82F6" : "1px solid #E8EAED",
+              background: isFocused ? "#FFFFFF" : "#F3F4F6",
+              color: "#1F2937",
+              outline: "none",
+              fontFamily: INTER,
+              transition: "width 0.22s cubic-bezier(0.25, 1, 0.5, 1), border-color 0.15s, background 0.15s",
+            }}
+          />
+          {searchQuery && (
+            <button
+              onClick={() => setSearchQuery("")}
+              style={{
+                position: "absolute",
+                right: 8,
+                border: "none",
+                background: "transparent",
+                color: "#9CA3AF",
+                cursor: "pointer",
+                padding: 0,
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                width: 16,
+                height: 16,
+                borderRadius: "50%",
+              }}
+              className="hover:bg-neutral-200"
+            >
+              <X size={11} strokeWidth={2.5} />
+            </button>
+          )}
+        </div>
+
+        {/* Dropdown Results */}
+        {isFocused && searchQuery && (
+          <div style={{
+            position: "absolute",
+            top: "calc(100% + 6px)",
+            right: 0,
+            width: 380,
+            maxHeight: 320,
+            overflowY: "auto",
+            background: "#FFFFFF",
+            borderRadius: 12,
+            border: "1px solid #E5E7EB",
+            boxShadow: "0 12px 30px -4px rgba(0,0,0,0.12), 0 4px 12px -2px rgba(0,0,0,0.06)",
+            zIndex: 100,
+            padding: "6px 0",
+            display: "flex",
+            flexDirection: "column",
+          }}>
+            {results.length > 0 ? (
+              results.map((res) => (
+                <div
+                  key={res.id}
+                  onClick={() => {
+                    onSelectNode(res.id);
+                    setIsFocused(false);
+                    setSearchQuery("");
+                  }}
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    padding: "8px 14px",
+                    cursor: "pointer",
+                    gap: 10,
+                    transition: "background 0.1s",
+                  }}
+                  className="hover:bg-blue-50/50 group"
+                >
+                  {/* Semantic colored circle */}
+                  <div style={{
+                    width: 7,
+                    height: 7,
+                    borderRadius: "50%",
+                    background: res.iconColor,
+                    flexShrink: 0
+                  }} />
+
+                  {/* Name and path details */}
+                  <div style={{ display: "flex", flexDirection: "column", flex: 1, minWidth: 0 }}>
+                    <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8 }}>
+                      <span style={{
+                        fontSize: 12,
+                        fontWeight: 600,
+                        color: "#1F2937",
+                        fontFamily: MONO,
+                        overflow: "hidden",
+                        textOverflow: "ellipsis",
+                        whiteSpace: "nowrap"
+                      }}>
+                        {res.name}
+                      </span>
+                      <span style={{
+                        fontSize: 9,
+                        fontWeight: 700,
+                        textTransform: "uppercase",
+                        padding: "1.5px 5px",
+                        borderRadius: 4,
+                        background: "#F3F4F6",
+                        color: "#4B5563",
+                        fontFamily: INTER,
+                        letterSpacing: "0.02em",
+                        flexShrink: 0
+                      }}>
+                        {res.typeLabel}
+                      </span>
+                    </div>
+                    <span style={{
+                      fontSize: 10,
+                      color: "#9CA3AF",
+                      fontFamily: MONO,
+                      overflow: "hidden",
+                      textOverflow: "ellipsis",
+                      whiteSpace: "nowrap",
+                      marginTop: 2
+                    }} title={res.relativePath}>
+                      {res.relativePath}
+                    </span>
+                  </div>
+                </div>
+              ))
+            ) : (
+              /* Premium elegant empty state */
+              <div style={{
+                display: "flex",
+                flexDirection: "column",
+                alignItems: "center",
+                justifyContent: "center",
+                padding: "24px 16px",
+                textAlign: "center"
+              }}>
+                <div style={{
+                  width: 36,
+                  height: 36,
+                  borderRadius: "50%",
+                  background: "#F9FAFB",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  color: "#9CA3AF",
+                  marginBottom: 8
+                }}>
+                  <Search size={14} />
+                </div>
+                <span style={{
+                  fontSize: 12,
+                  fontWeight: 600,
+                  color: "#374151",
+                  fontFamily: INTER
+                }}>
+                  No results found
+                </span>
+                <span style={{
+                  fontSize: 10.5,
+                  color: "#9CA3AF",
+                  fontFamily: INTER,
+                  marginTop: 2,
+                  maxWidth: 240
+                }}>
+                  We couldn't find any architectural element matching "{searchQuery}"
+                </span>
+              </div>
+            )}
+          </div>
+        )}
+      </div>
+
       {/* Nesting Hierarchy Info Badge */}
       <div style={{
         display: "flex",
@@ -150,7 +431,6 @@ export default function TopBar({ nodeCount, projectName, handleBack, activeTab }
       {/* Actions */}
       <div style={{ display: "flex", alignItems: "center", gap: 1 }}>
         {[
-          { Icon: Search, label: "Search" },
           { Icon: Share2, label: "Share" },
           { Icon: Settings, label: "Settings" },
         ].map(({ Icon, label }) => (

@@ -3,6 +3,19 @@ import { motion } from "framer-motion";
 import { ChevronRight, AlertTriangle, ZoomIn, ZoomOut, Maximize } from "lucide-react";
 import { INTER, MONO } from "./constants";
 
+function findParentIds(nodesList, targetId, currentPath = []) {
+  for (const node of nodesList) {
+    if (node.id === targetId) {
+      return currentPath;
+    }
+    if (node.children && node.children.length > 0) {
+      const path = findParentIds(node.children, targetId, [...currentPath, node.id]);
+      if (path) return path;
+    }
+  }
+  return null;
+}
+
 // --- Zoom Button Helper ---
 function IconBtn({ onClick, title, children }) {
   return (
@@ -443,6 +456,44 @@ export default function FlowDiagram({ architectureModel, selectedId, onSelectNod
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [rootIdsKey]); // only on model change, not every expand
+
+  // Auto-expand parents in Flow diagram when selectedId changes
+  useEffect(() => {
+    if (selectedId && architectureModel.length > 0) {
+      const parentIds = findParentIds(architectureModel, selectedId);
+      if (parentIds && parentIds.length > 0) {
+        const timer = setTimeout(() => {
+          setFlowExpanded(prev => {
+            const next = { ...prev };
+            parentIds.forEach(id => {
+              next[id] = true;
+            });
+            return next;
+          });
+        }, 0);
+        return () => clearTimeout(timer);
+      }
+    }
+  }, [selectedId, architectureModel]);
+
+  // Center on selected node when selection changes
+  useEffect(() => {
+    if (selectedId && layoutNodes.length > 0) {
+      const selectedLayoutNode = layoutNodes.find(ln => ln.id === selectedId);
+      if (selectedLayoutNode && containerRef.current) {
+        const containerHeight = containerRef.current.clientHeight || 600;
+        
+        // Center coordinates of the node
+        const nodeCx = selectedLayoutNode.x + selectedLayoutNode.width / 2;
+        const nodeCy = selectedLayoutNode.y + selectedLayoutNode.height / 2;
+        
+        setPan({
+          x: -nodeCx,
+          y: -nodeCy + (containerHeight / 2) / zoom
+        });
+      }
+    }
+  }, [selectedId, layoutNodes, zoom]);
 
   // Pan handlers
   const handleMouseDown = useCallback((e) => {

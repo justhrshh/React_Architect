@@ -19,6 +19,19 @@ import { buildArchitectureModel } from "@/engines/adapters/architectureAdapter";
 import { calculateMaintainability } from "@/engines/analysis/modules/maintainability";
 import "@xyflow/react/dist/style.css";
 
+function findParentIds(nodesList, targetId, currentPath = []) {
+  for (const node of nodesList) {
+    if (node.id === targetId) {
+      return currentPath;
+    }
+    if (node.children && node.children.length > 0) {
+      const path = findParentIds(node.children, targetId, [...currentPath, node.id]);
+      if (path) return path;
+    }
+  }
+  return null;
+}
+
 // Extracted Subcomponents & Constants
 import { INTER, MONO, TYPE_CFG, findPathToNode } from "@/components/architecture/constants";
 import CustomNode from "@/components/architecture/CustomNode";
@@ -61,7 +74,14 @@ function ArchitectureFlow() {
 
   const [isGraphFullscreen, setIsGraphFullscreen] = useState(false);
 
-  const { fitView, zoomIn, zoomOut } = useReactFlow();
+  const { fitView, zoomIn, zoomOut, setCenter } = useReactFlow();
+
+  const handleSelectSearchNode = useCallback((id) => {
+    setSelectedId(id);
+    if (activeTab === "summary") {
+      setActiveTab("explore");
+    }
+  }, [activeTab, setSelectedId]);
 
   const handleToggleGraphFullscreen = useCallback(() => {
     setIsGraphFullscreen((prev) => {
@@ -179,6 +199,48 @@ function ArchitectureFlow() {
     }
   }, [architectureModel]);
 
+  // Auto-expand tree folders leading to selected node when selectedId changes
+  useEffect(() => {
+    if (selectedId && architectureModel.length > 0) {
+      const parentIds = findParentIds(architectureModel, selectedId);
+      if (parentIds && parentIds.length > 0) {
+        const timer = setTimeout(() => {
+          setExpandedNodes(prev => {
+            const next = { ...prev };
+            parentIds.forEach(id => {
+              next[id] = true;
+            });
+            return next;
+          });
+        }, 0);
+        return () => clearTimeout(timer);
+      }
+    }
+  }, [selectedId, architectureModel]);
+
+  // Smoothly scroll selected node into view in Explore tab
+  useEffect(() => {
+    if (selectedId && activeTab === "explore") {
+      const timer = setTimeout(() => {
+        const el = document.querySelector(`[data-node-id="${selectedId}"]`);
+        if (el) {
+          el.scrollIntoView({ behavior: "smooth", block: "nearest" });
+        }
+      }, 100);
+      return () => clearTimeout(timer);
+    }
+  }, [selectedId, activeTab]);
+
+  // Center React Flow viewport on selected node when in Graph tab
+  useEffect(() => {
+    if (selectedId && activeTab === "graph" && nodes.length > 0) {
+      const rfNode = nodes.find(n => n.id === selectedId);
+      if (rfNode) {
+        setCenter(rfNode.position.x + 112, rfNode.position.y + 55, { zoom: 1.1, duration: 450 });
+      }
+    }
+  }, [selectedId, activeTab, nodes, setCenter]);
+
   // Derive summary metrics
   const summaryMetrics = useMemo(() => {
     const componentCount = reduxNodes.length;
@@ -236,7 +298,20 @@ function ArchitectureFlow() {
       overflow: "hidden",
       fontFamily: INTER,
     }} className="page-fade">
-      <TopBar nodeCount={reduxNodes.length} projectName={selectedProject.name} handleBack={handleBack} activeTab={activeTab} />
+      <style>{`
+        @keyframes node-highlight-flash {
+          0% { background-color: #DBEAFE; transform: scale(1.03); box-shadow: 0 0 8px rgba(59, 130, 246, 0.4); }
+          100% { transform: scale(1); box-shadow: none; }
+        }
+      `}</style>
+      <TopBar 
+        nodeCount={reduxNodes.length} 
+        projectName={selectedProject.name} 
+        handleBack={handleBack} 
+        activeTab={activeTab} 
+        onSelectNode={handleSelectSearchNode}
+        knowledgeGraph={knowledgeGraph}
+      />
       
       {/* Perspectives tabs switching bar */}
       <div style={{
