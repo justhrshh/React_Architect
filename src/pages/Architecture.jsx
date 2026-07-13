@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useMemo } from "react";
+import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { useSelector, useDispatch } from "react-redux";
 import { useNavigate } from "react-router-dom";
 import { setActiveRoom } from "@/redux/slices/uiSlice";
@@ -42,6 +42,10 @@ function ArchitectureFlow() {
 
   // Tab Selection Switcher: "summary" | "explore" | "flow" | "graph"
   const [activeTab, setActiveTab] = useState("summary");
+  const [showInspector, setShowInspector] = useState(true);
+  const [isFlowFullscreen, setIsFlowFullscreen] = useState(false);
+  const flowRef = useRef(null);
+
 
   const validation = useMemo(() => {
     return knowledgeGraph?.validation || { errors: [], warnings: [], suggestions: [] };
@@ -54,19 +58,47 @@ function ArchitectureFlow() {
 
   const selectedId = useSelector((state) => state.graph.selectedNodeId);
 
+  const [highlightedIds, setHighlightedIds] = useState(new Set());
+
   const setSelectedId = useCallback((id) => {
     dispatch(selectNodeId(id));
   }, [dispatch]);
 
+  const handleSelectNode = useCallback((id) => {
+    dispatch(selectNodeId(id));
+    setHighlightedIds(new Set());
+  }, [dispatch]);
+
   const handleSelectSearchNode = useCallback((id) => {
-    setSelectedId(id);
+    handleSelectNode(id);
     if (activeTab === "summary") {
       setActiveTab("explore");
     }
-  }, [activeTab, setSelectedId]);
+  }, [activeTab, handleSelectNode]);
 
+  const handleHighlightParents = useCallback(() => {
+    if (!selectedId || !knowledgeGraph) return;
+    const parents = knowledgeGraph.edges
+      .filter(e => e.type === "RENDERS" && e.target === selectedId)
+      .map(e => e.source);
+    setHighlightedIds(new Set(parents));
+  }, [selectedId, knowledgeGraph]);
 
-  // Pre-select default page node
+  const handleHighlightChildren = useCallback(() => {
+    if (!selectedId || !knowledgeGraph) return;
+    const children = knowledgeGraph.edges
+      .filter(e => e.type === "RENDERS" && e.source === selectedId)
+      .map(e => e.target);
+    setHighlightedIds(new Set(children));
+  }, [selectedId, knowledgeGraph]);
+
+  const handleHighlightDependencies = useCallback(() => {
+    if (!selectedId || !knowledgeGraph) return;
+    const deps = knowledgeGraph.edges
+      .filter(e => e.source === selectedId || e.target === selectedId)
+      .map(e => e.source === selectedId ? e.target : e.source);
+    setHighlightedIds(new Set(deps));
+  }, [selectedId, knowledgeGraph]);
   useEffect(() => {
     if (reduxNodes.length > 0 && !selectedId) {
       const dashboardNode = reduxNodes.find(n => n.name.toLowerCase().includes("dashboard") || n.id.toLowerCase().includes("dashboard"));
@@ -85,10 +117,53 @@ function ArchitectureFlow() {
     return reduxFiles || [];
   }, [reduxFiles]);
 
-  const handleBack = () => {
+  const handleBack = useCallback(() => {
     dispatch(setActiveRoom("project-brain"));
     navigate("/workspace");
-  };
+  }, [dispatch, navigate]);
+
+  useEffect(() => {
+    const handleKeyDown = (e) => {
+      const isInput = document.activeElement.tagName === "INPUT" || document.activeElement.tagName === "TEXTAREA" || document.activeElement.isContentEditable;
+
+      if (e.key === "Tab") {
+        if (isInput) return;
+        e.preventDefault();
+        setShowInspector(prev => !prev);
+        return;
+      }
+
+      if ((e.ctrlKey || e.metaKey) && e.key === "f") {
+        e.preventDefault();
+        const searchInput = document.getElementById("architecture-search-input");
+        if (searchInput) {
+          searchInput.focus();
+        }
+        return;
+      }
+
+      if (isInput) return;
+
+      if (e.key.toLowerCase() === "f" && !e.ctrlKey && !e.metaKey && !e.altKey) {
+        e.preventDefault();
+        setActiveTab("flow");
+        setIsFlowFullscreen(prev => !prev);
+        return;
+      }
+
+      if (e.key === "Escape") {
+        e.preventDefault();
+        if (isFlowFullscreen) {
+          setIsFlowFullscreen(false);
+        } else {
+          handleBack();
+        }
+      }
+    };
+
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [selectedId, isFlowFullscreen, handleBack]);
 
   // Guard: if no project is active, redirect to Hub
   useEffect(() => {
@@ -219,6 +294,84 @@ function ArchitectureFlow() {
 
   if (!selectedProject) return null;
 
+  // Render skeletons if knowledge graph is not loaded yet
+  if (!knowledgeGraph) {
+    return (
+      <div style={{ display: "flex", flexDirection: "column", height: "100vh", width: "100vw", background: "#F8F9FB", padding: 40, boxSizing: "border-box" }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 30 }}>
+          <div className="animate-pulse bg-neutral-200 h-8 w-48 rounded-lg" />
+          <div className="animate-pulse bg-neutral-200 h-8 w-24 rounded-lg" />
+        </div>
+        <div className="grid grid-cols-3 gap-6 flex-1">
+          <div className="col-span-2 flex flex-col gap-6">
+            <div className="animate-pulse bg-white border border-neutral-100 rounded-2xl p-6 flex flex-col gap-4" style={{ height: 260 }}>
+              <div className="h-4 bg-neutral-200 rounded w-1/4" />
+              <div className="h-3 bg-neutral-100 rounded w-3/4" />
+              <div className="h-3 bg-neutral-100 rounded w-1/2" />
+            </div>
+            <div className="animate-pulse bg-white border border-neutral-100 rounded-2xl p-6 flex-1 flex flex-col gap-4">
+              <div className="h-4 bg-neutral-200 rounded w-1/5" />
+              <div className="h-3 bg-neutral-100 rounded w-1/2" />
+            </div>
+          </div>
+          <div className="animate-pulse bg-white border border-neutral-100 rounded-2xl p-6 flex flex-col gap-4">
+            <div className="h-4 bg-neutral-200 rounded w-1/3" />
+            <div className="h-3 bg-neutral-100 rounded w-full" />
+            <div className="h-3 bg-neutral-100 rounded w-1/2" />
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // Early return for Fullscreen Focus Mode for Flow perspective
+  if (isFlowFullscreen && activeTab === "flow") {
+    return (
+      <div style={{ width: "100vw", height: "100vh", position: "relative", overflow: "hidden", display: "flex", flexDirection: "column" }}>
+        <FlowDiagram
+          ref={flowRef}
+          architectureModel={architectureModel}
+          selectedId={selectedId}
+          onSelectNode={handleSelectNode}
+          highlightedIds={highlightedIds}
+        />
+        {/* Floating escape full-screen button */}
+        <button
+          onClick={() => setIsFlowFullscreen(false)}
+          style={{
+            position: "absolute",
+            top: 20,
+            left: 20,
+            zIndex: 100,
+            background: "#FFFFFF",
+            border: "1px solid #E8EAED",
+            borderRadius: 12,
+            padding: "8px 16px",
+            boxShadow: "0 4px 12px rgba(0,0,0,0.08)",
+            color: "#374151",
+            fontFamily: INTER,
+            fontSize: 12,
+            fontWeight: 600,
+            cursor: "pointer",
+            display: "flex",
+            alignItems: "center",
+            gap: 6
+          }}
+          className="hover:bg-neutral-50"
+        >
+          <span>Exit Focus Mode</span>
+          <span style={{ fontSize: 10, color: "#9CA3AF", background: "#F3F4F6", padding: "1px 4px", borderRadius: 4, fontFamily: MONO }}>Esc</span>
+        </button>
+      </div>
+    );
+  }
+
+  const handleExport = (type) => {
+    if (flowRef.current) {
+      flowRef.current.exportModel(type);
+    }
+  };
+
   return (
     <div style={{
       display: "flex",
@@ -243,48 +396,83 @@ function ArchitectureFlow() {
         knowledgeGraph={knowledgeGraph}
       />
       
-      {/* Perspectives tabs switching bar */}
+      {/* Perspectives tabs switching bar with inline exports */}
       <div style={{
         display: "flex",
         background: "#FFFFFF",
         borderBottom: "1px solid #E8EAED",
         padding: "0 24px",
-        gap: 28,
         height: 40,
         alignItems: "center",
         flexShrink: 0,
         zIndex: 10,
-        boxShadow: "0 1px 2px rgba(0,0,0,0.02)"
+        boxShadow: "0 1px 2px rgba(0,0,0,0.02)",
+        justifyContent: "space-between"
       }}>
-        {[
-          { id: "summary", label: "Summary", desc: "Overall Health Diagnostics" },
-          { id: "explore", label: "Explore", desc: "Component Traversal Tree" },
-          { id: "flow",    label: "Flow",    desc: "Architecture Flow Diagram" }
-        ].map((tab) => {
-          const isActive = activeTab === tab.id;
-          return (
-            <button
-              key={tab.id}
-              onClick={() => setActiveTab(tab.id)}
-              style={{
-                background: "transparent",
-                border: "none",
-                borderBottom: isActive ? "2px solid #3B82F6" : "2px solid transparent",
-                color: isActive ? "#2563EB" : "#6B7280",
-                fontSize: 12,
-                fontWeight: isActive ? 600 : 500,
-                padding: "10px 4px 8px",
-                cursor: "pointer",
-                transition: "color 0.15s, border-color 0.15s",
-                fontFamily: INTER,
-              }}
-              onMouseEnter={e => { if (!isActive) e.currentTarget.style.color = "#111827"; }}
-              onMouseLeave={e => { if (!isActive) e.currentTarget.style.color = "#6B7280"; }}
-            >
-              {tab.label}
-            </button>
-          );
-        })}
+        <div style={{ display: "flex", gap: 28, height: "100%", alignItems: "center" }}>
+          {[
+            { id: "summary", label: "Summary", desc: "Overall Health Diagnostics" },
+            { id: "explore", label: "Explore", desc: "Component Traversal Tree" },
+            { id: "flow",    label: "Flow",    desc: "Architecture Flow Diagram" }
+          ].map((tab) => {
+            const isActive = activeTab === tab.id;
+            return (
+              <button
+                key={tab.id}
+                onClick={() => {
+                  setActiveTab(tab.id);
+                  setIsFlowFullscreen(false); // Reset focus mode when switching tabs
+                }}
+                style={{
+                  background: "transparent",
+                  border: "none",
+                  borderBottom: isActive ? "2px solid #3B82F6" : "2px solid transparent",
+                  color: isActive ? "#2563EB" : "#6B7280",
+                  fontSize: 12,
+                  fontWeight: isActive ? 600 : 500,
+                  padding: "10px 4px 8px",
+                  cursor: "pointer",
+                  transition: "color 0.15s, border-color 0.15s",
+                  fontFamily: INTER,
+                  height: "100%"
+                }}
+                onMouseEnter={e => { if (!isActive) e.currentTarget.style.color = "#111827"; }}
+                onMouseLeave={e => { if (!isActive) e.currentTarget.style.color = "#6B7280"; }}
+              >
+                {tab.label}
+              </button>
+            );
+          })}
+        </div>
+
+        {/* Export options row */}
+        {activeTab === "flow" && (
+          <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+            <span style={{ fontSize: 9.5, fontWeight: 700, color: "#9CA3AF", fontFamily: INTER, textTransform: "uppercase", letterSpacing: "0.04em", marginRight: 2 }}>Export:</span>
+            {['SVG', 'PNG', 'PDF'].map((type) => (
+              <button
+                key={type}
+                onClick={() => handleExport(type)}
+                style={{
+                  background: "#F9FAFB",
+                  border: "1px solid #E5E7EB",
+                  borderRadius: 6,
+                  padding: "2px 8px",
+                  fontSize: 10,
+                  fontWeight: 600,
+                  fontFamily: INTER,
+                  color: "#4B5563",
+                  cursor: "pointer",
+                  transition: "all 0.15s",
+                }}
+                className="hover:bg-neutral-100 hover:text-neutral-900 active:bg-neutral-200"
+              >
+                {type}
+              </button>
+            ))}
+
+          </div>
+        )}
       </div>
 
       <div style={{ display: "flex", flex: 1, overflow: "hidden" }}>
@@ -305,7 +493,7 @@ function ArchitectureFlow() {
                       key={f}
                       onClick={() => {
                         if (matchingNode) {
-                          setSelectedId(matchingNode.id);
+                          handleSelectNode(matchingNode.id);
                         }
                       }}
                       className={`flex items-center gap-2 px-3 py-1.5 rounded-lg border transition-all duration-150 ${
@@ -340,7 +528,7 @@ function ArchitectureFlow() {
                       <div
                         key={`err-${i}`}
                         onClick={() => {
-                          if (matchingNode) setSelectedId(matchingNode.id);
+                          if (matchingNode) handleSelectNode(matchingNode.id);
                         }}
                         className={`p-2.5 rounded-xl border border-red-100 bg-red-50/40 text-red-800 text-[11px] leading-normal flex flex-col gap-1 transition-all duration-150 ${
                           matchingNode ? "cursor-pointer hover:bg-red-50 hover:border-red-200" : ""
@@ -365,7 +553,7 @@ function ArchitectureFlow() {
                       <div
                         key={`warn-${i}`}
                         onClick={() => {
-                          if (matchingNode) setSelectedId(matchingNode.id);
+                          if (matchingNode) handleSelectNode(matchingNode.id);
                         }}
                         className={`p-2.5 rounded-xl border border-amber-100 bg-amber-50/40 text-amber-800 text-[11px] leading-normal flex flex-col gap-1 transition-all duration-150 ${
                           matchingNode ? "cursor-pointer hover:bg-amber-50 hover:border-amber-200" : ""
@@ -602,7 +790,7 @@ function ArchitectureFlow() {
                         <div key={crumb.id} style={{ display: "flex", alignItems: "center", gap: 6 }}>
                           {idx > 0 && <ChevronRight size={10} color="#D1D5DB" strokeWidth={2.5} />}
                           <span
-                            onClick={() => setSelectedId(crumb.id)}
+                            onClick={() => handleSelectNode(crumb.id)}
                             style={{
                               fontSize: 11.5,
                               fontFamily: MONO,
@@ -643,7 +831,7 @@ function ArchitectureFlow() {
                       key={rootNode.id}
                       node={rootNode}
                       selectedId={selectedId}
-                      onSelect={setSelectedId}
+                      onSelect={handleSelectNode}
                       expandedNodes={expandedNodes}
                       toggleExpand={toggleExpand}
                     />
@@ -657,9 +845,11 @@ function ArchitectureFlow() {
           {/* TAB 3: FLOW VIEW */}
           {activeTab === "flow" && (
             <FlowDiagram
+              ref={flowRef}
               architectureModel={architectureModel}
               selectedId={selectedId}
-              onSelectNode={setSelectedId}
+              onSelectNode={handleSelectNode}
+              highlightedIds={highlightedIds}
             />
           )}
 
@@ -668,7 +858,18 @@ function ArchitectureFlow() {
         </main>
 
         {/* Right Inspector Panel */}
-        <InspectorPanel nodes={reduxNodes} node={selectedNode} treeNode={treeNode} onNavigate={setSelectedId} knowledgeGraph={knowledgeGraph} />
+        {showInspector && (
+          <InspectorPanel
+            nodes={reduxNodes}
+            node={selectedNode}
+            treeNode={treeNode}
+            onNavigate={handleSelectNode}
+            knowledgeGraph={knowledgeGraph}
+            onHighlightParents={handleHighlightParents}
+            onHighlightChildren={handleHighlightChildren}
+            onHighlightDependencies={handleHighlightDependencies}
+          />
+        )}
       </div>
     </div>
   );

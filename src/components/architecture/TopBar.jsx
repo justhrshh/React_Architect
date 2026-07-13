@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useMemo } from "react";
-import { ArrowLeft, Layers, ChevronRight, GitBranch, Search, Share2, Settings, X } from "lucide-react";
+import { ArrowLeft, Layers, ChevronRight, GitBranch, Search, X } from "lucide-react";
 import { INTER, SERIF, MONO } from "./constants";
 
 export default function TopBar({ nodeCount, projectName, handleBack, activeTab, onSelectNode, knowledgeGraph }) {
@@ -216,6 +216,7 @@ export default function TopBar({ nodeCount, projectName, handleBack, activeTab, 
         }}>
           <Search size={13} style={{ position: "absolute", left: 10, color: isFocused ? "#3B82F6" : "#9CA3AF", transition: "color 0.15s" }} />
           <input
+            id="architecture-search-input"
             type="text"
             placeholder="Search files, hooks, components..."
             value={searchQuery}
@@ -428,41 +429,7 @@ export default function TopBar({ nodeCount, projectName, handleBack, activeTab, 
         </span>
       </div>
 
-      {/* Actions */}
-      <div style={{ display: "flex", alignItems: "center", gap: 1 }}>
-        {[
-          { Icon: Share2, label: "Share" },
-          { Icon: Settings, label: "Settings" },
-        ].map(({ Icon, label }) => (
-          <button
-            key={label}
-            title={label}
-            style={{
-              width: 32,
-              height: 32,
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              borderRadius: 7,
-              background: "transparent",
-              border: "none",
-              color: "#B8BEC9",
-              cursor: "pointer",
-              transition: "background 0.14s, color 0.14s",
-            }}
-            onMouseEnter={e => {
-              e.currentTarget.style.background = "#F3F4F6";
-              e.currentTarget.style.color = "#374151";
-            }}
-            onMouseLeave={e => {
-              e.currentTarget.style.background = "transparent";
-              e.currentTarget.style.color = "#B8BEC9";
-            }}
-          >
-            <Icon size={14} />
-          </button>
-        ))}
-      </div>
+
     </header>
   );
 }

@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useMemo, useRef } from "react";
+import { useState, useEffect, useCallback, useMemo, useRef, forwardRef, useImperativeHandle } from "react";
 import { motion } from "framer-motion";
 import { ChevronRight, AlertTriangle, ZoomIn, ZoomOut, Maximize } from "lucide-react";
 import { INTER, MONO } from "./constants";
@@ -170,7 +170,7 @@ function computeFlowLayout(roots, expandedSet) {
 }
 
 // --- Flow Node Component ---
-function FlowNodeCard({ ln, isSelected, onSelect, onToggle, isExpanded, hasChildren }) {
+function FlowNodeCard({ ln, isSelected, isHighlighted, onSelect, onToggle, isExpanded, hasChildren }) {
   const { node, colorCfg } = ln;
   const isCategory = node.kind === "category";
 
@@ -238,9 +238,20 @@ function FlowNodeCard({ ln, isSelected, onSelect, onToggle, isExpanded, hasChild
         opacity: 1, y: 0, scale: 1,
         boxShadow: isSelected
           ? `0 0 0 2px ${colorCfg.accent}, 0 4px 16px ${colorCfg.accent}20`
+          : isHighlighted
+          ? `0 0 0 2px #3B82F6, 0 4px 16px rgba(59, 130, 246, 0.25)`
           : "0 1px 3px rgba(0,0,0,0.05), 0 0 0 1px " + colorCfg.border,
       }}
-      transition={{ duration: 0.35, ease: [0.22, 1, 0.36, 1] }}
+      whileHover={{
+        y: -3,
+        scale: 1.025,
+        boxShadow: isSelected
+          ? `0 0 0 2px ${colorCfg.accent}, 0 8px 24px ${colorCfg.accent}30`
+          : isHighlighted
+          ? `0 0 0 2px #3B82F6, 0 8px 24px rgba(59, 130, 246, 0.35)`
+          : "0 4px 12px rgba(0,0,0,0.08), 0 0 0 1px " + colorCfg.accent
+      }}
+      transition={{ duration: 0.22, ease: [0.25, 1, 0.5, 1] }}
       onClick={(e) => { e.stopPropagation(); onSelect(node.id); }}
       style={{
         position: "absolute",
@@ -389,7 +400,7 @@ function filterUiOnly(nodes) {
     });
 }
 
-export default function FlowDiagram({ architectureModel, selectedId, onSelectNode }) {
+const FlowDiagram = forwardRef(({ architectureModel, selectedId, onSelectNode, highlightedIds }, ref) => {
   const [flowExpanded, setFlowExpanded] = useState({});
   const [pan, setPan] = useState({ x: 0, y: 0 });
   const [zoom, setZoom] = useState(1);
@@ -495,6 +506,163 @@ export default function FlowDiagram({ architectureModel, selectedId, onSelectNod
     }
   }, [selectedId, layoutNodes, zoom]);
 
+  // Container size tracking for Minimap viewport bounds
+  const [containerSize, setContainerSize] = useState({ width: 800, height: 600 });
+  useEffect(() => {
+    const el = containerRef.current;
+    if (!el) return;
+    const updateSize = () => {
+      setContainerSize({ width: el.clientWidth || 800, height: el.clientHeight || 600 });
+    };
+    updateSize();
+    const observer = new ResizeObserver(updateSize);
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, []);
+
+  // Compute live visible viewport rectangle in canvas coordinates
+  const viewportRect = useMemo(() => {
+    const { width, height } = containerSize;
+    const visibleMinX = -width / 2 / zoom - pan.x;
+    const visibleMaxX = (width - width / 2) / zoom - pan.x;
+    const visibleMinY = -pan.y;
+    const visibleMaxY = height / zoom - pan.y;
+    return { x1: visibleMinX, y1: visibleMinY, x2: visibleMaxX, y2: visibleMaxY };
+  }, [containerSize, pan, zoom]);
+
+  // Compute scaling parameters for rendering nodes in 144x94 minimap bounds
+  const minimapParams = useMemo(() => {
+    const pad = 30;
+    const minX = bounds.minX - pad;
+    const minY = bounds.minY - pad;
+    const maxX = bounds.maxX + pad;
+    const maxY = bounds.maxY + pad;
+    const w = maxX - minX;
+    const h = maxY - minY;
+    const mw = 144;
+    const mh = 94;
+    const scale = Math.min(mw / w, mh / h);
+    return { minX, minY, scale, w, h };
+  }, [bounds]);
+
+
+  // Synchronous Imperative Exporter to bypass browser popup blockers and download constraints
+  useImperativeHandle(ref, () => ({
+    exportModel(type) {
+
+
+      const w = bounds.maxX - bounds.minX;
+      const h = bounds.maxY - bounds.minY;
+      
+      let svgXml = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="${bounds.minX} ${bounds.minY} ${w} ${h}" width="${w}" height="${h}">`;
+      svgXml += `<rect x="${bounds.minX}" y="${bounds.minY}" width="${w}" height="${h}" fill="#F8F9FB"/>`;
+      
+      // grid lines pattern
+      svgXml += `<defs>
+        <pattern id="grid-pattern-export" width="20" height="20" patternUnits="userSpaceOnUse">
+          <path d="M 20 0 L 0 0 0 20" fill="none" stroke="#E5E7EB" stroke-width="0.5" opacity="0.3"/>
+        </pattern>
+      </defs>`;
+      svgXml += `<rect x="${bounds.minX}" y="${bounds.minY}" width="${w}" height="${h}" fill="url(#grid-pattern-export)"/>`;
+
+      // Draw SVG connection lines with absolute coordinate paths
+      connections.forEach(conn => {
+        const x1 = conn.fromX;
+        const y1 = conn.fromY;
+        const x2 = conn.toX;
+        const y2 = conn.toY;
+        const midY = (y1 + y2) / 2;
+        const isHigh = selectedId && (conn.fromId === selectedId || conn.toId === selectedId || (highlightedIds?.has(conn.fromId) && highlightedIds?.has(conn.toId)));
+
+        svgXml += `<path d="M ${x1} ${y1} C ${x1} ${midY}, ${x2} ${midY}, ${x2} ${y2}" fill="none" stroke="${isHigh ? '#3B82F6' : '#D1D5DB'}" stroke-width="${isHigh ? 2.0 : 1.2}" stroke-opacity="${isHigh ? 0.95 : 0.35}" stroke-dasharray="${conn.style === 'dashed' ? '4,4' : 'none'}"/>`;
+      });
+
+      // Draw HTML components node cards transformed to SVG graphics
+      layoutNodes.forEach(ln => {
+        if (ln.node.kind === "category") {
+          svgXml += `<text x="${ln.x + ln.width / 2}" y="${ln.y + ln.height / 2 + 3}" font-family="monospace, sans-serif" font-size="9" fill="#9CA3AF" text-anchor="middle" font-weight="600" letter-spacing="1.5">${ln.node.name.toUpperCase()}</text>`;
+        } else {
+          const color = ln.colorCfg?.accent || "#3B82F6";
+          const border = ln.colorCfg?.border || "#E5E7EB";
+          svgXml += `<g>`;
+          // card outline
+          svgXml += `<rect x="${ln.x}" y="${ln.y}" width="${ln.width}" height="${ln.height}" rx="10" fill="#FFFFFF" stroke="${border}" stroke-width="1"/>`;
+          // left category colored tag
+          svgXml += `<rect x="${ln.x}" y="${ln.y + 8}" width="3" height="${ln.height - 16}" rx="1.5" fill="${color}"/>`;
+          // component name text
+          svgXml += `<text x="${ln.x + 12}" y="${ln.y + 24}" font-family="sans-serif" font-size="11" font-weight="bold" fill="#111827">${ln.node.name}</text>`;
+          // role label
+          const label = ln.node.subtype ? ln.node.subtype.charAt(0).toUpperCase() + ln.node.subtype.slice(1) : "Component";
+          svgXml += `<text x="${ln.x + 12}" y="${ln.y + 38}" font-family="sans-serif" font-size="9" fill="#9CA3AF">${label}</text>`;
+          svgXml += `</g>`;
+        }
+      });
+      svgXml += `</svg>`;
+
+      if (type === "SVG") {
+        const dataStr = "data:image/svg+xml;charset=utf-8," + encodeURIComponent(svgXml);
+        const dl = document.createElement("a");
+        dl.setAttribute("href", dataStr);
+        dl.setAttribute("download", "architecture_flow.svg");
+        document.body.appendChild(dl);
+        dl.click();
+        dl.remove();
+      } else if (type === "PNG") {
+        const img = new Image();
+        img.crossOrigin = "anonymous";
+        img.src = "data:image/svg+xml;charset=utf-8," + encodeURIComponent(svgXml);
+        img.onload = () => {
+          const canvas = document.createElement("canvas");
+          canvas.width = w * 2;
+          canvas.height = h * 2;
+          const ctx = canvas.getContext("2d");
+          ctx.scale(2, 2);
+          ctx.drawImage(img, 0, 0);
+          try {
+            const pngUrl = canvas.toDataURL("image/png");
+            const dl = document.createElement("a");
+            dl.setAttribute("href", pngUrl);
+            dl.setAttribute("download", "architecture_flow.png");
+            document.body.appendChild(dl);
+            dl.click();
+            dl.remove();
+          } catch (err) {
+            console.error("Failed PNG canvas download", err);
+          }
+        };
+      } else if (type === "PDF") {
+        const printWindow = window.open("", "_blank");
+        if (printWindow) {
+          printWindow.document.write(`
+            <html>
+              <head>
+                <title>Architecture Flow Diagram</title>
+                <style>
+                  body { margin: 30px; display: flex; align-items: center; justify-content: center; background: white; }
+                  svg { width: 100%; height: auto; max-height: 95vh; }
+                </style>
+              </head>
+              <body>
+                ${svgXml}
+                <script>
+                  window.onload = () => {
+                    setTimeout(() => {
+                      window.print();
+                      window.close();
+                    }, 300);
+                  };
+                </script>
+              </body>
+            </html>
+          `);
+          printWindow.document.close();
+        } else {
+          alert("Popup blocker prevented exporting PDF. Please allow popups for this site.");
+        }
+      }
+    }
+  }));
+
   // Pan handlers
   const handleMouseDown = useCallback((e) => {
     if (e.button === 0) {
@@ -578,17 +746,20 @@ export default function FlowDiagram({ architectureModel, selectedId, onSelectNod
             const y2 = conn.toY - bounds.minY;
             const midY = (y1 + y2) / 2;
 
+            const isHigh = selectedId && (conn.fromId === selectedId || conn.toId === selectedId || (highlightedIds?.has(conn.fromId) && highlightedIds?.has(conn.toId)));
+
             return (
               <motion.path
                 key={`${conn.fromId}-${conn.toId}-${i}`}
                 d={`M ${x1} ${y1} C ${x1} ${midY}, ${x2} ${midY}, ${x2} ${y2}`}
                 fill="none"
-                stroke={conn.colorCfg.accent}
-                strokeWidth={1.2}
-                strokeOpacity={0.3}
+                stroke={isHigh ? "#3B82F6" : conn.colorCfg.accent}
+                strokeWidth={isHigh ? 2.0 : 1.2}
+                strokeOpacity={isHigh ? 0.95 : 0.35}
+                style={isHigh ? { strokeDasharray: "6,4" } : {}}
                 initial={{ pathLength: 0, opacity: 0 }}
-                animate={{ pathLength: 1, opacity: 1 }}
-                transition={{ duration: 0.5, delay: i * 0.02, ease: "easeOut" }}
+                animate={isHigh ? { strokeDashoffset: [0, -20], pathLength: 1, opacity: 1 } : { pathLength: 1, opacity: 0.35 }}
+                transition={isHigh ? { strokeDashoffset: { repeat: Infinity, duration: 1.2, ease: "linear" } } : { duration: 0.5, delay: i * 0.02, ease: "easeOut" }}
               />
             );
           })}
@@ -600,11 +771,60 @@ export default function FlowDiagram({ architectureModel, selectedId, onSelectNod
             key={ln.layoutId}
             ln={ln}
             isSelected={selectedId === ln.id}
+            isHighlighted={highlightedIds?.has(ln.id)}
             onSelect={onSelectNode}
             onToggle={toggleFlowExpand}
             isExpanded={!!flowExpanded[ln.id]}
             hasChildren={ln.node.children && ln.node.children.length > 0}
           />
+        ))}
+      </div>
+
+      {/* Keyboard Shortcuts HUD Cheat Sheet */}
+      <div
+        style={{
+          position: "absolute",
+          bottom: 72,
+          left: 20,
+          display: "flex",
+          flexDirection: "column",
+          gap: 6,
+          background: "rgba(255, 255, 255, 0.88)",
+          backdropFilter: "blur(10px)",
+          border: "1px solid #E8EAED",
+          borderRadius: 12,
+          padding: "10px 12px",
+          boxShadow: "0 4px 16px rgba(0,0,0,0.06)",
+          zIndex: 10,
+          width: 172,
+          boxSizing: "border-box"
+        }}
+      >
+        <span style={{ fontSize: 8.5, fontWeight: 700, color: "#9CA3AF", textTransform: "uppercase", letterSpacing: "0.06em", fontFamily: INTER, marginBottom: 2 }}>
+          Shortcuts
+        </span>
+        {[
+          { keys: "Ctrl+F", desc: "Search focus" },
+          { keys: "F", desc: "Fullscreen chart" },
+          { keys: "Esc", desc: "Exit focus / Back" },
+          { keys: "Tab", desc: "Toggle inspector" },
+        ].map((item, index) => (
+          <div key={index} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8 }}>
+            <span style={{ fontSize: 9.5, color: "#4B5563", fontFamily: INTER }}>{item.desc}</span>
+            <kbd style={{
+              fontSize: 8.5,
+              fontFamily: MONO,
+              color: "#374151",
+              background: "#F3F4F6",
+              border: "1px solid #E5E7EB",
+              borderRadius: 4,
+              padding: "1px 4px",
+              boxShadow: "0 1px 0 rgba(0,0,0,0.05)",
+              flexShrink: 0
+            }}>
+              {item.keys}
+            </kbd>
+          </div>
         ))}
       </div>
 
@@ -657,7 +877,7 @@ export default function FlowDiagram({ architectureModel, selectedId, onSelectNod
         style={{
           position: "absolute",
           bottom: 20,
-          right: 20,
+          left: 190,
           display: "flex",
           alignItems: "center",
           gap: 12,
@@ -684,6 +904,108 @@ export default function FlowDiagram({ architectureModel, selectedId, onSelectNod
         ))}
       </div>
 
+      {/* Minimap Widget */}
+      <div
+        style={{
+          position: "absolute",
+          bottom: 20,
+          right: 20,
+          width: 160,
+          height: 110,
+          background: "rgba(255, 255, 255, 0.9)",
+          backdropFilter: "blur(8px)",
+          border: "1px solid #E8EAED",
+          borderRadius: 12,
+          boxShadow: "0 4px 12px rgba(0,0,0,0.08)",
+          padding: 8,
+          zIndex: 10,
+          userSelect: "none",
+          overflow: "hidden",
+          cursor: "crosshair",
+          boxSizing: "border-box"
+        }}
+        onMouseDown={(e) => {
+          e.stopPropagation();
+          const handleMinimapInteraction = (ev) => {
+            const rect = e.currentTarget.getBoundingClientRect();
+            const rx = ev.clientX - rect.left;
+            const ry = ev.clientY - rect.top;
+            const cx = (rx - 10) / minimapParams.scale + minimapParams.minX;
+            const cy = (ry - 10) / minimapParams.scale + minimapParams.minY;
+            setPan({
+              x: -cx,
+              y: -cy + (containerSize.height / 2) / zoom
+            });
+          };
+          handleMinimapInteraction(e);
+          
+          const onMouseMove = (ev) => {
+            handleMinimapInteraction(ev);
+          };
+          const onMouseUp = () => {
+            window.removeEventListener("mousemove", onMouseMove);
+            window.removeEventListener("mouseup", onMouseUp);
+          };
+          window.addEventListener("mousemove", onMouseMove);
+          window.addEventListener("mouseup", onMouseUp);
+        }}
+      >
+        <span style={{ position: "absolute", top: 6, left: 8, fontSize: 7.5, fontWeight: 700, color: "#9CA3AF", textTransform: "uppercase", letterSpacing: "0.05em", fontFamily: INTER }}>
+          Minimap
+        </span>
+        <svg
+          width={144}
+          height={94}
+          style={{ marginTop: 12 }}
+        >
+          {/* Sibling node rectangles */}
+          {layoutNodes.map(ln => {
+            const mx = (ln.x - minimapParams.minX) * minimapParams.scale + 10;
+            const my = (ln.y - minimapParams.minY) * minimapParams.scale + 10;
+            const mw = ln.width * minimapParams.scale;
+            const mh = ln.height * minimapParams.scale;
+            const color = ln.node.kind === "category" ? "transparent" : (ln.colorCfg?.accent || "#3B82F6");
+            if (ln.node.kind === "category") return null;
+            return (
+              <rect
+                key={ln.layoutId}
+                x={mx}
+                y={my}
+                width={Math.max(3, mw)}
+                height={Math.max(2, mh)}
+                fill={color}
+                rx={0.5}
+                opacity={0.6}
+              />
+            );
+          })}
+          {/* Active viewport guide */}
+          {(() => {
+            const vx1 = (viewportRect.x1 - minimapParams.minX) * minimapParams.scale + 10;
+            const vy1 = (viewportRect.y1 - minimapParams.minY) * minimapParams.scale + 10;
+            const vx2 = (viewportRect.x2 - minimapParams.minX) * minimapParams.scale + 10;
+            const vy2 = (viewportRect.y2 - minimapParams.minY) * minimapParams.scale + 10;
+            
+            const x = Math.max(0, Math.min(144, vx1));
+            const y = Math.max(0, Math.min(94, vy1));
+            const w = Math.max(5, Math.min(144, vx2) - x);
+            const h = Math.max(5, Math.min(94, vy2) - y);
+            return (
+              <rect
+                x={x}
+                y={y}
+                width={w}
+                height={h}
+                fill="rgba(59, 130, 246, 0.08)"
+                stroke="#3B82F6"
+                strokeWidth={1}
+                rx={1.5}
+              />
+            );
+          })()}
+        </svg>
+      </div>
+
       {/* Expand hint */}
       <div
         style={{
@@ -704,4 +1026,6 @@ export default function FlowDiagram({ architectureModel, selectedId, onSelectNod
       </div>
     </div>
   );
-}
+});
+
+export default FlowDiagram;
