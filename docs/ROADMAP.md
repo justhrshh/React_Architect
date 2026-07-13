@@ -13,6 +13,25 @@ Trace milestones and sprints for the React Architect workspace platform.
 - Added a lightweight Node test harness covering parser extraction, import resolution, Knowledge Graph creation, analysis, and impact analysis.
 - Updated changelog documentation for Sprint 11 completion.
 
+### Sprint 11.3: Graph Focus Mode
+- Added isolated neighborhood Focus Mode — selecting a node fades all unrelated nodes and highlights only the selected component and its directly connected peers.
+- Introduced Relationship Toggles (Parents, Children, Imports, Hooks, State, APIs, Routes) to dynamically expand or contract the visible neighborhood.
+- Derived sub-graph rendering computed on-demand without mutating the underlying Knowledge Graph.
+
+### Sprint 11.4: Inspector Panel Redesign & Quick Actions
+- Redesigned the inspector into independently collapsible accordion sections: Overview, Health, Hierarchy, Hooks, State, APIs, and Impact Analysis.
+- Added Quick Actions toolbar with Open in Editor (Vite middleware), Highlight Related Nodes, and Explain with AI (reserved slot).
+- Smooth height transitions and context-sensitive default open sections per node type.
+
+### Sprint 11.5: Professional Productivity Features
+- Added SVG, PNG (2×), and PDF canvas exporters implemented via `forwardRef`/`useImperativeHandle` to bypass browser popup blockers.
+- Embedded floating glassmorphic Keyboard Shortcuts HUD showing `Ctrl+F`, `F`, `Esc`, `Tab` bindings.
+- Added Viewport Minimap HUD with real-time sync viewport box, click-to-pan, and drag navigation.
+- Animated bezier edge curves, node hover lift transforms, skeleton loaders, and refined micro-interactions.
+- Removed unused Share and Settings header buttons.
+- Fixed fullscreen black screen (missing flex layout on wrapper) and export coordinate accuracy.
+
+
 ### Sprint 1 - 3: Baseline R3F Architecture
 - Setup 3D blueprint void environment, lights, star particles, and camera orbit controls.
 - Created central Project Brain platform.

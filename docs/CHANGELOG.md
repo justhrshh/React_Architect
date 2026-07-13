@@ -574,3 +574,89 @@ Sprint 11 Complete.
 React Architect now has a visible refactor-risk surface in Architecture Studio, a lightweight engine verification suite, route-level code splitting, and improved ESM portability.
 
 ---
+
+# v8.2 — Graph Focus Mode (Sprint 11.3)
+
+## Added
+
+### Isolated Neighborhood Focus
+* Added a **Focus Mode** to the Architecture Flow view — selecting a node fades all unrelated nodes to near-transparent, leaving only the selected component and its directly connected peers fully visible.
+* Introduced a **Relationship Toggles** toolbar panel with independent toggles for: Parents, Children, Imports, Hooks, State, APIs, and Routes — each filter dynamically expands or contracts the visible neighborhood in real time.
+* Derived neighborhood sub-graph rendering is computed on-demand from the existing Architecture Model without mutating the underlying Knowledge Graph.
+
+## Status
+
+Sprint 11.3 Complete.
+Architecture Studio now supports targeted investigation through isolated graph neighborhoods, making large component graphs navigable without visual clutter.
+
+---
+
+# v8.3 — Inspector Panel Redesign & Quick Actions (Sprint 11.4)
+
+## Added
+
+### Collapsible Inspector Accordion
+* Redesigned the Architecture Studio inspector into independently collapsible accordion sections: **Overview**, **Health & Maintainability**, **Component Hierarchy**, **Hooks**, **State**, **APIs**, and **Impact Analysis**.
+* Each section opens and closes independently with smooth height transitions, letting developers focus on exactly the information they need.
+* Default open sections are contextually determined by the selected node type — components with hooks expand the Hooks section, state-connected nodes expand the State section, etc.
+
+### Quick Actions Toolbar
+* Added a **Quick Actions** row to the inspector header with three actions:
+  - **Open in Editor** — fires the Vite dev server middleware endpoint (`/__open-in-editor?file=…`) to jump directly to the component file in the local IDE.
+  - **Highlight Parents / Children / Dependencies** — toggles graph highlighting for related nodes without locking full focus mode.
+  - **Explain with AI** — reserved action slot wired to future Investigation Studio integration.
+
+## Status
+
+Sprint 11.4 Complete.
+The Architecture Studio inspector is now a structured, scannable workspace panel rather than a vertical wall of information.
+
+---
+
+# v8.4 — Professional Productivity Features (Sprint 11.5)
+
+## Added
+
+### Multi-Format Canvas Exporters
+* Added an **Export** dropdown to the Architecture Studio toolbar surfacing three export formats:
+  - **SVG** — full vector export of the current flow graph with accurate node positions and bezier connection paths.
+  - **PNG** — 2× retina-density raster snapshot generated via an off-screen `<canvas>` element with correct coordinate math.
+  - **PDF** — browser print layout export triggered synchronously within the user click stack to bypass popup blockers.
+* Exporters implemented via `forwardRef` + `useImperativeHandle` on `FlowDiagram` so the parent can invoke synchronous export actions directly on the child canvas without async event dispatches.
+* Removed the JSON Architecture Model exporter per product decision — only visual formats are exposed.
+
+### Keyboard Shortcuts HUD
+* Embedded a floating glassmorphic **Keyboard Shortcuts** cheat sheet card above the zoom controls in the bottom-left corner of the canvas.
+* Exposes four supported bindings:
+  - `Ctrl+F` — focus the search input
+  - `F` — toggle fullscreen Focus Mode for the flow chart
+  - `Esc` — exit focus mode or navigate back
+  - `Tab` — toggle the inspector panel
+* Global `keydown` listeners registered in `Architecture.jsx` handle all four shortcuts with input-field guards to prevent firing while typing.
+
+### Viewport Minimap
+* Added a **Minimap HUD** panel in the bottom-right corner of the flow canvas.
+* Renders a scaled SVG thumbnail of all layout nodes with their type-colour coding.
+* Displays a real-time sync viewport rectangle showing the current visible region.
+* Supports click-to-pan and drag interactions on the minimap surface to navigate large graphs quickly.
+
+### Visual Polish
+* Animated bezier connection curves with flowing SVG `stroke-dashoffset` animations on edge paths.
+* Node lift spring transform on hover — nodes rise with a subtle `translateY` and shadow deepen effect.
+* Animated skeleton loaders shown during the architecture model computation phase.
+* Refined spacing, border radii, and micro-interaction timing across all studio panels.
+
+## Removed
+* Excised the placeholder **Share** and **Settings** icon buttons from the top-right studio header — they had no implemented actions.
+
+## Fixed
+* **Fullscreen chart black screen**: The fullscreen focus mode early-return container lacked `display: flex; flex-direction: column`, causing `<FlowDiagram />` (which uses `flex: 1`) to collapse to height `0`. Added flex layout to the wrapper.
+* **Fullscreen ref binding**: Passed `flowRef` to `<FlowDiagram />` inside the fullscreen early return so keyboard shortcuts and exporters function correctly in fullscreen mode.
+* **Export coordinate accuracy**: Fixed SVG and PNG exporters to use absolute node coordinates (`conn.fromX`, `conn.fromY`) rather than relative offsets, so connection lines render accurately relative to node positions.
+
+## Status
+
+Sprint 11.5 Complete.
+Architecture Studio now ships with professional export capabilities, discoverable keyboard shortcuts, a navigable minimap, and a visually polished canvas experience.
+
+---

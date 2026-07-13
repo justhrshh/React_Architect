@@ -428,15 +428,44 @@ Production Hardening & Impact Analysis UI
 * Added a lightweight Node test harness (`npm test`) covering parser extraction, import resolution, Knowledge Graph creation, analysis, and impact analysis.
 * Updated changelog documentation for Sprint 11 completion.
 
+### ✅ Sprint 11.3 Complete
+
+Graph Focus Mode
+
+* Added isolated neighborhood Focus Mode to Architecture Flow view — selecting a node fades all unrelated nodes and highlights only the selected component and directly connected peers.
+* Introduced Relationship Toggles toolbar (Parents, Children, Imports, Hooks, State, APIs, Routes) to dynamically expand or contract the visible neighborhood in real time.
+* Derived sub-graph rendering computed on-demand from the existing Architecture Model without mutating the underlying Knowledge Graph.
+
+### ✅ Sprint 11.4 Complete
+
+Inspector Panel Redesign & Quick Actions
+
+* Redesigned the Architecture Studio inspector into independently collapsible accordion sections: Overview, Health & Maintainability, Component Hierarchy, Hooks, State, APIs, and Impact Analysis.
+* Each section opens and closes independently with smooth height transitions; default open state is context-sensitive per node type.
+* Added Quick Actions toolbar: Open in Editor (Vite `/__open-in-editor` middleware), Highlight Related Nodes, and Explain with AI (reserved slot for Investigation Studio).
+
+### ✅ Sprint 11.5 Complete
+
+Professional Productivity Features
+
+* Added three canvas export formats (SVG vector, PNG 2× retina, PDF print) via `forwardRef`/`useImperativeHandle` on `FlowDiagram` — synchronous within the user click stack to bypass browser popup blockers.
+* Embedded glassmorphic Keyboard Shortcuts HUD above zoom controls showing `Ctrl+F`, `F`, `Esc`, `Tab` bindings.
+* Added Viewport Minimap HUD with scaled SVG thumbnail, real-time sync viewport box, and click/drag-to-pan support.
+* Animated bezier connection edges, node hover lift transforms, animated skeleton loaders, and refined micro-interactions throughout.
+* Removed unused Share and Settings header buttons from the studio top bar.
+* Fixed fullscreen Focus Mode black screen (missing `display: flex` on wrapper causing `flex: 1` child to collapse) and fixed export coordinate accuracy for connection lines.
+* ESLint: 0 errors, 0 warnings. Tests: 4/4 passing. Build: 0 errors.
+
 ---
 
 ## Current Version
-React Architect v8.1 — Production Hardening & Impact Analysis UI
+React Architect v8.4 — Professional Productivity Features
 
 ---
 
 ## Current Milestone
-Sprint 11 Complete
+Sprint 11.5 Complete
+
 
 ------------------------------------------------------------------------
 
