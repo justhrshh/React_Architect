@@ -5,19 +5,9 @@ import { setActiveRoom } from "@/redux/slices/uiSlice";
 import { selectSelectedProject } from "@/redux/slices/hubSlice";
 import { selectNodeId } from "@/redux/slices/graphSlice";
 import gsap from "gsap";
-import { FileCode, ShieldAlert, XCircle, AlertTriangle, CheckCircle, Info, ChevronRight, ZoomIn, ZoomOut, Maximize, Maximize2 } from "lucide-react";
-import {
-  ReactFlow,
-  Background,
-  useNodesState,
-  useEdgesState,
-  useReactFlow,
-  ReactFlowProvider,
-} from "@xyflow/react";
-import { toReactFlow } from "@/engines/adapters/reactFlowAdapter";
+import { FileCode, ShieldAlert, XCircle, AlertTriangle, CheckCircle, Info, ChevronRight } from "lucide-react";
 import { buildArchitectureModel } from "@/engines/adapters/architectureAdapter";
 import { calculateMaintainability } from "@/engines/analysis/modules/maintainability";
-import "@xyflow/react/dist/style.css";
 
 function findParentIds(nodesList, targetId, currentPath = []) {
   for (const node of nodesList) {
@@ -33,8 +23,7 @@ function findParentIds(nodesList, targetId, currentPath = []) {
 }
 
 // Extracted Subcomponents & Constants
-import { INTER, MONO, TYPE_CFG, findPathToNode } from "@/components/architecture/constants";
-import CustomNode from "@/components/architecture/CustomNode";
+import { INTER, MONO, findPathToNode } from "@/components/architecture/constants";
 import InspectorPanel from "@/components/architecture/InspectorPanel";
 import TopBar from "@/components/architecture/TopBar";
 import TreeNode from "@/components/architecture/TreeNode";
@@ -62,19 +51,12 @@ function ArchitectureFlow() {
     return knowledgeGraph?.nodes.filter(n => n.kind === "component") || [];
   }, [knowledgeGraph]);
 
-  const reduxEdges = useMemo(() => {
-    return knowledgeGraph?.edges.filter(e => e.type === "RENDERS") || [];
-  }, [knowledgeGraph]);
 
   const selectedId = useSelector((state) => state.graph.selectedNodeId);
 
   const setSelectedId = useCallback((id) => {
     dispatch(selectNodeId(id));
   }, [dispatch]);
-
-  const [isGraphFullscreen, setIsGraphFullscreen] = useState(false);
-
-  const { fitView, zoomIn, zoomOut, setCenter } = useReactFlow();
 
   const handleSelectSearchNode = useCallback((id) => {
     setSelectedId(id);
@@ -83,22 +65,6 @@ function ArchitectureFlow() {
     }
   }, [activeTab, setSelectedId]);
 
-  const handleToggleGraphFullscreen = useCallback(() => {
-    setIsGraphFullscreen((prev) => {
-      const next = !prev;
-      setTimeout(() => {
-        fitView({ padding: 0.15, duration: 300 });
-      }, 100);
-      return next;
-    });
-  }, [fitView]);
-
-  const [nodes, setNodes, onNodesChange] = useNodesState([]);
-  const [edges, setEdges, onEdgesChange] = useEdgesState([]);
-
-  const nodeTypes = useMemo(() => ({
-    customNode: CustomNode,
-  }), []);
 
   // Pre-select default page node
   useEffect(() => {
@@ -110,25 +76,6 @@ function ArchitectureFlow() {
     }
   }, [reduxNodes, selectedId, setSelectedId]);
 
-  // Map to React Flow models when nodes/edges or selection changes
-  useEffect(() => {
-    if (reduxNodes && reduxNodes.length > 0) {
-      const { rfNodes, rfEdges } = toReactFlow(reduxNodes, reduxEdges, selectedId);
-      setNodes(rfNodes);
-      setEdges(rfEdges);
-    }
-  }, [reduxNodes, reduxEdges, selectedId, setNodes, setEdges]);
-
-  // Fit View on initial nodes load
-  useEffect(() => {
-    if (nodes.length > 0) {
-      const t = setTimeout(() => {
-        fitView({ padding: 0.15, duration: 400 });
-      }, 100);
-      return () => clearTimeout(t);
-    }
-  }, [reduxNodes, fitView, nodes.length]);
-
   const selectedNode = useMemo(() => {
     if (!knowledgeGraph) return null;
     return knowledgeGraph.nodes.find(n => n.id === selectedId) || null;
@@ -137,14 +84,6 @@ function ArchitectureFlow() {
   const uniqueFiles = useMemo(() => {
     return reduxFiles || [];
   }, [reduxFiles]);
-
-  const handleNodeClick = useCallback((event, node) => {
-    setSelectedId(node.id);
-  }, [setSelectedId]);
-
-  const handlePaneClick = useCallback(() => {
-    setSelectedId("");
-  }, [setSelectedId]);
 
   const handleBack = () => {
     dispatch(setActiveRoom("project-brain"));
@@ -231,15 +170,6 @@ function ArchitectureFlow() {
     }
   }, [selectedId, activeTab]);
 
-  // Center React Flow viewport on selected node when in Graph tab
-  useEffect(() => {
-    if (selectedId && activeTab === "graph" && nodes.length > 0) {
-      const rfNode = nodes.find(n => n.id === selectedId);
-      if (rfNode) {
-        setCenter(rfNode.position.x + 112, rfNode.position.y + 55, { zoom: 1.1, duration: 450 });
-      }
-    }
-  }, [selectedId, activeTab, nodes, setCenter]);
 
   // Derive summary metrics
   const summaryMetrics = useMemo(() => {
@@ -329,8 +259,7 @@ function ArchitectureFlow() {
         {[
           { id: "summary", label: "Summary", desc: "Overall Health Diagnostics" },
           { id: "explore", label: "Explore", desc: "Component Traversal Tree" },
-          { id: "flow",    label: "Flow",    desc: "Architecture Flow Diagram" },
-          { id: "graph",   label: "Graph",   desc: "Interactive React Flow View" }
+          { id: "flow",    label: "Flow",    desc: "Architecture Flow Diagram" }
         ].map((tab) => {
           const isActive = activeTab === tab.id;
           return (
@@ -360,8 +289,8 @@ function ArchitectureFlow() {
 
       <div style={{ display: "flex", flex: 1, overflow: "hidden" }}>
         
-        {/* Left Directory Tree Pane (Shown only in Graph and Explore modes) */}
-        {!isGraphFullscreen && activeTab !== "summary" && activeTab !== "flow" && (
+        {/* Left Directory Tree Pane (Shown only in Explore mode) */}
+        {activeTab === "explore" && (
           <aside className="w-64 border-r border-neutral-200 bg-[#F9FAFB] p-6 flex flex-col gap-6 shrink-0 overflow-y-auto select-none">
             <div>
               <h4 className="font-mono text-[9px] uppercase tracking-widest text-neutral-500 mb-3.5 font-bold">
@@ -734,132 +663,12 @@ function ArchitectureFlow() {
             />
           )}
 
-          {/* TAB 4: GRAPH VIEW */}
-          {activeTab === "graph" && (
-            <div style={{ flex: 1, display: "flex", flexDirection: "column", position: "relative" }}>
-              <ReactFlow
-                nodes={nodes}
-                edges={edges}
-                nodeTypes={nodeTypes}
-                onNodesChange={onNodesChange}
-                onEdgesChange={onEdgesChange}
-                onNodeClick={handleNodeClick}
-                onPaneClick={handlePaneClick}
-                fitView
-                proOptions={{ hideAttribution: true }}
-                minZoom={0.1}
-                maxZoom={2.5}
-              >
-                <Background
-                  color="rgba(59,130,246,0.15)"
-                  gap={28}
-                  size={1.5}
-                />
-              </ReactFlow>
 
-              {/* Zoom controls */}
-              <div
-                className="absolute bottom-5 left-5 flex items-center"
-                style={{
-                  background: "#FFFFFF",
-                  border: "1px solid #E8EAED",
-                  borderRadius: 12,
-                  boxShadow: "0 1px 4px rgba(0,0,0,0.06)",
-                  padding: "4px",
-                  gap: 0,
-                  display: "flex",
-                  zIndex: 10,
-                }}
-              >
-                <button
-                  onClick={() => zoomIn()}
-                  title="Zoom in"
-                  style={{
-                    width: 28, height: 28, display: "flex", alignItems: "center", justifyContent: "center",
-                    borderRadius: 8, border: "none", background: "transparent", color: "#A0A8B4", cursor: "pointer"
-                  }}
-                  className="hover:bg-neutral-100 hover:text-neutral-800"
-                >
-                  <ZoomIn size={13} />
-                </button>
-                <span style={{
-                  fontSize: 10,
-                  fontFamily: MONO,
-                  color: "#9CA3AF",
-                  width: 38,
-                  textAlign: "center",
-                  letterSpacing: "-0.02em",
-                  fontWeight: 500,
-                }}>
-                  Zoom
-                </span>
-                <button
-                  onClick={() => zoomOut()}
-                  title="Zoom out"
-                  style={{
-                    width: 28, height: 28, display: "flex", alignItems: "center", justifyContent: "center",
-                    borderRadius: 8, border: "none", background: "transparent", color: "#A0A8B4", cursor: "pointer"
-                  }}
-                  className="hover:bg-neutral-100 hover:text-neutral-800"
-                >
-                  <ZoomOut size={13} />
-                </button>
-                <div style={{ width: 1, height: 14, background: "#E8EAED", margin: "0 3px" }} />
-                <button
-                  onClick={() => fitView({ padding: 0.15, duration: 300 })}
-                  title="Fit graph to view"
-                  style={{
-                    width: 28, height: 28, display: "flex", alignItems: "center", justifyContent: "center",
-                    borderRadius: 8, border: "none", background: "transparent", color: "#A0A8B4", cursor: "pointer"
-                  }}
-                  className="hover:bg-neutral-100 hover:text-neutral-800"
-                >
-                  <Maximize size={12} />
-                </button>
-                <div style={{ width: 1, height: 14, background: "#E8EAED", margin: "0 3px" }} />
-                <button
-                  onClick={handleToggleGraphFullscreen}
-                  title={isGraphFullscreen ? "Exit Full Screen" : "Full Screen Graph"}
-                  style={{
-                    width: 28, height: 28, display: "flex", alignItems: "center", justifyContent: "center",
-                    borderRadius: 8, border: "none", background: "transparent", color: "#A0A8B4", cursor: "pointer"
-                  }}
-                  className="hover:bg-neutral-100 hover:text-neutral-800"
-                >
-                  <Maximize2 size={12} />
-                </button>
-              </div>
-
-              {/* Node type legend — bottom right */}
-              <div
-                className="absolute bottom-5 right-5 flex items-center gap-3"
-                style={{
-                  background: "rgba(255,255,255,0.88)",
-                  backdropFilter: "blur(8px)",
-                  border: "1px solid #E8EAED",
-                  borderRadius: 10,
-                  padding: "7px 12px",
-                  zIndex: 10,
-                }}
-              >
-                {Object.values(TYPE_CFG).map((cfg) => (
-                  <div key={cfg.label} style={{ display: "flex", alignItems: "center", gap: 5 }}>
-                    <div style={{ width: 7, height: 7, borderRadius: 2, background: cfg.color, flexShrink: 0 }} />
-                    <span style={{ fontSize: 10, color: "#9CA3AF", fontFamily: INTER, letterSpacing: "-0.01em" }}>
-                      {cfg.label}
-                    </span>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
 
         </main>
 
         {/* Right Inspector Panel */}
-        {!isGraphFullscreen && (
-          <InspectorPanel nodes={reduxNodes} node={selectedNode} treeNode={treeNode} onNavigate={setSelectedId} knowledgeGraph={knowledgeGraph} />
-        )}
+        <InspectorPanel nodes={reduxNodes} node={selectedNode} treeNode={treeNode} onNavigate={setSelectedId} knowledgeGraph={knowledgeGraph} />
       </div>
     </div>
   );
@@ -885,9 +694,5 @@ export default function Architecture() {
     return () => clearTimeout(timer);
   }, []);
 
-  return (
-    <ReactFlowProvider>
-      <ArchitectureFlow />
-    </ReactFlowProvider>
-  );
+  return <ArchitectureFlow />;
 }

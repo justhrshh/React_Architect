@@ -19,7 +19,21 @@ function NodeMetric({ value, label, accentColor }) {
 
 export default function CustomNode({ data }) {
   const { node, isSelected, isConnected } = data;
-  const cfg = TYPE_CFG[node.subtype] || TYPE_CFG.component;
+  
+  let cfg = TYPE_CFG[node.subtype] || TYPE_CFG.component;
+  if (node.kind === "route") {
+    if (node.subtype === "router") {
+      cfg = { label: "Router", color: "#8B5CF6", bg: "#F5F3FF", text: "#6D28D9" };
+    } else {
+      cfg = { label: "Route", color: "#EC4899", bg: "#FDF2F8", text: "#BE185D" };
+    }
+  } else if (node.kind === "api") {
+    cfg = { label: "API", color: "#10B981", bg: "#ECFDF5", text: "#047857" };
+  } else if (node.kind === "state") {
+    cfg = { label: "State", color: "#EF4444", bg: "#FEF2F2", text: "#B91C1C" };
+  } else if (node.subtype === "hook" || (node.kind === "component" && /^use[A-Z0-9]/.test(node.name))) {
+    cfg = { label: "Hook", color: "#F59E0B", bg: "#FFFBEB", text: "#B45309" };
+  }
 
   const shadow = isSelected
     ? `0 0 0 2.5px ${cfg.color}30, 0 8px 28px rgba(0,0,0,0.10), 0 2px 6px rgba(0,0,0,0.06)`

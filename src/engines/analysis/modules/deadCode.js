@@ -34,12 +34,18 @@ export function analyze(graph) {
   // Pages are entered via routes, layouts/providers wrap trees, and app entry
   // components (App.jsx, main.jsx) are mounted directly by ReactDOM — none of
   // these are expected to have a RENDERS parent, so absence of one is normal.
+  const routedComponentNames = new Set(
+    routes.map(r => r.metadata?.componentName).filter(Boolean)
+  );
+
   const rootLikeSubtypes = new Set(["page", "layout", "provider", "context"]);
   const unusedComponents = components.filter(
     c =>
       !rootLikeSubtypes.has(c.subtype) &&
       !isEntryFile(c.file) &&
-      (renderIncoming.get(c.id) || []).length === 0
+      !routedComponentNames.has(c.name) &&
+      (renderIncoming.get(c.id) || []).length === 0 &&
+      (importsIncoming.get(c.id) || []).length === 0
   );
 
   // Unused Hooks: hooks declared on a component's metadata that never surface
