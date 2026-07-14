@@ -69,7 +69,7 @@ Track application state cascades across Redux slices, Context, local state, and 
 ### Network Studio
 Map component-to-service transactions and external API endpoint lifecycles.
 
-### Investigation Studio (AI)
+### Architect AI (AI Workspace)
 Answer high-level architectural queries (auth maps, refactoring dependencies, re-render tracing) using raw Knowledge Graph database context.
 
 ---

@@ -40,7 +40,7 @@ export default function InvestigationBrief({
           color: "rgba(255,255,255,0.22)", textTransform: "uppercase",
           marginBottom: 20,
         }}>
-          Investigation Brief
+          Architect AI Brief
         </div>
 
         {/* Headline */}

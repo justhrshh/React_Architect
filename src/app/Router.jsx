@@ -11,6 +11,7 @@ const RoutesPage = lazy(() => import("../pages/Routes.jsx"));
 const StateFlow = lazy(() => import("../pages/StateFlow.jsx"));
 const ApiFlow = lazy(() => import("../pages/ApiFlow.jsx"));
 const Documentation = lazy(() => import("../pages/Documentation.jsx"));
+const Investigation = lazy(() => import("../pages/Investigation.jsx"));
 
 function ScrollToTop() {
   const { pathname } = useLocation();
@@ -59,6 +60,7 @@ function Router() {
             <Route path="state" element={<StateFlow />} />
             <Route path="api" element={<ApiFlow />} />
             <Route path="docs" element={<Documentation />} />
+            <Route path="investigation" element={<Investigation />} />
           </Route>
 
           {/* Fallback */}

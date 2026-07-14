@@ -263,7 +263,7 @@ function TopBar({ projectName, handleBack }) {
             fontWeight: 700,
             marginTop: 1,
           }}>
-            Investigation Studio — Architectural Insights
+            Architect AI — Architectural Insights
           </div>
         </div>
       </div>

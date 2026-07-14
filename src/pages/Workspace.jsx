@@ -132,7 +132,7 @@ function getCoreContextOverview(displayRoom, analysis, projectName) {
       headline: "Critical components undocumented",
       body: "Only 38% component coverage. Core components have zero JSDoc descriptors and lack Storybook examples.",
       recommendation: "Document high-leverage button and input components first.",
-      actionLabel: "Start Investigation"
+      actionLabel: "Start Architect AI"
     };
   }
 
@@ -510,7 +510,7 @@ const Workspace = () => {
         "routes": "/routes",
         "state": "/state",
         "api": "/api",
-        "documentation": "/docs",
+        "documentation": "/investigation",
       };
       const targetRoute = routes[targetDomainId];
       if (targetRoute) {
@@ -580,7 +580,7 @@ const Workspace = () => {
     { id: "routes",       label: "Navigation",   color: "#5BB8D4", score: Math.max(100 - (analysis?.deadCode?.unusedRoutes?.length * 12 || 0), 10), count: `${baseDNA.routes} routes`,       ...toXY(-18, ORBIT_R) },
     { id: "state",        label: "Data Flow",    color: "#9B7AE8", score: Math.max(100 - (analysis?.deadCode?.unusedHooks?.length * 8 || 0), 10), count: `${baseDNA.contexts} contexts`,       ...toXY(54, ORBIT_R)  },
     { id: "api",          label: "Network",      color: "#E8705A", score: Math.max(100 - (analysis?.deadCode?.unusedApiServices?.length * 10 || 0), 10), count: `${baseDNA.apis} endpoints`,    ...toXY(126, ORBIT_R) },
-    { id: "documentation",label: "Investigation",color: "#6DB885", score: 85, count: "85% coverage",    ...toXY(198, ORBIT_R) },
+    { id: "documentation",label: "Architect AI",color: "#6DB885", score: 85, count: "85% coverage",    ...toXY(198, ORBIT_R) },
   ];
 
 
@@ -621,7 +621,7 @@ const Workspace = () => {
       case "documentation":
         return {
           metric: "61%",
-          label: "Investigation Coverage"
+          label: "Architect AI Coverage"
         };
       default:
         return {

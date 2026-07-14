@@ -87,7 +87,7 @@ The Workspace is the central command room where developers choose which aspect o
 
 ---
 
-### Domain Investigation Studios
+### Domain Architecture Studios
 
 #### • Architecture Studio — *"How is this project built?"*
 Focus on component hierarchy, maintainability, architecture health, dependency relationships, complexity, and impact analysis.
@@ -105,10 +105,10 @@ Focus on Redux, Context, props, local state, custom hooks, state origins, update
 Focus on components, services, API clients, endpoints, requests, responses, loading states, error handling, duplicate requests, request lifecycle, and API health.
 * **Status**: In Progress.
 
-#### • Investigation Studio (new flagship AI experience) — *"Help me understand this project."*
-This studio is not a generic chatbot. It is an architectural investigation assistant powered by the Knowledge Graph, Architecture Model, Analysis Engine, Impact Analysis, Maintainability Engine, Route Graph, Data Graph, and Network Graph.
+#### • Architect AI (new flagship AI workspace) — *"Help me understand this project."*
+This studio is not a generic chatbot. It is an architectural workspace powered by the Knowledge Graph, Architecture Model, Analysis Engine, Impact Analysis, Maintainability Engine, Route Graph, Data Graph, and Network Graph.
 
-The Investigation Studio should answer questions such as:
+Architect AI should answer questions such as:
 * *Explain this component.*
 * *Explain authentication.*
 * *Why is this component re-rendering?*
@@ -179,7 +179,7 @@ The product is no longer a visualization tool. It is an operating system for und
 - Map end-to-end component-to-service-to-endpoint network transactions.
 - Highlight duplicate/redundant API request loops.
 
-#### Sprint 15 — Investigation Studio (Flagship AI Onboarding)
+#### Sprint 15 — Architect AI (Flagship AI Onboarding)
 - Deploy the AI-powered architectural assistant chat interface.
 - Wire the assistant to query the centralized Redux `knowledgeGraph` state and `analysis` state.
 - Enable Graph-aware queries (explain auth, compute mock implementations, calculate blast radius).

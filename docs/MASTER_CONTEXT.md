@@ -458,13 +458,31 @@ Professional Productivity Features
 
 ---
 
+### ✅ Sprint 12.5 Complete
+
+AI Workspace Redesign (Architect AI)
+
+* Redesigned the AI engine from first principles.
+* Added Source Code Injection: extracts actual source file content (up to 300 lines) from `knowledgeGraph.rawFiles` and feeds it into explanation/impact prompts.
+* Added Multi-Turn Conversation: formats and retains message logs using `getHistory(3)` to feed conversational history to Gemini.
+* Replaced the over-engineered 354-line intent classifier with a lean, 84-line router (`intent.js`) managing 9 core intents.
+* Deleted `formatter.js` and custom template prompts; replaced with a direct, natural persona system instruction and clean prompt assembler.
+* Created `MarkdownRenderer` to parse and render Markdown directly in JSX, replacing the rigid report cards with a clean conversational interface.
+* Rebuilt `Investigation.jsx` into a simplified, premium AI workspace layout (`Architect AI`).
+* Locked chat workspace viewport height to `100vh` and set body overflow to `hidden`, keeping navbar and composer fixed while allowing the message thread to scroll vertically.
+* Implemented global `Escape` keyboard listener to navigate back history or fall back to `/workspace`.
+* Verified with clean linter, 6/6 node tests, and production build checks.
+
+---
+
 ## Current Version
-React Architect v8.4 — Professional Productivity Features
+React Architect v8.5 — Architect AI
 
 ---
 
 ## Current Milestone
-Sprint 11.5 Complete
+Sprint 12.5 Complete
+
 
 
 ------------------------------------------------------------------------

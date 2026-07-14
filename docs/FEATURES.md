@@ -99,7 +99,7 @@ Selecting any element from any perspective updates a synchronized side inspector
 
 ---
 
-## 5. Investigation Studio (AI)
+## 5. Architect AI (AI Workspace)
 * **Question**: *"Help me understand this project."*
 * **Centralized AI Assistant**: The flagship intelligent developer assistant.
 * **Graph-Aware Architecture Queries**: Unlike traditional developer chat widgets, the assistant queries the centralized Redux Knowledge Graph and Analysis Engine directly.
