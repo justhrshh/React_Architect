@@ -167,6 +167,28 @@ function CollapsibleDetails({ metadata }) {
   );
 }
 
+function getArchitectAIErrorMessage(error) {
+  const msg = (error?.message || String(error)).toLowerCase();
+
+  if (msg.includes("429") || msg.includes("quota") || msg.includes("rate limit") || msg.includes("resource_exhausted")) {
+    return `**AI request limit reached.**\n\nYou've reached the current Architect AI request limit. Please wait a few moments before trying again.`;
+  }
+  if (msg.includes("503") || msg.includes("service unavailable") || msg.includes("temporarily unavailable")) {
+    return `**Architect AI is temporarily unavailable.**\n\nThe AI service is currently unavailable. Please try again in a moment.`;
+  }
+  if (msg.includes("fetch") || msg.includes("network error") || msg.includes("dns") || msg.includes("connect") || msg.includes("connection") || msg.includes("failed to fetch")) {
+    return `**Connection lost.**\n\nCouldn't connect to Architect AI. Please check your internet connection and try again.`;
+  }
+  if (msg.includes("empty response") || msg.includes("no response")) {
+    return `**No response generated.**\n\nArchitect AI couldn't generate a response for that request. Try asking the question in a different way.`;
+  }
+  if (msg.includes("timeout") || msg.includes("timed out") || msg.includes("deadline exceeded")) {
+    return `**Request timed out.**\n\nArchitect AI is taking longer than expected. Please try again.`;
+  }
+
+  return `**Something went wrong.**\n\nAn unexpected error occurred while contacting Architect AI. Please try again.`;
+}
+
 // ═════════════════════════════════════════════════════════════════════════════════
 // MAIN PAGE
 // ═════════════════════════════════════════════════════════════════════════════════
@@ -317,13 +339,13 @@ export default function Investigation() {
       assistantMsg.content = raw;
       setMessages(getMessages().filter(m => m.role !== ROLES.SYSTEM));
     } catch (err) {
-      setProviderError(err.message);
+      const friendlyMessage = getArchitectAIErrorMessage(err);
       const prevMsgs = getMessages();
       const lastMsg = prevMsgs[prevMsgs.length - 1];
       if (lastMsg && lastMsg.role === ROLES.ASSISTANT && lastMsg.content === "Thinking...") {
-        lastMsg.content = `Error: ${err.message}`;
+        lastMsg.content = friendlyMessage;
       } else {
-        addMessage(ROLES.ASSISTANT, `Error: ${err.message}`);
+        addMessage(ROLES.ASSISTANT, friendlyMessage);
       }
       setMessages(getMessages().filter(m => m.role !== ROLES.SYSTEM));
     } finally {
