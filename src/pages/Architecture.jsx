@@ -294,27 +294,26 @@ function ArchitectureFlow() {
 
   if (!selectedProject) return null;
 
-  // Render skeletons if knowledge graph is not loaded yet
   if (!knowledgeGraph) {
     return (
-      <div style={{ display: "flex", flexDirection: "column", height: "100vh", width: "100vw", background: "#F8F9FB", padding: 40, boxSizing: "border-box" }}>
+      <div style={{ display: "flex", flexDirection: "column", height: "100vh", width: "100vw", background: "#F7F6F3", padding: 40, boxSizing: "border-box" }}>
         <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 30 }}>
           <div className="animate-pulse bg-neutral-200 h-8 w-48 rounded-lg" />
           <div className="animate-pulse bg-neutral-200 h-8 w-24 rounded-lg" />
         </div>
         <div className="grid grid-cols-3 gap-6 flex-1">
           <div className="col-span-2 flex flex-col gap-6">
-            <div className="animate-pulse bg-white border border-neutral-100 rounded-2xl p-6 flex flex-col gap-4" style={{ height: 260 }}>
+            <div className="animate-pulse bg-white border border-[rgba(139,92,26,0.04)] rounded-2xl p-6 flex flex-col gap-4" style={{ height: 260, boxShadow: "0 1px 3px rgba(45, 42, 38, 0.02), 0 4px 16px rgba(45, 42, 38, 0.03)" }}>
               <div className="h-4 bg-neutral-200 rounded w-1/4" />
               <div className="h-3 bg-neutral-100 rounded w-3/4" />
               <div className="h-3 bg-neutral-100 rounded w-1/2" />
             </div>
-            <div className="animate-pulse bg-white border border-neutral-100 rounded-2xl p-6 flex-1 flex flex-col gap-4">
+            <div className="animate-pulse bg-white border border-[rgba(139,92,26,0.04)] rounded-2xl p-6 flex-1 flex flex-col gap-4" style={{ boxShadow: "0 1px 3px rgba(45, 42, 38, 0.02), 0 4px 16px rgba(45, 42, 38, 0.03)" }}>
               <div className="h-4 bg-neutral-200 rounded w-1/5" />
               <div className="h-3 bg-neutral-100 rounded w-1/2" />
             </div>
           </div>
-          <div className="animate-pulse bg-white border border-neutral-100 rounded-2xl p-6 flex flex-col gap-4">
+          <div className="animate-pulse bg-white border border-[rgba(139,92,26,0.04)] rounded-2xl p-6 flex flex-col gap-4" style={{ boxShadow: "0 1px 3px rgba(45, 42, 38, 0.02), 0 4px 16px rgba(45, 42, 38, 0.03)" }}>
             <div className="h-4 bg-neutral-200 rounded w-1/3" />
             <div className="h-3 bg-neutral-100 rounded w-full" />
             <div className="h-3 bg-neutral-100 rounded w-1/2" />
@@ -400,13 +399,13 @@ function ArchitectureFlow() {
       <div style={{
         display: "flex",
         background: "#FFFFFF",
-        borderBottom: "1px solid #E8EAED",
+        borderBottom: "1px solid rgba(139, 92, 26, 0.05)",
         padding: "0 24px",
         height: 40,
         alignItems: "center",
         flexShrink: 0,
         zIndex: 10,
-        boxShadow: "0 1px 2px rgba(0,0,0,0.02)",
+        boxShadow: "0 1px 2px rgba(45,42,38,0.01)",
         justifyContent: "space-between"
       }}>
         <div style={{ display: "flex", gap: 28, height: "100%", alignItems: "center" }}>
@@ -426,8 +425,8 @@ function ArchitectureFlow() {
                 style={{
                   background: "transparent",
                   border: "none",
-                  borderBottom: isActive ? "2px solid #3B82F6" : "2px solid transparent",
-                  color: isActive ? "#2563EB" : "#6B7280",
+                  borderBottom: isActive ? "2px solid #8B7E66" : "2px solid transparent",
+                  color: isActive ? "#8B7E66" : "#8C867C",
                   fontSize: 12,
                   fontWeight: isActive ? 600 : 500,
                   padding: "10px 4px 8px",
@@ -436,8 +435,8 @@ function ArchitectureFlow() {
                   fontFamily: INTER,
                   height: "100%"
                 }}
-                onMouseEnter={e => { if (!isActive) e.currentTarget.style.color = "#111827"; }}
-                onMouseLeave={e => { if (!isActive) e.currentTarget.style.color = "#6B7280"; }}
+                onMouseEnter={e => { if (!isActive) e.currentTarget.style.color = "#2E2D2B"; }}
+                onMouseLeave={e => { if (!isActive) e.currentTarget.style.color = "#8C867C"; }}
               >
                 {tab.label}
               </button>
@@ -454,14 +453,14 @@ function ArchitectureFlow() {
                 key={type}
                 onClick={() => handleExport(type)}
                 style={{
-                  background: "#F9FAFB",
-                  border: "1px solid #E5E7EB",
+                  background: "#FAF9F6",
+                  border: "1px solid rgba(139, 92, 26, 0.08)",
                   borderRadius: 6,
                   padding: "2px 8px",
                   fontSize: 10,
                   fontWeight: 600,
                   fontFamily: INTER,
-                  color: "#4B5563",
+                  color: "#2E2D2B",
                   cursor: "pointer",
                   transition: "all 0.15s",
                 }}
@@ -479,7 +478,7 @@ function ArchitectureFlow() {
         
         {/* Left Directory Tree Pane (Shown only in Explore mode) */}
         {activeTab === "explore" && (
-          <aside className="w-64 border-r border-neutral-200 bg-[#F9FAFB] p-6 flex flex-col gap-6 shrink-0 overflow-y-auto select-none">
+          <aside className="w-64 flex flex-col gap-6 shrink-0 overflow-y-auto select-none" style={{ background: "#EFECE6", borderRight: "1px solid rgba(139, 92, 26, 0.06)", padding: 24 }}>
             <div>
               <h4 className="font-mono text-[9px] uppercase tracking-widest text-neutral-500 mb-3.5 font-bold">
                 Detected Files
@@ -516,7 +515,7 @@ function ArchitectureFlow() {
 
             {/* Diagnostics Alerts */}
             {((validation.errors && validation.errors.length > 0) || (validation.warnings && validation.warnings.length > 0)) && (
-              <div className="mt-2 pt-4 border-t border-neutral-200/80">
+              <div className="mt-2 pt-4 border-t border-[rgba(139,92,26,0.06)]">
                 <h4 className="font-mono text-[9px] uppercase tracking-widest text-neutral-500 mb-3.5 font-bold flex items-center gap-1.5">
                   <ShieldAlert size={11} className="text-amber-500" />
                   Code Diagnostics
@@ -579,7 +578,7 @@ function ArchitectureFlow() {
         )}
 
         {/* Center content depending on active tab view */}
-        <main className="flex-1 flex flex-col relative bg-[#F8F9FB] overflow-hidden">
+        <main className="flex-1 flex flex-col relative overflow-hidden" style={{ background: "#F7F6F3" }}>
           
           {/* TAB 1: SUMMARY VIEW */}
           {activeTab === "summary" && (
@@ -587,10 +586,10 @@ function ArchitectureFlow() {
               
               {/* Header block */}
               <div>
-                <h1 style={{ fontSize: 26, fontWeight: 700, color: "#111827", letterSpacing: "-0.04em", margin: "0 0 6px", fontFamily: INTER }}>
+                <h1 style={{ fontSize: 26, fontWeight: 700, color: "#2E2D2B", letterSpacing: "-0.04em", margin: "0 0 6px", fontFamily: INTER }}>
                   Architecture Summary
                 </h1>
-                <p style={{ fontSize: 13, color: "#6B7280", margin: 0, fontFamily: INTER }}>
+                <p style={{ fontSize: 13, color: "#8C867C", margin: 0, fontFamily: INTER }}>
                   High-level diagnostics and metric insights of the project.
                 </p>
               </div>
@@ -599,7 +598,7 @@ function ArchitectureFlow() {
               <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                 
                 {/* Health & Score Card */}
-                <div style={{ background: "#FFFFFF", border: "1px solid #E8EAED", borderRadius: 16, padding: 24, display: "flex", flexDirection: "column", gap: 16 }}>
+                <div style={{ background: "#FFFFFF", border: "1px solid rgba(139, 92, 26, 0.04)", borderRadius: 16, padding: "28px 24px", display: "flex", flexDirection: "column", gap: 18, boxShadow: "0 1px 3px rgba(45, 42, 38, 0.02), 0 4px 16px rgba(45, 42, 38, 0.03)" }}>
                   <span style={{ fontSize: 10, fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase", color: "#9CA3AF" }}>
                     Architecture Health
                   </span>
@@ -609,14 +608,14 @@ function ArchitectureFlow() {
                       width: 72,
                       height: 72,
                       borderRadius: "50%",
-                      border: "4px solid #EFF6FF",
+                      border: "4px solid #FAF9F6",
                       borderTopColor: (analysis.architectureHealth?.score || 100) >= 80 ? "#10B981" : (analysis.architectureHealth?.score || 100) >= 60 ? "#F59E0B" : "#EF4444",
                       display: "flex",
                       alignItems: "center",
                       justifyContent: "center",
                       fontSize: 22,
                       fontWeight: 700,
-                      color: "#111827",
+                      color: "#2E2D2B",
                       fontFamily: MONO
                     }}>
                       {analysis.architectureHealth?.score || 100}
@@ -625,11 +624,11 @@ function ArchitectureFlow() {
                       <div style={{ fontSize: 32, fontWeight: 750, color: (analysis.architectureHealth?.score || 100) >= 80 ? "#10B981" : (analysis.architectureHealth?.score || 100) >= 60 ? "#F59E0B" : "#EF4444", fontFamily: INTER, lineHeight: 1 }}>
                         Grade {analysis.architectureHealth?.grade || "A"}
                       </div>
-                      <span style={{ fontSize: 11.5, color: "#9CA3AF", fontFamily: INTER }}>Based on modularity standards</span>
+                      <span style={{ fontSize: 11.5, color: "#8C867C", fontFamily: INTER }}>Based on modularity standards</span>
                     </div>
                   </div>
 
-                  <div style={{ display: "flex", flexDirection: "column", gap: 6, borderTop: "1px solid #F3F4F6", paddingTop: 14 }}>
+                  <div style={{ display: "flex", flexDirection: "column", gap: 6, borderTop: "1px solid rgba(139, 92, 26, 0.05)", paddingTop: 14 }}>
                     {(analysis.architectureHealth?.ruleResults || []).map(r => (
                       <div key={r.id} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", fontSize: 11, color: "#4B5563" }}>
                         <span>{r.label}</span>
@@ -644,7 +643,7 @@ function ArchitectureFlow() {
                 </div>
 
                 {/* Project DNA Metrics Card */}
-                <div style={{ background: "#FFFFFF", border: "1px solid #E8EAED", borderRadius: 16, padding: 24, display: "flex", flexDirection: "column", gap: 14 }}>
+                <div style={{ background: "#FFFFFF", border: "1px solid rgba(139, 92, 26, 0.04)", borderRadius: 16, padding: "28px 24px", display: "flex", flexDirection: "column", gap: 18, boxShadow: "0 1px 3px rgba(45, 42, 38, 0.02), 0 4px 16px rgba(45, 42, 38, 0.03)" }}>
                   <span style={{ fontSize: 10, fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase", color: "#9CA3AF" }}>
                     Project DNA
                   </span>
@@ -656,16 +655,16 @@ function ArchitectureFlow() {
                       { label: "API Services", value: summaryMetrics.apiEndpointCount },
                       { label: "Routing Paths", value: summaryMetrics.routeCount },
                     ].map(dna => (
-                      <div key={dna.label} style={{ background: "#F9FAFB", border: "1px solid #F3F4F6", borderRadius: 12, padding: 12, display: "flex", flexDirection: "column", justifyContent: "center" }}>
-                        <span style={{ fontSize: 18, fontWeight: 700, color: "#111827", fontFamily: MONO }}>{dna.value}</span>
-                        <span style={{ fontSize: 10, color: "#6B7280", marginTop: 2 }}>{dna.label}</span>
+                      <div key={dna.label} style={{ background: "#F7F6F3", borderRadius: 12, padding: "16px 20px", display: "flex", flexDirection: "column", justifyContent: "center" }}>
+                        <span style={{ fontSize: 24, fontWeight: 700, color: "#2E2D2B", fontFamily: MONO, lineHeight: 1.15 }}>{dna.value}</span>
+                        <span style={{ fontSize: 10, color: "#8C867C", marginTop: 4, fontFamily: INTER }}>{dna.label}</span>
                       </div>
                     ))}
                   </div>
                 </div>
 
                 {/* Recommended Investigation */}
-                <div style={{ background: "#FFFFFF", border: "1px solid #E8EAED", borderRadius: 16, padding: 24, display: "flex", flexDirection: "column", gap: 14 }}>
+                <div style={{ background: "#FFFFFF", border: "1px solid rgba(139, 92, 26, 0.04)", borderRadius: 16, padding: "28px 24px", display: "flex", flexDirection: "column", gap: 18, boxShadow: "0 1px 3px rgba(45, 42, 38, 0.02), 0 4px 16px rgba(45, 42, 38, 0.03)" }}>
                   <span style={{ fontSize: 10, fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase", color: "#9CA3AF" }}>
                     Recommended Action
                   </span>
@@ -703,9 +702,9 @@ function ArchitectureFlow() {
                   </div>
                   
                   {summaryMetrics.largestComp && (
-                    <div style={{ borderTop: "1px solid #F3F4F6", paddingTop: 10, display: "flex", alignItems: "center", justifyContent: "space-between", fontSize: 10.5, color: "#6B7280" }}>
+                    <div style={{ borderTop: "1px solid rgba(139, 92, 26, 0.05)", paddingTop: 10, display: "flex", alignItems: "center", justifyContent: "space-between", fontSize: 10.5, color: "#8C867C" }}>
                       <span>Largest Component</span>
-                      <strong style={{ fontFamily: MONO, color: "#374151" }}>{summaryMetrics.largestComp.name} ({summaryMetrics.largestComp.metadata?.loc} lines)</strong>
+                      <strong style={{ fontFamily: MONO, color: "#2E2D2B" }}>{summaryMetrics.largestComp.name} ({summaryMetrics.largestComp.metadata?.loc} lines)</strong>
                     </div>
                   )}
                 </div>
@@ -716,20 +715,20 @@ function ArchitectureFlow() {
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 
                 {/* Circular Loops & Dead components */}
-                <div style={{ background: "#FFFFFF", border: "1px solid #E8EAED", borderRadius: 16, padding: 24, display: "flex", flexDirection: "column", gap: 14 }}>
+                <div style={{ background: "#FFFFFF", border: "1px solid rgba(139, 92, 26, 0.04)", borderRadius: 16, padding: "28px 24px", display: "flex", flexDirection: "column", gap: 18, boxShadow: "0 1px 3px rgba(45, 42, 38, 0.02), 0 4px 16px rgba(45, 42, 38, 0.03)" }}>
                   <span style={{ fontSize: 10, fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase", color: "#9CA3AF" }}>
                     Rendering Cycles & Dead Modules
                   </span>
 
                   <div style={{ display: "flex", flexDirection: "column", gap: 8, maxHeight: 220, overflowY: "auto" }}>
                     {summaryMetrics.cycles.map((c, i) => (
-                      <div key={i} className="flex gap-2 p-2 rounded-lg bg-red-50 text-[11px] text-red-800 leading-normal">
+                      <div key={i} className="flex gap-2 p-2.5 rounded-xl bg-[#FFF2F0] text-[11px] text-[#8C1E1A] border border-[rgba(220,38,38,0.08)] leading-normal">
                         <AlertTriangle size={12} className="text-red-500 shrink-0 mt-0.5" />
                         <span>{c.message}</span>
                       </div>
                     ))}
                     {summaryMetrics.deadComps.map((c, i) => (
-                      <div key={i} className="flex gap-2 p-2 rounded-lg bg-neutral-50 text-[11px] text-neutral-600 leading-normal">
+                      <div key={i} className="flex gap-2 p-2.5 rounded-xl bg-[#FAF9F6] text-[11px] text-[#4A4742] border border-[rgba(139,92,26,0.04)] leading-normal">
                         <Info size={12} className="text-neutral-400 shrink-0 mt-0.5" />
                         <span>Unused component: <strong>{c.name}</strong> ({c.file})</span>
                       </div>
@@ -744,7 +743,7 @@ function ArchitectureFlow() {
                 </div>
 
                 {/* Largest Files Grid */}
-                <div style={{ background: "#FFFFFF", border: "1px solid #E8EAED", borderRadius: 16, padding: 24, display: "flex", flexDirection: "column", gap: 14 }}>
+                <div style={{ background: "#FFFFFF", border: "1px solid rgba(139, 92, 26, 0.04)", borderRadius: 16, padding: "28px 24px", display: "flex", flexDirection: "column", gap: 18, boxShadow: "0 1px 3px rgba(45, 42, 38, 0.02), 0 4px 16px rgba(45, 42, 38, 0.03)" }}>
                   <span style={{ fontSize: 10, fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase", color: "#9CA3AF" }}>
                     Largest Code Modules
                   </span>
@@ -755,12 +754,12 @@ function ArchitectureFlow() {
                       .sort((a, b) => (b.metadata?.loc || 0) - (a.metadata?.loc || 0))
                       .slice(0, 5)
                       .map((c, i) => (
-                        <div key={c.id} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "6px 0", borderBottom: "1px solid #F9FAFB" }}>
+                        <div key={c.id} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "6px 0", borderBottom: "1px solid rgba(139, 92, 26, 0.04)" }}>
                           <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                            <span style={{ fontSize: 10, color: "#9CA3AF", fontFamily: MONO }}>0{i+1}</span>
-                            <span style={{ fontSize: 12, fontFamily: MONO, color: "#374151" }}>{c.name}</span>
+                            <span style={{ fontSize: 10, color: "#8C867C", fontFamily: MONO }}>0{i+1}</span>
+                            <span style={{ fontSize: 12, fontFamily: MONO, color: "#2E2D2B" }}>{c.name}</span>
                           </div>
-                          <span style={{ fontSize: 11.5, color: "#6B7280", fontFamily: MONO }}>{c.metadata?.loc || 0} lines</span>
+                          <span style={{ fontSize: 11.5, color: "#8C867C", fontFamily: MONO }}>{c.metadata?.loc || 0} lines</span>
                         </div>
                       ))}
                   </div>
@@ -779,12 +778,12 @@ function ArchitectureFlow() {
               {breadcrumbs && (
                 <div style={{ flexShrink: 0 }}>
                   {breadcrumbs.length === 0 ? (
-                    <div style={{ display: "flex", alignItems: "center", gap: 6, background: "#FFFFFF", border: "1px solid #E8EAED", borderRadius: 8, padding: "8px 12px", marginBottom: 16 }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: 6, background: "#FFFFFF", border: "1px solid rgba(139, 92, 26, 0.04)", borderRadius: 12, padding: "8px 12px", marginBottom: 16, boxShadow: "0 1px 3px rgba(45, 42, 38, 0.02), 0 4px 16px rgba(45, 42, 38, 0.03)" }}>
                       <span style={{ fontSize: 10, fontWeight: 650, color: "#9CA3AF", textTransform: "uppercase", letterSpacing: "0.02em", fontFamily: INTER }}>Path:</span>
                       <span style={{ fontSize: 11.5, color: "#A8B0BF", fontStyle: "italic", fontFamily: INTER }}>No component selected</span>
                     </div>
                   ) : (
-                    <div style={{ display: "flex", alignItems: "center", gap: 6, background: "#FFFFFF", border: "1px solid #E8EAED", borderRadius: 8, padding: "8px 12px", marginBottom: 16, flexWrap: "wrap" }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: 6, background: "#FFFFFF", border: "1px solid rgba(139, 92, 26, 0.04)", borderRadius: 12, padding: "8px 12px", marginBottom: 16, flexWrap: "wrap", boxShadow: "0 1px 3px rgba(45, 42, 38, 0.02), 0 4px 16px rgba(45, 42, 38, 0.03)" }}>
                       <span style={{ fontSize: 10, fontWeight: 650, color: "#9CA3AF", textTransform: "uppercase", letterSpacing: "0.02em", fontFamily: INTER }}>Path:</span>
                       {breadcrumbs.map((crumb, idx) => (
                         <div key={crumb.id} style={{ display: "flex", alignItems: "center", gap: 6 }}>
@@ -795,7 +794,7 @@ function ArchitectureFlow() {
                               fontSize: 11.5,
                               fontFamily: MONO,
                               fontWeight: idx === breadcrumbs.length - 1 ? 650 : 500,
-                              color: idx === breadcrumbs.length - 1 ? "#2563EB" : "#4B5563",
+                              color: idx === breadcrumbs.length - 1 ? "#8B7E66" : "#8C867C",
                               cursor: "pointer",
                             }}
                             className="hover:underline"
@@ -809,17 +808,17 @@ function ArchitectureFlow() {
                 </div>
               )}
 
-              {/* Tree Container scroll */}
               <div style={{
                 flex: 1,
                 background: "#FFFFFF",
-                border: "1px solid #E8EAED",
-                borderRadius: 12,
+                border: "1px solid rgba(139, 92, 26, 0.04)",
+                borderRadius: 16,
                 padding: "20px 24px",
                 overflowY: "auto",
                 display: "flex",
                 flexDirection: "column",
-                gap: 4
+                gap: 4,
+                boxShadow: "0 1px 3px rgba(45, 42, 38, 0.02), 0 4px 16px rgba(45, 42, 38, 0.03)"
               }}>
                 {architectureModel.length === 0 ? (
                   <div style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", color: "#B8BEC9", fontSize: 13 }}>

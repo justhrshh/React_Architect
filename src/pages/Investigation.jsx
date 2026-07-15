@@ -4,7 +4,7 @@ import { useNavigate } from "react-router-dom";
 import { selectSelectedProject } from "@/redux/slices/hubSlice";
 import {
   ChevronDown, ChevronRight, ArrowLeft,
-  Loader, Brain, Globe, GitBranch, FileText, Info,
+  Loader, Globe, GitBranch, FileText, Info,
   AlertTriangle
 } from "lucide-react";
 
@@ -35,9 +35,9 @@ const COLORS = {
   surfaceAlt:  "#F8F9FB",
   border:      "#E8EAED",
   borderLight: "#F0F1F3",
-  text:        "#1A1D23",
-  textSecondary: "#6B7280",
-  textMuted:   "#9CA3AF",
+  text:        "#111827",
+  textSecondary: "#1F2937",
+  textMuted:   "#4B5563",
   accent:      "#6366F1",
   accentBg:    "#EEF2FF",
   accentText:  "#4338CA",
@@ -206,6 +206,7 @@ export default function Investigation() {
   );
   const [isRunning, setIsRunning] = useState(false);
   const [providerError, setProviderError] = useState(null);
+  const [isHeaderHovered, setIsHeaderHovered] = useState(false);
   const inputRef = useRef(null);
   const messagesEndRef = useRef(null);
 
@@ -388,74 +389,108 @@ export default function Investigation() {
   return (
     <div style={{
       height: "100vh",
-      background: COLORS.bg,
+      backgroundImage: "linear-gradient(rgba(250, 251, 252, 0.40), rgba(250, 251, 252, 0.40)), url('/50ea6f333adf5baf1b1984d3d90420a5.gif')",
+      backgroundRepeat: "no-repeat",
+      backgroundPosition: "center center",
+      backgroundSize: "cover",
       fontFamily: INTER,
       display: "flex",
       flexDirection: "column",
       overflow: "hidden",
     }}>
       {/* ─── Top Header ──────────────────────────────────────────────────────── */}
-      <header style={{
+      <div style={{
         display: "flex",
-        alignItems: "center",
-        justifyContent: "space-between",
-        padding: "14px 28px",
-        borderBottom: `1px solid ${COLORS.border}`,
-        background: COLORS.surface,
+        justifyContent: "center",
+        padding: "16px 24px 8px",
         flexShrink: 0,
+        zIndex: 50,
       }}>
-        <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
-          <button
-            onClick={() => navigate("/workspace")}
-            style={{
-              display: "flex", alignItems: "center", gap: 6,
-              background: "none", border: "none", cursor: "pointer",
-              color: COLORS.textSecondary, fontSize: 12, fontFamily: INTER, fontWeight: 500,
-              padding: "4px 8px", borderRadius: 6,
-            }}
-            className="hover:bg-neutral-50"
-          >
-            <ArrowLeft size={14} />
-            <span>Back</span>
-          </button>
+        <header
+          style={{
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "space-between",
+            padding: "8px 24px",
+            background: "#FFFFFF",
+            border: "1px solid rgba(139, 92, 26, 0.08)",
+            borderRadius: 28,
+            boxShadow: isHeaderHovered
+              ? "0 14px 40px rgba(45, 42, 38, 0.08), 0 2px 8px rgba(45, 42, 38, 0.03)"
+              : "0 8px 30px rgba(45, 42, 38, 0.05), 0 1px 4px rgba(45, 42, 38, 0.02)",
+            transform: isHeaderHovered ? "translateY(-1px)" : "none",
+            transition: "transform 0.25s cubic-bezier(0.25, 1, 0.5, 1), box-shadow 0.25s cubic-bezier(0.25, 1, 0.5, 1), background 0.25s ease",
+            width: "100%",
+            maxWidth: 1024,
+            height: 48,
+            boxSizing: "border-box",
+          }}
+          onMouseEnter={() => setIsHeaderHovered(true)}
+          onMouseLeave={() => setIsHeaderHovered(false)}
+        >
+          <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+            <button
+              onClick={() => navigate("/workspace")}
+              style={{
+                display: "flex", alignItems: "center", gap: 5,
+                background: "none", border: "none", cursor: "pointer",
+                color: COLORS.textSecondary, fontSize: 11.5, fontFamily: INTER, fontWeight: 600,
+                padding: "4px 8px", borderRadius: 14,
+                transition: "background 0.15s ease",
+              }}
+              className="hover:bg-neutral-50"
+            >
+              <ArrowLeft size={13} strokeWidth={2.5} />
+              <span>Esc</span>
+            </button>
 
-          <div style={{ width: 1, height: 20, background: COLORS.borderLight }} />
+            <div style={{ width: 1, height: 16, background: "rgba(139, 92, 26, 0.08)" }} />
 
-          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-            <div style={{
-              width: 28, height: 28, borderRadius: 8,
-              display: "flex", alignItems: "center", justifyContent: "center",
-              background: `linear-gradient(135deg, ${COLORS.accent}, #8B5CF6)`,
-            }}>
-              <Brain size={14} color="#FFF" />
+            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+              <img
+                src="/react-architect-logo.jpg"
+                alt="React Architect Logo"
+                style={{
+                  width: 30,
+                  height: 30,
+                  borderRadius: 7,
+                  objectFit: "cover",
+                  flexShrink: 0,
+                }}
+              />
+              <span style={{ fontSize: 13, fontWeight: 700, color: COLORS.text, letterSpacing: "-0.01em" }}>
+                React Architect AI
+              </span>
             </div>
-            <span style={{ fontSize: 14, fontWeight: 700, color: COLORS.text, letterSpacing: "-0.01em" }}>
-              React Architect AI
-            </span>
           </div>
-        </div>
-        <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
-          {projectOverview && (
-            <span style={{ fontSize: 11.5, color: COLORS.textMuted, fontFamily: MONO }}>
-              {projectOverview.name}
-            </span>
-          )}
-          <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-            <div style={{
-              width: 7, height: 7, borderRadius: "50%",
-              background: hasGeminiKey ? COLORS.success : "#F59E0B",
-              flexShrink: 0,
-            }} />
-            <span style={{ fontSize: 10.5, color: COLORS.textMuted, fontFamily: INTER }}>
-              {hasGeminiKey ? "Google Gemini Active" : "Gemini Disconnected"}
-            </span>
+
+          <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
+            {projectOverview && (
+              <span style={{ fontSize: 11, color: COLORS.textSecondary, fontFamily: MONO, fontWeight: 500 }}>
+                {projectOverview.name}
+              </span>
+            )}
+            
+            <div style={{ width: 1, height: 12, background: "rgba(139, 92, 26, 0.08)" }} />
+
+            <div style={{ display: "flex", alignItems: "center", gap: 5 }}>
+              <div style={{
+                width: 6, height: 6, borderRadius: "50%",
+                background: hasGeminiKey ? COLORS.success : "#F59E0B",
+                flexShrink: 0,
+              }} />
+              <span style={{ fontSize: 10.5, color: COLORS.textMuted, fontFamily: INTER }}>
+                {hasGeminiKey ? "Gemini Connected" : "Disconnected"}
+              </span>
+            </div>
+
+            <div style={{ display: "flex", alignItems: "center", gap: 5 }}>
+              <div style={{ width: 6, height: 6, borderRadius: "50%", background: COLORS.success }} />
+              <span style={{ fontSize: 10.5, color: COLORS.textMuted, fontFamily: INTER }}>Active</span>
+            </div>
           </div>
-          <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-            <div style={{ width: 7, height: 7, borderRadius: "50%", background: COLORS.success }} />
-            <span style={{ fontSize: 10.5, color: COLORS.textMuted, fontFamily: INTER }}>Workspace Active</span>
-          </div>
-        </div>
-      </header>
+        </header>
+      </div>
 
       {/* Persistent warning banner if API key is missing */}
       {!hasGeminiKey && (
@@ -499,19 +534,22 @@ export default function Investigation() {
               justifyContent: "center", minHeight: "55vh", gap: 20, textAlign: "center",
               maxWidth: 640, margin: "0 auto", padding: "0 20px",
             }}>
-              <div style={{
-                width: 60, height: 60, borderRadius: 18,
-                display: "flex", alignItems: "center", justifyContent: "center",
-                background: `linear-gradient(135deg, ${COLORS.accentBg}, #F5F3FF)`,
-                boxShadow: `0 8px 24px ${COLORS.accent}12`,
-              }}>
-                <Brain size={26} color={COLORS.accent} />
-              </div>
+              <img
+                src="/react-architect-logo.jpg"
+                alt="React Architect Logo"
+                style={{
+                  width: 60,
+                  height: 60,
+                  borderRadius: 18,
+                  objectFit: "cover",
+                  boxShadow: "0 8px 30px rgba(45, 42, 38, 0.08), 0 2px 8px rgba(45, 42, 38, 0.04)",
+                }}
+              />
               <div>
-                <h1 style={{ fontSize: 21, fontWeight: 800, color: COLORS.text, letterSpacing: "-0.025em", margin: 0 }}>
+                <h1 style={{ fontSize: 21, fontWeight: 800, color: COLORS.text, letterSpacing: "-0.025em", margin: 0, textShadow: "0 1px 2px #FFFFFF, 0 1px 3px rgba(255, 255, 255, 0.9)" }}>
                   Ask anything about your React architecture
                 </h1>
-                <p style={{ fontSize: 13.5, color: COLORS.textSecondary, marginTop: 8, lineHeight: 1.6 }}>
+                <p style={{ fontSize: 13.5, color: COLORS.textSecondary, marginTop: 8, lineHeight: 1.6, textShadow: "0 1px 2px #FFFFFF, 0 1px 3px rgba(255, 255, 255, 0.9)" }}>
                   React Architect AI understands your codebase as a structured knowledge graph.
                   Ask about dependencies, routing, state flow, auth, or refactoring.
                 </p>
@@ -568,15 +606,18 @@ export default function Investigation() {
 
                 return (
                   <div key={idx} style={{ display: "flex", gap: 16 }}>
-                    <div style={{
-                      width: 32, height: 32, borderRadius: 10,
-                      display: "flex", alignItems: "center", justifyContent: "center",
-                      background: `linear-gradient(135deg, ${COLORS.accent}, #8B5CF6)`,
-                      flexShrink: 0,
-                      marginTop: 2,
-                    }}>
-                      <Brain size={16} color="#FFF" />
-                    </div>
+                    <img
+                      src="/react-architect-logo.jpg"
+                      alt="React Architect Logo"
+                      style={{
+                        width: 32,
+                        height: 32,
+                        borderRadius: 10,
+                        objectFit: "cover",
+                        flexShrink: 0,
+                        marginTop: 2,
+                      }}
+                    />
                     <div style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column", gap: 16 }}>
                       {isThinking ? (
                         <div style={{ display: "flex", alignItems: "center", gap: 10, paddingTop: 6 }}>
@@ -601,15 +642,20 @@ export default function Investigation() {
           {/* Loader Thinking state */}
           {isRunning && messages.length > 0 && messages[messages.length - 1]?.role !== ROLES.ASSISTANT && (
             <div style={{ maxWidth: 768, margin: "16px auto", width: "100%", display: "flex", gap: 16 }}>
-              <div style={{
-                width: 32, height: 32, borderRadius: 10,
-                display: "flex", alignItems: "center", justifyContent: "center",
-                background: COLORS.accentBg, flexShrink: 0,
-              }}>
+              <img
+                src="/react-architect-logo.jpg"
+                alt="React Architect Logo"
+                style={{
+                  width: 32,
+                  height: 32,
+                  borderRadius: 10,
+                  objectFit: "cover",
+                  flexShrink: 0,
+                }}
+              />
+              <div style={{ flex: 1, display: "flex", alignItems: "center", gap: 10, paddingTop: 6 }}>
                 <Loader size={14} color={COLORS.accent} style={{ animation: "spin 1.5s linear infinite" }} />
-              </div>
-              <div style={{ flex: 1, display: "flex", flexDirection: "column", gap: 6 }}>
-                <span style={{ fontSize: 13, fontWeight: 600, color: COLORS.textSecondary, fontFamily: INTER }}>
+                <span style={{ fontSize: 13, color: COLORS.textSecondary, fontFamily: INTER }}>
                   Analyzing architecture...
                 </span>
               </div>
@@ -621,17 +667,16 @@ export default function Investigation() {
 
         {/* Persistent Input Console */}
         <div style={{
-          background: COLORS.surface,
-          borderTop: `1px solid ${COLORS.border}`,
-          padding: "16px 20px 24px",
+          background: "transparent",
+          padding: "16px 20px 64px",
           flexShrink: 0,
         }}>
           <div style={{ display: "flex", gap: 10, alignItems: "flex-end", maxWidth: 768, margin: "0 auto", width: "100%" }}>
             <div style={{
               flex: 1, display: "flex", alignItems: "flex-end", gap: 10,
-              background: COLORS.surfaceAlt, border: `1px solid ${COLORS.border}`,
+              background: COLORS.surface, border: "1px solid rgba(139, 92, 26, 0.08)",
               borderRadius: 14, padding: "10px 14px",
-              boxShadow: "0 2px 8px rgba(0,0,0,0.02)",
+              boxShadow: "0 8px 30px rgba(0, 0, 0, 0.08), 0 2px 8px rgba(0, 0, 0, 0.04)",
             }}>
               <textarea
                 ref={inputRef}
@@ -665,30 +710,6 @@ export default function Investigation() {
               </button>
             </div>
           </div>
-
-          {/* Inline suggestions below input (only if query is empty) */}
-          {!query && (
-            <div style={{
-              display: "flex", flexWrap: "wrap", justifyContent: "center", gap: 8,
-              marginTop: 12, maxWidth: 768, marginLeft: "auto", marginRight: "auto",
-            }}>
-              {suggestionList.map((suggestion, i) => (
-                <button
-                  key={i}
-                  onClick={() => handleSuggestion(suggestion)}
-                  style={{
-                    padding: "5px 11px", borderRadius: 8,
-                    background: COLORS.surface, border: `1px solid ${COLORS.borderLight}`,
-                    color: COLORS.textSecondary, fontSize: 11, fontFamily: INTER,
-                    cursor: "pointer", transition: "all 0.15s ease",
-                  }}
-                  className="hover:bg-neutral-50 hover:border-neutral-300"
-                >
-                  {suggestion}
-                </button>
-              ))}
-            </div>
-          )}
 
           {/* Conversation actions (Reset Conversation button shown if messages exist) */}
           {messages.length > 0 && (

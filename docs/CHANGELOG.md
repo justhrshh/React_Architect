@@ -1,3 +1,46 @@
+# v8.5 — AI Workspace Redesign & Refinements (Sprint 12.5)
+
+## Added
+
+### Architect AI Engine
+* **Source Code Injection**: Integrated actual file contents from `knowledgeGraph.rawFiles` directly into AI prompts (up to 300 lines), enabling code-level analysis in explanations and impact reviews.
+* **Multi-Turn Conversation Memory**: Implemented conversational message logs utilizing `getHistory(3)` to feed historical context to Gemini, enabling natural follow-up questions.
+* **Centralized Error Handling**: Added `getArchitectAIErrorMessage` helper mapping raw network, 429 rate limit, 503 service unavailable, empty response, and timeout failures to friendly markdown messages inside standard assistant bubbles.
+* **MarkdownRenderer Component**: Built a custom lightweight Markdown-to-JSX renderer supporting headings, lists, bold/italic inline styling, blockquotes, and themed code blocks.
+
+### UI & Layout Refinements
+* **Renamed Page to "Architect AI"**: Updated all visible user-facing labels, buttons, navigation options, and sidebar panel headings to `"Architect AI"`.
+* **Fixed Navigation & Input Compose**: Replaced full-page scrolling with a static top header and a fixed bottom compose text area.
+* **Scroll-Only Conversation Container**: Restricted vertical scrolling exclusively to the message thread view.
+* **Escape Back Key Shortcut**: Implemented global `Escape` keyboard shortcut to trigger browser back navigation (or fallback to `/workspace`).
+* **Visual Language Overhaul (Architecture Studio)**: Fully overhauled the colors, borders, shadows, and typography to fit a light travertine, limestone, off-white, and warm plaster palette. Added soft Apple-style layered shadows, increased metric numbers spacing and contrast hierarchy, and styled the Inspector Panel with a dedicated warmer neutral workspace background.
+* **Architect AI Page Background**: Added the custom animated GIF (`50ea6f333adf5baf1b1984d3d90420a5.gif`) as the background of the Architect AI chat interface, blending it with a soft 40% opacity white overlay filter to let it shine through clearly while keeping text fully readable.
+* **Floating Composer & Suggestions Clean Up**: Removed bottom suggestions list buttons under the compose text area. Set the compose console outer background to transparent (removing default borders/solid white panels) and floated the input box itself with a solid white background, a warm accent border, an elevated shadow, and an increased bottom padding spacing (`64px`) to detach it cleanly from the bottom viewport.
+* **Floating Command Navigation Bar**: Replaced the traditional full-width top header with a centered, floating pill-shaped capsule (`borderRadius: 28`) surrounded by background whitespace. Included custom smooth shadow elevation transitions and a gentle translation lift on hover. Added tiny, lightweight dot indicators for status states.
+* **Premium Branding Logo**: Replaced the generic `Layers` and `Brain` placeholder icons in the Architecture Studio TopBar and the Architect AI floating command bar with the custom logo image asset (`react-architect-logo.jpg`), formatted and integrated cleanly. Increased header logo sizes to `30x30px`. (Asset overwritten with your newly provided design).
+* **Center Empty State Logo**: Substituted the generic brain icon box in the empty state with the premium `60x60px` logo image with an elevated shadow.
+* **Shortcut Label (Esc)**: Updated the floating navbar back button to say `"Esc"` instead of `"Back"` to make the keyboard shortcut visually explicit.
+* **Chat Message Bubble Avatar**: Replaced the placeholder brain icon box in response list items and bottom active loading state wrappers with the premium logo (`32x32px`).
+
+## Changed
+
+* Replaced the over-engineered 354-line intent classifier with a lean, 84-line router (`intent.js`) managing 9 core intents.
+* Rewrote and simplified `Investigation.jsx` to reduce file size from 1026 lines to under 500 lines.
+* Excluded visual execution pipeline animation simulation.
+
+## Deleted
+
+* `src/engines/ai/formatter.js` (rendered redundant by native MarkdownRenderer).
+* `src/engines/ai/intentClassifier.js` (superseded by `intent.js`).
+* `src/engines/ai/prompts/` (replaced by unified prompt assembler in `prompt.js`).
+
+## Status
+
+Sprint 12.5 Complete.
+All changes build and lint cleanly with zero warnings/errors, and all unit tests pass.
+
+---
+
 # v8.0 — Self-Architecture Optimization Pass (Sprint 10.3)
 
 ## Added

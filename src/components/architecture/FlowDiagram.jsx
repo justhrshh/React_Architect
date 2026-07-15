@@ -37,8 +37,8 @@ function IconBtn({ onClick, title, children }) {
         flexShrink: 0,
       }}
       onMouseEnter={e => {
-        e.currentTarget.style.background = "#F3F4F6";
-        e.currentTarget.style.color = "#374151";
+        e.currentTarget.style.background = "#F5F3EF";
+        e.currentTarget.style.color = "#2E2D2B";
       }}
       onMouseLeave={e => {
         e.currentTarget.style.background = "transparent";
@@ -240,7 +240,7 @@ function FlowNodeCard({ ln, isSelected, isHighlighted, onSelect, onToggle, isExp
           ? `0 0 0 2px ${colorCfg.accent}, 0 4px 16px ${colorCfg.accent}20`
           : isHighlighted
           ? `0 0 0 2px #3B82F6, 0 4px 16px rgba(59, 130, 246, 0.25)`
-          : "0 1px 3px rgba(0,0,0,0.05), 0 0 0 1px " + colorCfg.border,
+          : "0 1px 3px rgba(45, 42, 38, 0.03), 0 2px 8px rgba(45, 42, 38, 0.02), 0 0 0 1px " + (colorCfg.border === "transparent" ? "transparent" : "rgba(139, 92, 26, 0.04)"),
       }}
       whileHover={{
         y: -3,
@@ -249,7 +249,7 @@ function FlowNodeCard({ ln, isSelected, isHighlighted, onSelect, onToggle, isExp
           ? `0 0 0 2px ${colorCfg.accent}, 0 8px 24px ${colorCfg.accent}30`
           : isHighlighted
           ? `0 0 0 2px #3B82F6, 0 8px 24px rgba(59, 130, 246, 0.35)`
-          : "0 4px 12px rgba(0,0,0,0.08), 0 0 0 1px " + colorCfg.accent
+          : "0 4px 16px rgba(45, 42, 38, 0.06), 0 0 0 1.5px " + colorCfg.accent
       }}
       transition={{ duration: 0.22, ease: [0.25, 1, 0.5, 1] }}
       onClick={(e) => { e.stopPropagation(); onSelect(node.id); }}
@@ -789,18 +789,17 @@ const FlowDiagram = forwardRef(({ architectureModel, selectedId, onSelectNode, h
           display: "flex",
           flexDirection: "column",
           gap: 6,
-          background: "rgba(255, 255, 255, 0.88)",
-          backdropFilter: "blur(10px)",
-          border: "1px solid #E8EAED",
+          background: "#FFFFFF",
+          border: "1px solid rgba(139, 92, 26, 0.05)",
           borderRadius: 12,
           padding: "10px 12px",
-          boxShadow: "0 4px 16px rgba(0,0,0,0.06)",
+          boxShadow: "0 2px 8px rgba(45, 42, 38, 0.03)",
           zIndex: 10,
           width: 172,
           boxSizing: "border-box"
         }}
       >
-        <span style={{ fontSize: 8.5, fontWeight: 700, color: "#9CA3AF", textTransform: "uppercase", letterSpacing: "0.06em", fontFamily: INTER, marginBottom: 2 }}>
+        <span style={{ fontSize: 8.5, fontWeight: 700, color: "#8C867C", textTransform: "uppercase", letterSpacing: "0.06em", fontFamily: INTER, marginBottom: 2 }}>
           Shortcuts
         </span>
         {[
@@ -814,12 +813,12 @@ const FlowDiagram = forwardRef(({ architectureModel, selectedId, onSelectNode, h
             <kbd style={{
               fontSize: 8.5,
               fontFamily: MONO,
-              color: "#374151",
-              background: "#F3F4F6",
-              border: "1px solid #E5E7EB",
+              color: "#3E3C38",
+              background: "#F5F3EF",
+              border: "1px solid #DCD8D2",
               borderRadius: 4,
               padding: "1px 4px",
-              boxShadow: "0 1px 0 rgba(0,0,0,0.05)",
+              boxShadow: "0 1px 0 rgba(45,42,38,0.02)",
               flexShrink: 0
             }}>
               {item.keys}
@@ -837,9 +836,9 @@ const FlowDiagram = forwardRef(({ architectureModel, selectedId, onSelectNode, h
           display: "flex",
           alignItems: "center",
           background: "#FFFFFF",
-          border: "1px solid #E8EAED",
+          border: "1px solid rgba(139, 92, 26, 0.05)",
           borderRadius: 12,
-          boxShadow: "0 1px 4px rgba(0,0,0,0.06)",
+          boxShadow: "0 2px 8px rgba(45, 42, 38, 0.03)",
           padding: 4,
           gap: 0,
           zIndex: 10,
@@ -861,7 +860,7 @@ const FlowDiagram = forwardRef(({ architectureModel, selectedId, onSelectNode, h
         <IconBtn onClick={() => setZoom(z => Math.max(0.15, z - 0.15))} title="Zoom out">
           <ZoomOut size={13} />
         </IconBtn>
-        <div style={{ width: 1, height: 14, background: "#E8EAED", margin: "0 3px" }} />
+        <div style={{ width: 1, height: 14, background: "rgba(139, 92, 26, 0.08)", margin: "0 3px" }} />
         <IconBtn onClick={() => {
           const cx = (bounds.minX + bounds.maxX) / 2;
           const cy = bounds.minY;
@@ -881,12 +880,12 @@ const FlowDiagram = forwardRef(({ architectureModel, selectedId, onSelectNode, h
           display: "flex",
           alignItems: "center",
           gap: 12,
-          background: "rgba(255,255,255,0.88)",
-          backdropFilter: "blur(8px)",
-          border: "1px solid #E8EAED",
+          background: "#FFFFFF",
+          border: "1px solid rgba(139, 92, 26, 0.05)",
           borderRadius: 10,
           padding: "7px 12px",
           zIndex: 10,
+          boxShadow: "0 2px 8px rgba(45, 42, 38, 0.03)",
         }}
       >
         {[
@@ -912,11 +911,10 @@ const FlowDiagram = forwardRef(({ architectureModel, selectedId, onSelectNode, h
           right: 20,
           width: 160,
           height: 110,
-          background: "rgba(255, 255, 255, 0.9)",
-          backdropFilter: "blur(8px)",
-          border: "1px solid #E8EAED",
+          background: "#FFFFFF",
+          border: "1px solid rgba(139, 92, 26, 0.05)",
           borderRadius: 12,
-          boxShadow: "0 4px 12px rgba(0,0,0,0.08)",
+          boxShadow: "0 2px 8px rgba(45, 42, 38, 0.03)",
           padding: 8,
           zIndex: 10,
           userSelect: "none",

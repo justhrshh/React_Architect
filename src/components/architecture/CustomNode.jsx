@@ -36,16 +36,16 @@ export default function CustomNode({ data }) {
   }
 
   const shadow = isSelected
-    ? `0 0 0 2.5px ${cfg.color}30, 0 8px 28px rgba(0,0,0,0.10), 0 2px 6px rgba(0,0,0,0.06)`
+    ? `0 0 0 2px ${cfg.color}30, 0 4px 16px rgba(45, 42, 38, 0.08)`
     : isConnected
-    ? `0 0 0 1.5px ${cfg.color}22, 0 4px 14px rgba(0,0,0,0.06)`
-    : "0 1px 3px rgba(0,0,0,0.05), 0 4px 14px rgba(0,0,0,0.04)";
+    ? `0 0 0 1.5px ${cfg.color}22, 0 3px 12px rgba(45, 42, 38, 0.05)`
+    : "0 1px 3px rgba(45, 42, 38, 0.02), 0 3px 10px rgba(45, 42, 38, 0.03)";
 
   const borderColor = isSelected
     ? cfg.color + "99"
     : isConnected
     ? cfg.color + "44"
-    : "#E8EAED";
+    : "rgba(139, 92, 26, 0.06)";
 
   const hookCount = node.metadata?.hooks?.length || 0;
   const childCount = node.metadata?.children?.length || 0;

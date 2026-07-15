@@ -51,8 +51,8 @@ export default function TreeNode({ node, selectedId, onSelect, expandedNodes, to
           padding: "5px 8px",
           borderRadius: 6,
           cursor: "pointer",
-          background: isSelected ? "#EFF6FF" : "transparent",
-          border: isSelected ? "1px solid #BFDBFE" : "1px solid transparent",
+          background: isSelected ? "#F3EFEB" : "transparent",
+          border: isSelected ? "1px solid #DCD8D2" : "1px solid transparent",
           transition: "background 0.12s, border-color 0.12s",
           gap: 6,
           userSelect: "none",
@@ -97,7 +97,7 @@ export default function TreeNode({ node, selectedId, onSelect, expandedNodes, to
             fontSize: node.kind === "category" ? 10.5 : 12,
             fontFamily: node.kind === "category" ? INTER : MONO,
             fontWeight: node.kind === "category" ? 750 : isSelected ? 650 : 500,
-            color: node.kind === "category" ? "#8A909E" : isSelected ? "#1D4ED8" : "#374151",
+            color: node.kind === "category" ? "#8C867C" : isSelected ? "#8B7E66" : "#3E3C38",
             letterSpacing: node.kind === "category" ? "0.06em" : "-0.015em",
             textTransform: node.kind === "category" ? "uppercase" : "none"
           }}

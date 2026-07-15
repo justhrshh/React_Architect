@@ -74,8 +74,8 @@ function AccordionSection({ id, title, count, expanded, onToggle, children, refP
     <div
       ref={refProp}
       style={{
-        borderBottom: "1px solid #F1F3F5",
-        background: expanded ? "rgba(249, 250, 251, 0.4)" : "transparent",
+        borderBottom: "1px solid rgba(139, 92, 26, 0.04)",
+        background: expanded ? "rgba(255, 255, 255, 0.25)" : "transparent",
         transition: "background-color 0.2s ease"
       }}
     >
@@ -94,14 +94,14 @@ function AccordionSection({ id, title, count, expanded, onToggle, children, refP
           outline: "none"
         }}
       >
-        <span style={{ fontSize: 11, fontWeight: 700, fontFamily: INTER, color: expanded ? "#2563EB" : "#374151", textTransform: "uppercase", letterSpacing: "0.05em", display: "flex", alignItems: "center", gap: 6 }}>
+        <span style={{ fontSize: 11, fontWeight: 700, fontFamily: INTER, color: expanded ? "#8B7E66" : "#2E2D2B", textTransform: "uppercase", letterSpacing: "0.05em", display: "flex", alignItems: "center", gap: 6 }}>
           {title}
           {count !== undefined && count > 0 && (
             <span style={{
               fontSize: 9.5,
               fontWeight: 650,
-              background: expanded ? "#DBEAFE" : "#F3F4F6",
-              color: expanded ? "#2563EB" : "#6B7280",
+              background: expanded ? "#FAF9F6" : "#F5F3EF",
+              color: expanded ? "#8B7E66" : "#8C867C",
               padding: "1px 5px",
               borderRadius: 999,
               fontFamily: MONO
@@ -113,7 +113,7 @@ function AccordionSection({ id, title, count, expanded, onToggle, children, refP
         <ChevronDown
           size={14}
           style={{
-            color: expanded ? "#2563EB" : "#9CA3AF",
+            color: expanded ? "#8B7E66" : "#8C867C",
             transform: expanded ? "rotate(180deg)" : "rotate(0deg)",
             transition: "transform 0.25s cubic-bezier(0.4, 0, 0.2, 1)"
           }}
@@ -449,20 +449,20 @@ export default function InspectorPanel({
     return (
       <aside style={{
         width: 308,
-        background: "#FFFFFF",
-        borderLeft: "1px solid #E8EAED",
+        background: "#EFECE6",
+        borderLeft: "1px solid rgba(139, 92, 26, 0.06)",
         display: "flex",
         flexDirection: "column",
         flexShrink: 0,
       }}>
-        <div style={{ padding: "12px 20px 11px", borderBottom: "1px solid #F1F3F5" }}>
-          <span style={{ fontSize: 9, fontWeight: 700, letterSpacing: "0.1em", textTransform: "uppercase", color: "#C8CDD8", fontFamily: INTER }}>
+        <div style={{ padding: "12px 20px 11px", borderBottom: "1px solid rgba(139, 92, 26, 0.05)" }}>
+          <span style={{ fontSize: 9, fontWeight: 700, letterSpacing: "0.1em", textTransform: "uppercase", color: "#8C867C", fontFamily: INTER }}>
             Architectural Inspector
           </span>
         </div>
         <div className="flex-1 flex flex-col justify-center items-center p-6 text-center">
-          <Info size={24} className="text-neutral-300 mb-2" />
-          <span style={{ fontSize: 12, color: "#9CA3AF", fontFamily: INTER, fontWeight: 500 }}>Select a component to inspect its architecture</span>
+          <Info size={24} className="text-neutral-400 mb-2" />
+          <span style={{ fontSize: 12, color: "#8C867C", fontFamily: INTER, fontWeight: 500 }}>Select a component to inspect its architecture</span>
         </div>
       </aside>
     );
@@ -476,8 +476,8 @@ export default function InspectorPanel({
   return (
     <aside style={{
       width: 308,
-      background: "#FFFFFF",
-      borderLeft: "1px solid #E8EAED",
+      background: "#EFECE6",
+      borderLeft: "1px solid rgba(139, 92, 26, 0.06)",
       display: "flex",
       flexDirection: "column",
       flexShrink: 0,
@@ -518,8 +518,8 @@ export default function InspectorPanel({
       </AnimatePresence>
 
       {/* Header */}
-      <div style={{ padding: "12px 20px 11px", borderBottom: "1px solid #F1F3F5", flexShrink: 0 }}>
-        <span style={{ fontSize: 9, fontWeight: 700, letterSpacing: "0.1em", textTransform: "uppercase", color: "#C8CDD8", fontFamily: INTER }}>
+      <div style={{ padding: "12px 20px 11px", borderBottom: "1px solid rgba(139, 92, 26, 0.05)", flexShrink: 0 }}>
+        <span style={{ fontSize: 9, fontWeight: 700, letterSpacing: "0.1em", textTransform: "uppercase", color: "#8C867C", fontFamily: INTER }}>
           Architectural Specs
         </span>
       </div>
@@ -545,7 +545,7 @@ export default function InspectorPanel({
           <h2 style={{
             fontSize: 20,
             fontWeight: 650,
-            color: "#111827",
+            color: "#2E2D2B",
             letterSpacing: "-0.035em",
             margin: "6px 0 3px",
             lineHeight: 1.2,

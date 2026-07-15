@@ -4,9 +4,9 @@ const INTER = "'Inter', -apple-system, sans-serif";
 const MONO = "'JetBrains Mono', 'SF Mono', monospace";
 
 const COLORS = {
-  text: '#1A1D23',
-  textSecondary: '#6B7280',
-  textMuted: '#9CA3AF',
+  text: '#111827',
+  textSecondary: '#1F2937',
+  textMuted: '#4B5563',
   accent: '#6366F1',
   accentBg: '#EEF2FF',
   accentText: '#4338CA',
@@ -266,6 +266,7 @@ export default function MarkdownRenderer({ content, style }) {
   return (
     <div style={{
       fontFamily: INTER, fontSize: 13.5,
+      textShadow: "0 1px 2px #FFFFFF, 0 1px 3px rgba(255, 255, 255, 0.9)",
       ...style,
     }}>
       {elements}

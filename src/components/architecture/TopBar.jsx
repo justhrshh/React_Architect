@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useMemo } from "react";
-import { ArrowLeft, Layers, ChevronRight, GitBranch, Search, X } from "lucide-react";
+import { ArrowLeft, ChevronRight, GitBranch, Search, X } from "lucide-react";
 import { INTER, SERIF, MONO } from "./constants";
 
 export default function TopBar({ nodeCount, projectName, handleBack, activeTab, onSelectNode, knowledgeGraph }) {
@@ -119,13 +119,14 @@ export default function TopBar({ nodeCount, projectName, handleBack, activeTab, 
     <header style={{
       height: 52,
       background: "#FFFFFF",
-      borderBottom: "1px solid #E8EAED",
+      borderBottom: "1px solid rgba(139, 92, 26, 0.05)",
       display: "flex",
       alignItems: "center",
       padding: "0 16px 0 18px",
       flexShrink: 0,
       gap: 0,
       zIndex: 20,
+      boxShadow: "0 1px 2px rgba(45, 42, 38, 0.01)",
     }}>
       {/* Back button */}
       <button
@@ -136,9 +137,9 @@ export default function TopBar({ nodeCount, projectName, handleBack, activeTab, 
           gap: 6,
           padding: "6px 12px",
           borderRadius: 8,
-          border: "1px solid rgba(0,0,0,0.1)",
-          background: "rgba(0,0,0,0.03)",
-          color: "#374151",
+          border: "1px solid rgba(139, 92, 26, 0.08)",
+          background: "#FAF9F6",
+          color: "#2E2D2B",
           fontSize: 11,
           fontFamily: INTER,
           fontWeight: 600,
@@ -146,27 +147,25 @@ export default function TopBar({ nodeCount, projectName, handleBack, activeTab, 
           marginRight: 16,
           transition: "background 0.15s",
         }}
-        onMouseEnter={e => e.currentTarget.style.background = "rgba(0,0,0,0.06)"}
-        onMouseLeave={e => e.currentTarget.style.background = "rgba(0,0,0,0.03)"}
+        onMouseEnter={e => e.currentTarget.style.background = "#F5F3EF"}
+        onMouseLeave={e => e.currentTarget.style.background = "#FAF9F6"}
       >
         <ArrowLeft size={13} strokeWidth={2.5} />
         Command Center
       </button>
 
-      {/* Logo */}
       <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-        <div style={{
-          width: 30,
-          height: 30,
-          background: "#111827",
-          borderRadius: 7,
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
-          flexShrink: 0,
-        }}>
-          <Layers size={14} color="white" />
-        </div>
+        <img
+          src="/react-architect-logo.jpg"
+          alt="React Architect Logo"
+          style={{
+            width: 30,
+            height: 30,
+            borderRadius: 7,
+            objectFit: "cover",
+            flexShrink: 0,
+          }}
+        />
         <div style={{ lineHeight: 1 }}>
           <div style={{
             fontSize: 14,
@@ -176,7 +175,7 @@ export default function TopBar({ nodeCount, projectName, handleBack, activeTab, 
             fontFamily: SERIF,
             lineHeight: 1.15,
           }}>
-            React<span style={{ color: "#00E5FF", fontWeight: 700 }}>/</span>Architect
+            React<span style={{ color: "#8B7E66", fontWeight: 700 }}>/</span>Architect
           </div>
           <div style={{
             fontSize: 8,
@@ -214,7 +213,7 @@ export default function TopBar({ nodeCount, projectName, handleBack, activeTab, 
           display: "flex",
           alignItems: "center",
         }}>
-          <Search size={13} style={{ position: "absolute", left: 10, color: isFocused ? "#3B82F6" : "#9CA3AF", transition: "color 0.15s" }} />
+          <Search size={13} style={{ position: "absolute", left: 10, color: isFocused ? "#8B7E66" : "#8C867C", transition: "color 0.15s" }} />
           <input
             id="architecture-search-input"
             type="text"
@@ -228,9 +227,9 @@ export default function TopBar({ nodeCount, projectName, handleBack, activeTab, 
               padding: "0 28px 0 30px",
               fontSize: 11.5,
               borderRadius: 8,
-              border: isFocused ? "1px solid #3B82F6" : "1px solid #E8EAED",
-              background: isFocused ? "#FFFFFF" : "#F3F4F6",
-              color: "#1F2937",
+              border: isFocused ? "1px solid #8B7E66" : "1px solid rgba(139, 92, 26, 0.06)",
+              background: isFocused ? "#FFFFFF" : "#F5F3EF",
+              color: "#2E2D2B",
               outline: "none",
               fontFamily: INTER,
               transition: "width 0.22s cubic-bezier(0.25, 1, 0.5, 1), border-color 0.15s, background 0.15s",
@@ -272,8 +271,8 @@ export default function TopBar({ nodeCount, projectName, handleBack, activeTab, 
             overflowY: "auto",
             background: "#FFFFFF",
             borderRadius: 12,
-            border: "1px solid #E5E7EB",
-            boxShadow: "0 12px 30px -4px rgba(0,0,0,0.12), 0 4px 12px -2px rgba(0,0,0,0.06)",
+            border: "1px solid rgba(139, 92, 26, 0.06)",
+            boxShadow: "0 8px 24px rgba(45, 42, 38, 0.06)",
             zIndex: 100,
             padding: "6px 0",
             display: "flex",
@@ -403,11 +402,11 @@ export default function TopBar({ nodeCount, projectName, handleBack, activeTab, 
         gap: 6,
         marginRight: 12,
         padding: "4px 10px",
-        background: "#EFF6FF",
+        background: "#FAF9F6",
         borderRadius: 6,
-        border: "1px solid #BFDBFE",
+        border: "1px solid rgba(139, 92, 26, 0.08)",
       }}>
-        <span style={{ fontSize: 10, color: "#1D4ED8", fontFamily: INTER, fontWeight: 650 }}>
+        <span style={{ fontSize: 10, color: "#8B7E66", fontFamily: INTER, fontWeight: 650 }}>
           {getBadgeLabel()}
         </span>
       </div>
@@ -419,12 +418,12 @@ export default function TopBar({ nodeCount, projectName, handleBack, activeTab, 
         gap: 6,
         marginRight: 12,
         padding: "4px 10px",
-        background: "#F8F9FB",
+        background: "#FAF9F6",
         borderRadius: 6,
-        border: "1px solid #E8EAED",
+        border: "1px solid rgba(139, 92, 26, 0.08)",
       }}>
         <div style={{ width: 6, height: 6, borderRadius: "50%", background: "#10B981" }} />
-        <span style={{ fontSize: 11, color: "#6B7280", fontFamily: INTER }}>
+        <span style={{ fontSize: 11, color: "#8C867C", fontFamily: INTER }}>
           {nodeCount} components
         </span>
       </div>
