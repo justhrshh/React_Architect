@@ -23,3 +23,5 @@ export {
   resetConversation,
   ROLES,
 } from './conversation.js';
+export { GEMINI_MODELS } from './provider/models.js';
+export { getProviderSettings, saveProviderSettings } from './provider/settings.js';

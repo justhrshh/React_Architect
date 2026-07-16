@@ -3,7 +3,7 @@
  * Google Gemini AI Provider with multi-turn conversation support.
  */
 
-const DEFAULT_MODEL = 'gemini-3.5-flash';
+import { getProviderSettings } from "./settings.js";
 
 /**
  * Call Gemini API with multi-turn conversation support.
@@ -13,13 +13,15 @@ const DEFAULT_MODEL = 'gemini-3.5-flash';
  * @returns {Promise<string>} The model's response text
  */
 export async function complete(systemPrompt, contents, onChunk = null) {
-  const apiKey = import.meta.env.VITE_GEMINI_API_KEY;
-  const configuredModel = import.meta.env.VITE_GEMINI_MODEL;
-  const modelName = configuredModel && configuredModel.trim() !== '' ? configuredModel.trim() : DEFAULT_MODEL;
+  const settings = getProviderSettings();
+  const modelName = settings.model;
+  const apiKey = (settings.apiKey && settings.apiKey.trim() !== "") 
+    ? settings.apiKey.trim() 
+    : (import.meta.env.VITE_GEMINI_API_KEY ?? "");
 
   if (!apiKey || apiKey.trim() === '') {
     throw new Error(
-      'Gemini API key is not configured. Please define VITE_GEMINI_API_KEY in your environment (.env file).'
+      'Gemini API key is not configured. Please define VITE_GEMINI_API_KEY in your environment (.env file) or specify it in settings.'
     );
   }
 
@@ -49,12 +51,26 @@ export async function complete(systemPrompt, contents, onChunk = null) {
 
   if (!response.ok) {
     let errMsg = `HTTP Error ${response.status}`;
+    const status = response.status;
     try {
       const errBody = await response.json();
       if (errBody?.error?.message) {
         errMsg = errBody.error.message;
       }
     } catch { /* ignore */ }
+
+    // Check if the model is unavailable or 404
+    const isModelUnavailable = status === 404 || 
+      errMsg.toLowerCase().includes("model not found") || 
+      errMsg.toLowerCase().includes("model unavailable") ||
+      errMsg.toLowerCase().includes("not found");
+
+    if (isModelUnavailable) {
+      const modelError = new Error("The selected model is unavailable for this API key.");
+      modelError.isModelUnavailable = true;
+      throw modelError;
+    }
+
     throw new Error(`Gemini API Error: ${errMsg}`);
   }
 

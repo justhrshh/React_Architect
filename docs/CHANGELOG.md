@@ -21,6 +21,14 @@
 * **Center Empty State Logo**: Substituted the generic brain icon box in the empty state with the premium `60x60px` logo image with an elevated shadow.
 * **Shortcut Label (Esc)**: Updated the floating navbar back button to say `"Esc"` instead of `"Back"` to make the keyboard shortcut visually explicit.
 * **Chat Message Bubble Avatar**: Replaced the placeholder brain icon box in response list items and bottom active loading state wrappers with the premium logo (`32x32px`).
+* **Removed Project Creation Wizard**: Deleted the wizard files and components (`CreateProjectWizard.jsx`) completely. Removed the "New Project" header navigation button, states, and callbacks from `Hub.jsx` to focus exclusively on clean folder/ZIP imports.
+* **Import New Project Action**: Replaced the "Create New Workspace" action button under the visual carousel with an "Import New Project" button linked to the directory parser.
+* **AI Model Selector Dropdown**: Built a custom minimalist header dropdown showing the active model (default: `gemini-3.1-flash-lite`), allowing Switching Models seamlessly.
+* **Dynamic Settings Persistence**: Persisted selection options and custom API keys to `localStorage`.
+* **Flexible Error Switcher Recovery**: Displays inline switcher recovery options directly inside the chat thread if the selected model becomes unavailable (e.g. 404), ensuring the user does not get stuck.
+* **AI Powered Explain Dialog**: Built full streaming AI onboarding explanations inside the Architect Studio's Explain Modal, loaded with direct node relationships, parent/children, complexity review, and source code context.
+* **Architect Notes Amber Callout**: Extracted notes tagged with `## Architect Notes` into a separate warm alert component.
+* **Footer Navigation Redirect**: Added a footer hyperlink redirecting users directly to the `/investigation` room.
 
 ## Changed
 

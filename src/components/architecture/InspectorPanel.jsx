@@ -1,5 +1,7 @@
 import { useState, useMemo, useRef, useEffect, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
+import { useSelector } from "react-redux";
+import { useNavigate } from "react-router-dom";
 import {
   Info,
   CheckCircle,
@@ -15,10 +17,18 @@ import {
   ArrowUpCircle,
   ArrowDownCircle,
   Activity,
-  FileCode
+  FileCode,
+  Loader
 } from "lucide-react";
 import { calculateMaintainability } from "@/engines/analysis/modules/maintainability";
 import { analyzeImpact } from "@/engines/analysis";
+import { selectSelectedProject } from "@/redux/slices/hubSlice";
+import {
+  geminiComplete,
+  buildContext,
+  getSystemPrompt
+} from "@/engines/ai";
+import MarkdownRenderer from "@/components/investigation/MarkdownRenderer";
 import { INTER, MONO, TYPE_CFG, BUILTIN_HOOKS } from "./constants";
 
 const RISK_STYLE = {
@@ -151,6 +161,130 @@ export default function InspectorPanel({
   const [toast, setToast] = useState(null);
   const [copied, setCopied] = useState(false);
   const [isAIModalOpen, setIsAIModalOpen] = useState(false);
+
+  const navigate = useNavigate();
+  const COLORS = {
+    accent: '#6366F1',
+    accentBg: '#EEF2FF',
+    accentText: '#4338CA',
+    text: '#1F2937',
+    textSecondary: '#4B5563',
+    textMuted: '#9CA3AF',
+    success: '#10B981',
+    warning: '#F59E0B',
+    danger: '#EF4444',
+  };
+
+  const analysis = useSelector((state) => state.analysis);
+  const selectedProject = useSelector(selectSelectedProject);
+
+  const [explanationText, setExplanationText] = useState("");
+  const [isExplanationLoading, setIsExplanationLoading] = useState(false);
+  const [explanationError, setExplanationError] = useState(null);
+
+  const fetchAIExplanation = useCallback(async () => {
+    if (!node || !knowledgeGraph) return;
+
+    setIsExplanationLoading(true);
+    setExplanationError(null);
+    setExplanationText("");
+
+    try {
+      // 1. Build context lazily using AI Core
+      const ctx = buildContext(['selection', 'sourceCode', 'analysisSummary'], {
+        knowledgeGraph,
+        analysis,
+        selectedId: node.id,
+        selectedProject,
+      });
+
+      // 2. Build system persona prompt
+      const sysPrompt = getSystemPrompt(ctx.projectOverview);
+
+      // 3. Assemble prompt
+      let userPrompt = `You are React Architect AI.
+Explain the selected entity '${node.name}' (${node.kind}) to a developer who is trying to understand this project.
+
+Focus on:
+- Why this exists
+- What responsibility it owns
+- How it fits into the architecture
+- Which entities/components interact with it
+- Whether it follows good architectural practices
+- Mention possible improvements only if meaningful. If you have improvements, format them under the exact heading '## Architect Notes'. Do NOT include this heading if there are no meaningful recommendations.
+
+Do NOT talk about line counts.
+Do NOT talk about LOC.
+Do NOT dump raw metadata.
+Explain the architecture like a senior engineer during onboarding.`;
+
+      // 4. Inject visual/architecture context snapshot
+      userPrompt += `\n\n## Context Snapshot\n`;
+      if (ctx.selection) {
+        const s = ctx.selection;
+        userPrompt += `- Selected Node: ${s.name} (${s.kind})\n`;
+        if (s.file) userPrompt += `- File path: ${s.file}\n`;
+        if (s.outgoing?.length) {
+          userPrompt += `- Dependencies: ${s.outgoing.map(o => `${o.targetName} (${o.targetKind})`).join(", ")}\n`;
+        }
+        if (s.incoming?.length) {
+          userPrompt += `- Consumed by (parents): ${s.incoming.map(i => `${i.sourceName} (${i.sourceKind})`).join(", ")}\n`;
+        }
+        if (s.impact) {
+          userPrompt += `- Risk level: ${s.impact.riskLevel ?? "low"}\n`;
+        }
+      }
+
+      if (ctx.sourceCode) {
+        userPrompt += `\n## Relevant Source Code\n\`\`\`jsx\n${ctx.sourceCode}\n\`\`\`\n`;
+      }
+
+      // 5. Call API
+      const contents = [{ role: 'user', parts: [{ text: userPrompt }] }];
+
+      let streamedText = "";
+      await geminiComplete(sysPrompt, contents, (text) => {
+        streamedText = text;
+        setExplanationText(text);
+      });
+
+      if (!streamedText) {
+        throw new Error("Empty response received from Gemini.");
+      }
+    } catch (err) {
+      console.error("AI Explain Error:", err);
+      if (err?.isModelUnavailable) {
+        setExplanationError("The selected model is unavailable for this API key. Please switch to a different model in the main screen header.");
+      } else {
+        setExplanationError(err?.message || "An unexpected error occurred while explaining the component.");
+      }
+    } finally {
+      setIsExplanationLoading(false);
+    }
+  }, [node, knowledgeGraph, analysis, selectedProject]);
+
+  useEffect(() => {
+    if (isAIModalOpen) {
+      const timer = setTimeout(() => {
+        fetchAIExplanation();
+      }, 0);
+      return () => clearTimeout(timer);
+    }
+  }, [isAIModalOpen, fetchAIExplanation]);
+
+  const { mainExplanation, notes } = useMemo(() => {
+    if (!explanationText) return { mainExplanation: "", notes: null };
+    const parts = explanationText.split(/## Architect Notes|### Architect Notes/i);
+    return {
+      mainExplanation: parts[0].trim(),
+      notes: parts[1] ? parts[1].trim() : null,
+    };
+  }, [explanationText]);
+
+  const handleRedirectToAI = useCallback(() => {
+    setIsAIModalOpen(false);
+    navigate("/investigation");
+  }, [navigate]);
 
   // Accordion Sections Expand States
   const [expandedSections, setExpandedSections] = useState({
@@ -379,60 +513,7 @@ export default function InspectorPanel({
     return matched;
   }, [knowledgeGraph, node]);
 
-  // Generate dynamic AI report
-  const generateAIReport = () => {
-    if (!node) return null;
-    
-    const reports = [];
-    reports.push({
-      title: "System Role Description",
-      content: `The component '${node.name}' acts as a ${getRoleLabel().toLowerCase()} in the project tree structure. It resides in '${node.file}'.`
-    });
 
-    if (maintainability) {
-      const score = maintainability.score;
-      const status = score >= 85 ? "excellent quality" : score >= 70 ? "moderate maintainability" : "refactoring candidate";
-      const tips = maintainability.score < 70 
-        ? "We recommend splitting subcomponents, extracting hooks, or flattening nested layouts to bring down LOC and improve cohesion."
-        : "No urgent structural updates required. The component is highly modular and cohesive.";
-      reports.push({
-        title: "Maintainability & Complexity Review",
-        content: `Score: ${score}/100 (${status}). The file has ${maintainability.loc} lines of code. ${tips}`
-      });
-    }
-
-    if (impact) {
-      const risk = impact.riskLevel === "high" ? "Critical Risk" : impact.riskLevel === "medium" ? "Moderate Risk" : "Minimal Risk";
-      reports.push({
-        title: "Blast Radius & Dependencies Impact",
-        content: `Refactoring risk level is classified as '${risk}' with a blast radius of ${impact.blastRadius} dependent nodes. It directly depends on ${impact.direct.uses.length} nodes and is consumed upstream by ${impact.direct.usedBy.length} nodes. Modifying its signature requires checking all render references.`
-      });
-    }
-
-    const steps = [];
-    if (maintainability && maintainability.score < 75) {
-      steps.push("Decompose large JSX render blocks into smaller subcomponents.");
-    }
-    if (node.metadata?.hooks && node.metadata.hooks.length > 4) {
-      steps.push(`Consolidate hooks (currently utilizing ${node.metadata.hooks.length} hooks) into custom, domain-specific state hooks.`);
-    }
-    if (apiCalls.length > 0) {
-      steps.push("Ensure remote backend endpoints are triggered within thunks/actions rather than inside component side-effects.");
-    }
-    if (isCyclic) {
-      steps.push("Resolve circular imports immediately by introducing an interface layer or external context dispatcher.");
-    }
-    if (steps.length === 0) {
-      steps.push("Adhere to clean coding standards: run prettier, keep props typed, and write tests for edge-cases.");
-    }
-
-    reports.push({
-      title: "Recommended Refactoring Roadmap",
-      items: steps
-    });
-
-    return reports;
-  };
 
   const getRoleLabel = () => {
     if (node.kind === "route") {
@@ -1186,20 +1267,71 @@ export default function InspectorPanel({
                   <span style={{ fontSize: 10, color: "#64748B", fontFamily: MONO, wordBreak: "break-all" }}>{node.file}</span>
                 </div>
 
-                {generateAIReport()?.map((sect, i) => (
-                  <div key={i} style={{ borderTop: "1px solid #F1F5F9", paddingTop: 12 }}>
-                    <h4 style={{ fontSize: 11.5, fontWeight: 700, color: "#475569", margin: "0 0 6px", fontFamily: INTER }}>{sect.title}</h4>
-                    {sect.items ? (
-                      <ul style={{ margin: 0, paddingLeft: 18, display: "flex", flexDirection: "column", gap: 4 }}>
-                        {sect.items.map((it, idx) => (
-                          <li key={idx} style={{ fontSize: 11, color: "#475569", fontFamily: INTER, lineHeight: 1.45 }}>{it}</li>
-                        ))}
-                      </ul>
-                    ) : (
-                      <p style={{ fontSize: 11, color: "#64748B", margin: 0, fontFamily: INTER, lineHeight: 1.45 }}>{sect.content}</p>
+                {isExplanationLoading && !explanationText ? (
+                  <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: "40px 0", gap: 12 }}>
+                    <Loader size={20} className="text-blue-500 animate-spin" />
+                    <span style={{ fontSize: 12, color: "#64748B", fontFamily: INTER }}>Consulting AI Advisor...</span>
+                  </div>
+                ) : explanationError ? (
+                  <div style={{ display: "flex", flexDirection: "column", gap: 12, padding: 12, background: "#FEF2F2", border: "1px solid #FEE2E2", borderRadius: 8 }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                      <AlertTriangle size={14} style={{ color: "#DC2626" }} />
+                      <span style={{ fontSize: 11, fontWeight: 700, color: "#991B1B", fontFamily: INTER }}>Error</span>
+                    </div>
+                    <span style={{ fontSize: 11.5, color: "#991B1B", fontFamily: INTER, lineHeight: 1.5 }}>
+                      {explanationError}
+                    </span>
+                    <button
+                      onClick={() => fetchAIExplanation()}
+                      style={{
+                        alignSelf: "flex-start",
+                        padding: "4px 10px",
+                        background: "#FFFFFF",
+                        border: "1px solid #EF444430",
+                        color: "#B91C1C",
+                        fontSize: 11,
+                        borderRadius: 6,
+                        cursor: "pointer",
+                        fontWeight: 600,
+                      }}
+                      className="hover:bg-red-50"
+                    >
+                      Retry Explanation
+                    </button>
+                  </div>
+                ) : (
+                  <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+                    <div style={{ fontSize: 12, color: "#334155", fontFamily: INTER, lineHeight: 1.6 }}>
+                      <MarkdownRenderer content={mainExplanation} />
+                    </div>
+
+                    {notes && (
+                      <div style={{
+                        padding: 12,
+                        borderRadius: 8,
+                        background: "#FFFBEB",
+                        border: "1px solid #FDE68A",
+                        color: "#78350F",
+                        marginTop: 4,
+                      }}>
+                        <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 6 }}>
+                          <Sparkles size={13} style={{ color: "#D97706" }} />
+                          <span style={{ fontSize: 10, fontWeight: 750, fontFamily: INTER, textTransform: "uppercase", letterSpacing: "0.02em" }}>Architect Notes</span>
+                        </div>
+                        <div style={{ fontSize: 11.5, fontFamily: INTER, lineHeight: 1.5 }}>
+                          <MarkdownRenderer content={notes} />
+                        </div>
+                      </div>
+                    )}
+
+                    {isExplanationLoading && (
+                      <div style={{ display: "flex", alignItems: "center", gap: 8, paddingTop: 4 }}>
+                        <Loader size={12} className="text-blue-500 animate-spin" />
+                        <span style={{ fontSize: 11, color: "#64748B", fontFamily: INTER }}>AI is writing...</span>
+                      </div>
                     )}
                   </div>
-                ))}
+                )}
               </div>
 
               {/* Footer */}
@@ -1207,9 +1339,28 @@ export default function InspectorPanel({
                 padding: "12px 20px",
                 borderTop: "1px solid #E2E8F0",
                 display: "flex",
-                justifyContent: "flex-end",
+                justifyContent: "space-between",
+                alignItems: "center",
                 background: "#F8FAFC"
               }}>
+                <span style={{ fontSize: 10.5, color: "#64748B", fontFamily: INTER }}>
+                  For more information, visit{" "}
+                  <button
+                    onClick={handleRedirectToAI}
+                    style={{
+                      background: "none",
+                      border: "none",
+                      color: COLORS.accent,
+                      textDecoration: "underline",
+                      cursor: "pointer",
+                      padding: 0,
+                      font: "inherit",
+                      fontWeight: 600,
+                    }}
+                  >
+                    Architect AI
+                  </button>
+                </span>
                 <button
                   onClick={() => setIsAIModalOpen(false)}
                   style={{
@@ -1226,7 +1377,7 @@ export default function InspectorPanel({
                   }}
                   className="hover:bg-blue-700"
                 >
-                  Dismiss Report
+                  Dismiss
                 </button>
               </div>
             </motion.div>

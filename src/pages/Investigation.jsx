@@ -19,7 +19,10 @@ import {
   getMessages,
   getHistory,
   resetConversation,
-  ROLES
+  ROLES,
+  GEMINI_MODELS,
+  getProviderSettings,
+  saveProviderSettings
 } from "@/engines/ai";
 
 import MarkdownRenderer from "@/components/investigation/MarkdownRenderer";
@@ -170,6 +173,9 @@ function CollapsibleDetails({ metadata }) {
 function getArchitectAIErrorMessage(error) {
   const msg = (error?.message || String(error)).toLowerCase();
 
+  if (error?.isModelUnavailable || msg.includes("model not found") || msg.includes("model unavailable")) {
+    return `The selected model is unavailable for this API key.`;
+  }
   if (msg.includes("429") || msg.includes("quota") || msg.includes("rate limit") || msg.includes("resource_exhausted")) {
     return `**AI request limit reached.**\n\nYou've reached the current Architect AI request limit. Please wait a few moments before trying again.`;
   }
@@ -207,10 +213,30 @@ export default function Investigation() {
   const [isRunning, setIsRunning] = useState(false);
   const [providerError, setProviderError] = useState(null);
   const [isHeaderHovered, setIsHeaderHovered] = useState(false);
+  const [aiSettings, setAiSettings] = useState(() => getProviderSettings());
+  const [showModelDropdown, setShowModelDropdown] = useState(false);
   const inputRef = useRef(null);
   const messagesEndRef = useRef(null);
 
-  const hasGeminiKey = !!import.meta.env.VITE_GEMINI_API_KEY;
+  useEffect(() => {
+    const handleSettingsChange = () => {
+      setAiSettings(getProviderSettings());
+    };
+    window.addEventListener("react-architect:ai-settings-changed", handleSettingsChange);
+    return () => {
+      window.removeEventListener("react-architect:ai-settings-changed", handleSettingsChange);
+    };
+  }, []);
+
+  const activeModel = useMemo(() => {
+    return GEMINI_MODELS.find(m => m.id === aiSettings.model) || GEMINI_MODELS[0];
+  }, [aiSettings.model]);
+
+  const hasGeminiKey = useMemo(() => {
+    const customKey = aiSettings.apiKey && aiSettings.apiKey.trim() !== "";
+    const envKey = import.meta.env.VITE_GEMINI_API_KEY && import.meta.env.VITE_GEMINI_API_KEY.trim() !== "";
+    return customKey || envKey;
+  }, [aiSettings.apiKey]);
 
   // Redirect if no project
   useEffect(() => {
@@ -284,6 +310,7 @@ export default function Investigation() {
     setProviderError(null);
     setIsRunning(true);
 
+    let meta = null;
     try {
       // 1. Classify intent
       const intent = classifyIntent(q, { selectedNodeKind: selectedNode?.kind ?? null });
@@ -311,7 +338,7 @@ export default function Investigation() {
       setMessages(getMessages().filter(m => m.role !== ROLES.SYSTEM));
 
       const startTime = Date.now();
-      const meta = {
+      meta = {
         intentKey: intent.key,
         contextSnapshot: ctx,
         promptSnapshot: generatedPrompt,
@@ -343,10 +370,17 @@ export default function Investigation() {
       const friendlyMessage = getArchitectAIErrorMessage(err);
       const prevMsgs = getMessages();
       const lastMsg = prevMsgs[prevMsgs.length - 1];
+      const isModelUnavailable = !!err.isModelUnavailable;
+      const messageMetadata = {
+        ...(meta || {}),
+        isModelUnavailable,
+      };
+
       if (lastMsg && lastMsg.role === ROLES.ASSISTANT && lastMsg.content === "Thinking...") {
         lastMsg.content = friendlyMessage;
+        lastMsg.metadata = messageMetadata;
       } else {
-        addMessage(ROLES.ASSISTANT, friendlyMessage);
+        addMessage(ROLES.ASSISTANT, friendlyMessage, messageMetadata);
       }
       setMessages(getMessages().filter(m => m.role !== ROLES.SYSTEM));
     } finally {
@@ -473,15 +507,105 @@ export default function Investigation() {
             
             <div style={{ width: 1, height: 12, background: "rgba(139, 92, 26, 0.08)" }} />
 
-            <div style={{ display: "flex", alignItems: "center", gap: 5 }}>
-              <div style={{
-                width: 6, height: 6, borderRadius: "50%",
-                background: hasGeminiKey ? COLORS.success : "#F59E0B",
-                flexShrink: 0,
-              }} />
-              <span style={{ fontSize: 10.5, color: COLORS.textMuted, fontFamily: INTER }}>
-                {hasGeminiKey ? "Gemini Connected" : "Disconnected"}
-              </span>
+            <div style={{ position: "relative" }}>
+              <button
+                onClick={() => hasGeminiKey && setShowModelDropdown(!showModelDropdown)}
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 5,
+                  background: "none",
+                  border: "none",
+                  cursor: hasGeminiKey ? "pointer" : "default",
+                  padding: "4px 8px",
+                  borderRadius: 6,
+                  transition: "background 0.15s ease",
+                }}
+                className={hasGeminiKey ? "hover:bg-neutral-100" : ""}
+              >
+                <div style={{
+                  width: 6, height: 6, borderRadius: "50%",
+                  background: hasGeminiKey ? COLORS.success : "#F59E0B",
+                  flexShrink: 0,
+                }} />
+                <span style={{ fontSize: 10.5, color: COLORS.textSecondary, fontFamily: INTER, fontWeight: 500 }}>
+                  {hasGeminiKey ? activeModel.label : "Disconnected"}
+                </span>
+                {hasGeminiKey && (
+                  <span style={{ fontSize: 8, color: COLORS.textMuted, marginLeft: 2 }}>▼</span>
+                )}
+              </button>
+
+              {showModelDropdown && (
+                <>
+                  <div
+                    onClick={() => setShowModelDropdown(false)}
+                    style={{
+                      position: "fixed",
+                      top: 0,
+                      left: 0,
+                      right: 0,
+                      bottom: 0,
+                      zIndex: 99,
+                      background: "transparent",
+                    }}
+                  />
+                  <div style={{
+                    position: "absolute",
+                    top: "100%",
+                    right: 0,
+                    marginTop: 6,
+                    background: "#FFFFFF",
+                    border: "1px solid rgba(139, 92, 26, 0.08)",
+                    borderRadius: 8,
+                    boxShadow: "0 4px 20px rgba(0, 0, 0, 0.08), 0 2px 6px rgba(0, 0, 0, 0.04)",
+                    padding: "4px",
+                    display: "flex",
+                    flexDirection: "column",
+                    gap: 2,
+                    zIndex: 100,
+                    minWidth: 210,
+                  }}>
+                    {GEMINI_MODELS.map(m => {
+                      const isSelected = m.id === activeModel.id;
+                      return (
+                        <button
+                          key={m.id}
+                          onClick={() => {
+                            const currentSettings = getProviderSettings();
+                            currentSettings.model = m.id;
+                            saveProviderSettings(currentSettings);
+                            setShowModelDropdown(false);
+                          }}
+                          style={{
+                            display: "flex",
+                            alignItems: "center",
+                            justifyContent: "space-between",
+                            padding: "6px 10px",
+                            border: "none",
+                            background: isSelected ? COLORS.accentBg : "transparent",
+                            color: isSelected ? COLORS.accentText : COLORS.text,
+                            fontSize: 11,
+                            fontWeight: isSelected ? 600 : 400,
+                            borderRadius: 5,
+                            cursor: "pointer",
+                            textAlign: "left",
+                            transition: "all 0.15s ease",
+                          }}
+                          className="hover:bg-neutral-50"
+                        >
+                          <span style={{ fontFamily: INTER }}>
+                            {m.label} {m.recommended && "⭐"}
+                          </span>
+                          {isSelected && (
+                            <span style={{ fontSize: 10, color: COLORS.accent }}>✓</span>
+                          )}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </>
+              )}
             </div>
 
             <div style={{ display: "flex", alignItems: "center", gap: 5 }}>
@@ -627,7 +751,59 @@ export default function Investigation() {
                           </span>
                         </div>
                       ) : (
-                        <MarkdownRenderer content={message.content} />
+                        <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+                          <MarkdownRenderer content={message.content} />
+                          {message.metadata?.isModelUnavailable && (
+                            <div style={{
+                              display: "flex",
+                              flexDirection: "column",
+                              gap: 8,
+                              padding: "12px",
+                              background: "#FEF2F2",
+                              border: "1px solid #FEE2E2",
+                              borderRadius: 10,
+                              alignSelf: "flex-start",
+                              marginTop: 4,
+                            }}>
+                              <span style={{ fontSize: 11.5, color: "#991B1B", fontFamily: INTER, fontWeight: 500 }}>
+                                Select a different model to resume:
+                              </span>
+                              <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                                {GEMINI_MODELS.map(m => (
+                                  <button
+                                    key={m.id}
+                                    onClick={() => {
+                                      const currentSettings = getProviderSettings();
+                                      currentSettings.model = m.id;
+                                      saveProviderSettings(currentSettings);
+                                      message.content = `Selected model switched to **${m.label}**. You can retry your query now.`;
+                                      if (message.metadata) {
+                                        message.metadata.isModelUnavailable = false;
+                                      }
+                                      setMessages([...getMessages().filter(msg => msg.role !== ROLES.SYSTEM)]);
+                                    }}
+                                    style={{
+                                      padding: "6px 12px",
+                                      borderRadius: 6,
+                                      background: "#FFFFFF",
+                                      border: "1px solid #EF444430",
+                                      color: "#B91C1C",
+                                      fontSize: 11,
+                                      fontFamily: INTER,
+                                      fontWeight: 600,
+                                      cursor: "pointer",
+                                      boxShadow: "0 1px 2px rgba(0,0,0,0.02)",
+                                      transition: "all 0.15s ease",
+                                    }}
+                                    className="hover:bg-red-50 hover:border-red-300"
+                                  >
+                                    Use {m.label} {m.recommended && "⭐"}
+                                  </button>
+                                ))}
+                              </div>
+                            </div>
+                          )}
+                        </div>
                       )}
 
                       {/* Collapsible Details */}

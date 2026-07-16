@@ -14,14 +14,12 @@ import { startProjectAnalysis } from "@/services/analysisService";
 
 // Components
 import ImportProjectModal from "@/components/hub/ImportProjectModal";
-import CreateProjectWizard from "@/components/hub/CreateProjectWizard";
 import ProjectLoadTransition from "@/components/hub/ProjectLoadTransition";
 import RenameModal from "@/components/hub/RenameModal";
 import DeleteConfirmModal from "@/components/hub/DeleteConfirmModal";
 
-// Icons from lucide-react
 import {
-  Plus, Upload, Zap, ArrowUpRight
+  Upload, Zap, ArrowUpRight
 } from "lucide-react";
 
 // ── Human-readable time ago helper ───────────────────────────────────────────
@@ -652,7 +650,6 @@ const Hub = () => {
 
   // Overlay control states
   const [showImport, setShowImport]   = useState(false);
-  const [showWizard, setShowWizard]   = useState(false);
   const [renameTarget, setRenameTarget] = useState(null);
   const [deleteTarget, setDeleteTarget] = useState(null);
   const [ctxMenu, setCtxMenu]         = useState(null);
@@ -759,13 +756,6 @@ const Hub = () => {
     setLoading(project);
   }, [dispatch]);
 
-  // Wizard complete → trigger loading
-  const handleWizardComplete = useCallback(({ projectId, projectName }) => {
-    setShowWizard(false);
-    const mockProj = { id: projectId, name: projectName };
-    dispatch(startProjectAnalysis({ projectId, project: mockProj }));
-    setLoading(mockProj);
-  }, [dispatch]);
 
   // Load Transition complete → navigate to Workspace Page
   const handleLoadComplete = useCallback(() => {
@@ -796,21 +786,14 @@ const Hub = () => {
         </span>
       </div>
 
-      {/* Top Right Action Navigation Links — vertically stacked with New Project on top */}
+      {/* Top Right Action Navigation Links */}
       <div className="fixed top-8 right-12 z-20 flex flex-col items-end gap-3 select-none pointer-events-auto">
-        <button 
-          onClick={() => setShowWizard(true)} 
-          className="nav-underline font-mono text-[10px] md:text-xs uppercase tracking-widestest text-ink-dim hover:text-white cursor-pointer transition-colors flex items-center gap-1.5"
-        >
-          <Plus size={11} strokeWidth={2.5} />
-          New Project
-        </button>
         <button 
           onClick={() => setShowImport(true)} 
           className="nav-underline font-mono text-[10px] md:text-xs uppercase tracking-widestest text-ink-dim hover:text-white cursor-pointer transition-colors flex items-center gap-1.5"
         >
           <Upload size={11} strokeWidth={2.5} />
-          Import
+          Import Project
         </button>
       </div>
 
@@ -887,11 +870,11 @@ const Hub = () => {
 
           {/* Add New project button immediately below the carousel */}
           <button 
-            onClick={() => setShowWizard(true)}
+            onClick={() => setShowImport(true)}
             className="mt-2 flex items-center gap-2 px-6 py-3 rounded-full border border-white/10 hover:border-white/20 bg-white/5 text-ink-dim hover:text-white transition-all text-xs tracking-wider uppercase font-semibold pointer-events-auto"
             style={{ fontFamily: "JetBrains Mono" }}
           >
-            <Plus size={14} /> Create New Workspace
+            <Upload size={14} /> Import New Project
           </button>
 
         </div>
@@ -937,12 +920,6 @@ const Hub = () => {
       {/* Modals */}
       {showImport && (
         <ImportProjectModal onClose={() => setShowImport(false)} />
-      )}
-      {showWizard && (
-        <CreateProjectWizard
-          onClose={() => setShowWizard(false)}
-          onComplete={handleWizardComplete}
-        />
       )}
       {renameTarget && (
         <RenameModal project={renameTarget} onClose={() => setRenameTarget(null)} />
