@@ -1,11 +1,12 @@
 import { useState, useMemo, useCallback, useEffect, useRef } from "react";
-import { useSelector } from "react-redux";
+import { useSelector, useDispatch } from "react-redux";
 import { useNavigate } from "react-router-dom";
 import { selectSelectedProject } from "@/redux/slices/hubSlice";
+import { selectNodeId } from "@/redux/slices/graphSlice";
 import {
   ChevronDown, ChevronRight, ArrowLeft,
   Loader, Globe, GitBranch, FileText, Info,
-  AlertTriangle
+  AlertTriangle, X, Code, ExternalLink
 } from "lucide-react";
 
 import {
@@ -201,10 +202,19 @@ function getArchitectAIErrorMessage(error) {
 
 export default function Investigation() {
   const navigate = useNavigate();
+  const dispatch = useDispatch();
   const selectedProject = useSelector(selectSelectedProject);
   const knowledgeGraph  = useSelector((state) => state.graph.knowledgeGraph);
   const analysis        = useSelector((state) => state.analysis);
   const selectedId      = useSelector((state) => state.graph.selectedNodeId);
+
+  const handleOpenExplorer = useCallback((node) => {
+    dispatch(selectNodeId(node.id));
+  }, [dispatch]);
+
+  const handleCloseExplorer = useCallback(() => {
+    dispatch(selectNodeId(null));
+  }, [dispatch]);
 
   const [query, setQuery] = useState("");
   const [messages, setMessages] = useState(() =>
@@ -242,6 +252,11 @@ export default function Investigation() {
   useEffect(() => {
     if (!selectedProject) navigate("/hub");
   }, [selectedProject, navigate]);
+
+  // Clear selection on mount of AI Studio to keep conversation clean
+  useEffect(() => {
+    dispatch(selectNodeId(null));
+  }, [dispatch]);
 
   // Auto-focus input
   useEffect(() => {
@@ -646,264 +661,596 @@ export default function Investigation() {
       )}
 
       {/* ─── Main Workspace Content ────────────────────────────────────────── */}
-      <div style={{ flex: 1, display: "flex", flexDirection: "column", overflow: "hidden", position: "relative" }}>
+      <div style={{ flex: 1, display: "flex", overflow: "hidden", position: "relative" }}>
         
-        {/* Scrollable Conversation History */}
-        <div style={{ flex: 1, overflow: "auto", padding: "28px 20px" }}>
-          
-          {/* Empty state */}
-          {messages.length === 0 && (
-            <div style={{
-              display: "flex", flexDirection: "column", alignItems: "center",
-              justifyContent: "center", minHeight: "55vh", gap: 20, textAlign: "center",
-              maxWidth: 640, margin: "0 auto", padding: "0 20px",
-            }}>
-              <img
-                src="/react-architect-logo.jpg"
-                alt="React Architect Logo"
-                style={{
-                  width: 60,
-                  height: 60,
-                  borderRadius: 18,
-                  objectFit: "cover",
-                  boxShadow: "0 8px 30px rgba(45, 42, 38, 0.08), 0 2px 8px rgba(45, 42, 38, 0.04)",
-                }}
-              />
-              <div>
-                <h1 style={{ fontSize: 21, fontWeight: 800, color: COLORS.text, letterSpacing: "-0.025em", margin: 0, textShadow: "0 1px 2px #FFFFFF, 0 1px 3px rgba(255, 255, 255, 0.9)" }}>
-                  Ask anything about your React architecture
-                </h1>
-                <p style={{ fontSize: 13.5, color: COLORS.textSecondary, marginTop: 8, lineHeight: 1.6, textShadow: "0 1px 2px #FFFFFF, 0 1px 3px rgba(255, 255, 255, 0.9)" }}>
-                  React Architect AI understands your codebase as a structured knowledge graph.
-                  Ask about dependencies, routing, state flow, auth, or refactoring.
-                </p>
-              </div>
+        {/* Left Column: Chat Area */}
+        <div style={{
+          flex: 1,
+          display: "flex",
+          flexDirection: "column",
+          overflow: "hidden",
+          position: "relative",
+          transition: "all 0.3s ease",
+        }}>
+          {/* Scrollable Conversation History */}
+          <div style={{ flex: 1, overflow: "auto", padding: "28px 20px" }}>
+            
+            {/* Empty state */}
+            {messages.length === 0 && (
               <div style={{
-                display: "flex", flexWrap: "wrap", justifyContent: "center", gap: 8,
-                marginTop: 8,
+                display: "flex", flexDirection: "column", alignItems: "center",
+                justifyContent: "center", minHeight: "55vh", gap: 20, textAlign: "center",
+                maxWidth: 640, margin: "0 auto", padding: "0 20px",
               }}>
-                {suggestionList.map((suggestion, i) => (
-                  <button
-                    key={i}
-                    onClick={() => handleSuggestion(suggestion)}
-                    style={{
-                      padding: "8px 14px", borderRadius: 10,
-                      background: COLORS.surface, border: `1px solid ${COLORS.border}`,
-                      color: COLORS.text, fontSize: 12.5, fontFamily: INTER, fontWeight: 500,
-                      cursor: "pointer", transition: "all 0.15s ease",
-                      boxShadow: "0 1px 2px rgba(0,0,0,0.02)",
-                    }}
-                    className="hover:bg-neutral-50 hover:border-neutral-300"
-                  >
-                    {suggestion}
-                  </button>
-                ))}
+                <img
+                  src="/react-architect-logo.jpg"
+                  alt="React Architect Logo"
+                  style={{
+                    width: 60,
+                    height: 60,
+                    borderRadius: 18,
+                    objectFit: "cover",
+                    boxShadow: "0 8px 30px rgba(45, 42, 38, 0.08), 0 2px 8px rgba(45, 42, 38, 0.04)",
+                  }}
+                />
+                <div>
+                  <h1 style={{ fontSize: 21, fontWeight: 800, color: COLORS.text, letterSpacing: "-0.025em", margin: 0, textShadow: "0 1px 2px #FFFFFF, 0 1px 3px rgba(255, 255, 255, 0.9)" }}>
+                    Ask anything about your React architecture
+                  </h1>
+                  <p style={{ fontSize: 13.5, color: COLORS.textSecondary, marginTop: 8, lineHeight: 1.6, textShadow: "0 1px 2px #FFFFFF, 0 1px 3px rgba(255, 255, 255, 0.9)" }}>
+                    React Architect AI understands your codebase as a structured knowledge graph.
+                    Ask about dependencies, routing, state flow, auth, or refactoring.
+                  </p>
+                </div>
+                <div style={{
+                  display: "flex", flexWrap: "wrap", justifyContent: "center", gap: 8,
+                  marginTop: 8,
+                }}>
+                  {suggestionList.map((suggestion, i) => (
+                    <button
+                      key={i}
+                      onClick={() => handleSuggestion(suggestion)}
+                      style={{
+                        padding: "8px 14px", borderRadius: 10,
+                        background: COLORS.surface, border: `1px solid ${COLORS.border}`,
+                        color: COLORS.text, fontSize: 12.5, fontFamily: INTER, fontWeight: 500,
+                        cursor: "pointer", transition: "all 0.15s ease",
+                        boxShadow: "0 1px 2px rgba(0,0,0,0.02)",
+                      }}
+                      className="hover:bg-neutral-50 hover:border-neutral-300"
+                    >
+                      {suggestion}
+                    </button>
+                  ))}
+                </div>
               </div>
-            </div>
-          )}
+            )}
 
-          {/* Conversation List */}
-          {messages.length > 0 && (
-            <div style={{ maxWidth: 768, margin: "0 auto", width: "100%", display: "flex", flexDirection: "column", gap: 24 }}>
-              {messages.map((message, idx) => {
-                if (message.role === ROLES.USER) {
+            {/* Conversation List */}
+            {messages.length > 0 && (
+              <div style={{ maxWidth: 768, margin: "0 auto", width: "100%", display: "flex", flexDirection: "column", gap: 24 }}>
+                {messages.map((message, idx) => {
+                  if (message.role === ROLES.USER) {
+                    return (
+                      <div key={idx} style={{ display: "flex", justifyContent: "flex-end" }}>
+                        <div style={{
+                          maxWidth: "75%",
+                          background: COLORS.accentBg,
+                          border: `1px solid ${COLORS.accent}14`,
+                          borderRadius: "16px 16px 4px 16px",
+                          padding: "12px 18px",
+                          fontSize: 13.5, color: COLORS.text,
+                          lineHeight: 1.5,
+                          fontFamily: INTER,
+                        }}>
+                          {message.content}
+                        </div>
+                      </div>
+                    );
+                  }
+
+                  // Assistant response
+                  const isThinking = message.content === "Thinking...";
+
                   return (
-                    <div key={idx} style={{ display: "flex", justifyContent: "flex-end" }}>
-                      <div style={{
-                        maxWidth: "75%",
-                        background: COLORS.accentBg,
-                        border: `1px solid ${COLORS.accent}14`,
-                        borderRadius: "16px 16px 4px 16px",
-                        padding: "12px 18px",
-                        fontSize: 13.5, color: COLORS.text,
-                        lineHeight: 1.5,
-                        fontFamily: INTER,
-                      }}>
-                        {message.content}
+                    <div key={idx} style={{ display: "flex", gap: 16 }}>
+                      <img
+                        src="/react-architect-logo.jpg"
+                        alt="React Architect Logo"
+                        style={{
+                          width: 32,
+                          height: 32,
+                          borderRadius: 10,
+                          objectFit: "cover",
+                          flexShrink: 0,
+                          marginTop: 2,
+                        }}
+                      />
+                      <div style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column", gap: 16 }}>
+                        {isThinking ? (
+                          <div style={{ display: "flex", alignItems: "center", gap: 10, paddingTop: 6 }}>
+                            <Loader size={14} color={COLORS.accent} style={{ animation: "spin 1.5s linear infinite" }} />
+                            <span style={{ fontSize: 13, color: COLORS.textSecondary, fontFamily: INTER }}>
+                              Analyzing architecture...
+                            </span>
+                          </div>
+                        ) : (
+                          <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+                            <MarkdownRenderer content={message.content} onEntityClick={handleOpenExplorer} />
+                            {message.metadata?.isModelUnavailable && (
+                              <div style={{
+                                display: "flex",
+                                flexDirection: "column",
+                                gap: 8,
+                                padding: "12px",
+                                background: "#FEF2F2",
+                                border: "1px solid #FEE2E2",
+                                borderRadius: 10,
+                                alignSelf: "flex-start",
+                                marginTop: 4,
+                              }}>
+                                <span style={{ fontSize: 11.5, color: "#991B1B", fontFamily: INTER, fontWeight: 500 }}>
+                                  Select a different model to resume:
+                                </span>
+                                <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                                  {GEMINI_MODELS.map(m => (
+                                    <button
+                                      key={m.id}
+                                      onClick={() => {
+                                        const currentSettings = getProviderSettings();
+                                        currentSettings.model = m.id;
+                                        saveProviderSettings(currentSettings);
+                                        message.content = `Selected model switched to **${m.label}**. You can retry your query now.`;
+                                        if (message.metadata) {
+                                          message.metadata.isModelUnavailable = false;
+                                        }
+                                        setMessages([...getMessages().filter(msg => msg.role !== ROLES.SYSTEM)]);
+                                      }}
+                                      style={{
+                                        padding: "6px 12px",
+                                        borderRadius: 6,
+                                        background: "#FFFFFF",
+                                        border: "1px solid #EF444430",
+                                        color: "#B91C1C",
+                                        fontSize: 11,
+                                        fontFamily: INTER,
+                                        fontWeight: 600,
+                                        cursor: "pointer",
+                                        boxShadow: "0 1px 2px rgba(0,0,0,0.02)",
+                                        transition: "all 0.15s ease",
+                                      }}
+                                      className="hover:bg-red-50 hover:border-red-300"
+                                    >
+                                      Use {m.label} {m.recommended && "⭐"}
+                                    </button>
+                                  ))}
+                                </div>
+                              </div>
+                            )}
+                          </div>
+                        )}
+
+                        {/* Collapsible Details */}
+                        {!isThinking && <CollapsibleDetails metadata={message.metadata} />}
                       </div>
                     </div>
                   );
-                }
-
-                // Assistant response
-                const isThinking = message.content === "Thinking...";
-
-                return (
-                  <div key={idx} style={{ display: "flex", gap: 16 }}>
-                    <img
-                      src="/react-architect-logo.jpg"
-                      alt="React Architect Logo"
-                      style={{
-                        width: 32,
-                        height: 32,
-                        borderRadius: 10,
-                        objectFit: "cover",
-                        flexShrink: 0,
-                        marginTop: 2,
-                      }}
-                    />
-                    <div style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column", gap: 16 }}>
-                      {isThinking ? (
-                        <div style={{ display: "flex", alignItems: "center", gap: 10, paddingTop: 6 }}>
-                          <Loader size={14} color={COLORS.accent} style={{ animation: "spin 1.5s linear infinite" }} />
-                          <span style={{ fontSize: 13, color: COLORS.textSecondary, fontFamily: INTER }}>
-                            Analyzing architecture...
-                          </span>
-                        </div>
-                      ) : (
-                        <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-                          <MarkdownRenderer content={message.content} />
-                          {message.metadata?.isModelUnavailable && (
-                            <div style={{
-                              display: "flex",
-                              flexDirection: "column",
-                              gap: 8,
-                              padding: "12px",
-                              background: "#FEF2F2",
-                              border: "1px solid #FEE2E2",
-                              borderRadius: 10,
-                              alignSelf: "flex-start",
-                              marginTop: 4,
-                            }}>
-                              <span style={{ fontSize: 11.5, color: "#991B1B", fontFamily: INTER, fontWeight: 500 }}>
-                                Select a different model to resume:
-                              </span>
-                              <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-                                {GEMINI_MODELS.map(m => (
-                                  <button
-                                    key={m.id}
-                                    onClick={() => {
-                                      const currentSettings = getProviderSettings();
-                                      currentSettings.model = m.id;
-                                      saveProviderSettings(currentSettings);
-                                      message.content = `Selected model switched to **${m.label}**. You can retry your query now.`;
-                                      if (message.metadata) {
-                                        message.metadata.isModelUnavailable = false;
-                                      }
-                                      setMessages([...getMessages().filter(msg => msg.role !== ROLES.SYSTEM)]);
-                                    }}
-                                    style={{
-                                      padding: "6px 12px",
-                                      borderRadius: 6,
-                                      background: "#FFFFFF",
-                                      border: "1px solid #EF444430",
-                                      color: "#B91C1C",
-                                      fontSize: 11,
-                                      fontFamily: INTER,
-                                      fontWeight: 600,
-                                      cursor: "pointer",
-                                      boxShadow: "0 1px 2px rgba(0,0,0,0.02)",
-                                      transition: "all 0.15s ease",
-                                    }}
-                                    className="hover:bg-red-50 hover:border-red-300"
-                                  >
-                                    Use {m.label} {m.recommended && "⭐"}
-                                  </button>
-                                ))}
-                              </div>
-                            </div>
-                          )}
-                        </div>
-                      )}
-
-                      {/* Collapsible Details */}
-                      {!isThinking && <CollapsibleDetails metadata={message.metadata} />}
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          )}
-
-          {/* Loader Thinking state */}
-          {isRunning && messages.length > 0 && messages[messages.length - 1]?.role !== ROLES.ASSISTANT && (
-            <div style={{ maxWidth: 768, margin: "16px auto", width: "100%", display: "flex", gap: 16 }}>
-              <img
-                src="/react-architect-logo.jpg"
-                alt="React Architect Logo"
-                style={{
-                  width: 32,
-                  height: 32,
-                  borderRadius: 10,
-                  objectFit: "cover",
-                  flexShrink: 0,
-                }}
-              />
-              <div style={{ flex: 1, display: "flex", alignItems: "center", gap: 10, paddingTop: 6 }}>
-                <Loader size={14} color={COLORS.accent} style={{ animation: "spin 1.5s linear infinite" }} />
-                <span style={{ fontSize: 13, color: COLORS.textSecondary, fontFamily: INTER }}>
-                  Analyzing architecture...
-                </span>
+                })}
               </div>
-            </div>
-          )}
+            )}
 
-          <div ref={messagesEndRef} />
-        </div>
+            {/* Loader Thinking state */}
+            {isRunning && messages.length > 0 && messages[messages.length - 1]?.role !== ROLES.ASSISTANT && (
+              <div style={{ maxWidth: 768, margin: "16px auto", width: "100%", display: "flex", gap: 16 }}>
+                <img
+                  src="/react-architect-logo.jpg"
+                  alt="React Architect Logo"
+                  style={{
+                    width: 32,
+                    height: 32,
+                    borderRadius: 10,
+                    objectFit: "cover",
+                    flexShrink: 0,
+                  }}
+                />
+                <div style={{ flex: 1, display: "flex", alignItems: "center", gap: 10, paddingTop: 6 }}>
+                  <Loader size={14} color={COLORS.accent} style={{ animation: "spin 1.5s linear infinite" }} />
+                  <span style={{ fontSize: 13, color: COLORS.textSecondary, fontFamily: INTER }}>
+                    Analyzing architecture...
+                  </span>
+                </div>
+              </div>
+            )}
 
-        {/* Persistent Input Console */}
-        <div style={{
-          background: "transparent",
-          padding: "16px 20px 64px",
-          flexShrink: 0,
-        }}>
-          <div style={{ display: "flex", gap: 10, alignItems: "flex-end", maxWidth: 768, margin: "0 auto", width: "100%" }}>
-            <div style={{
-              flex: 1, display: "flex", alignItems: "flex-end", gap: 10,
-              background: COLORS.surface, border: "1px solid rgba(139, 92, 26, 0.08)",
-              borderRadius: 14, padding: "10px 14px",
-              boxShadow: "0 8px 30px rgba(0, 0, 0, 0.08), 0 2px 8px rgba(0, 0, 0, 0.04)",
-            }}>
-              <textarea
-                ref={inputRef}
-                value={query}
-                onChange={(e) => setQuery(e.target.value)}
-                onKeyDown={handleKeyDown}
-                placeholder="Ask anything about your architecture..."
-                disabled={isRunning}
-                rows={1}
-                style={{
-                  flex: 1, border: "none", background: "none", outline: "none",
-                  fontSize: 13.5, color: COLORS.text, fontFamily: INTER,
-                  resize: "none", minHeight: 24, maxHeight: 120, lineHeight: 1.5,
-                }}
-              />
-              <button
-                onClick={() => handleInvestigate()}
-                disabled={!query.trim() || isRunning}
-                style={{
-                  padding: "8px 16px",
-                  background: (!query.trim() || isRunning) ? COLORS.borderLight : `linear-gradient(135deg, ${COLORS.accent}, #8B5CF6)`,
-                  color: (!query.trim() || isRunning) ? COLORS.textMuted : "#FFFFFF",
-                  border: "none", borderRadius: 10,
-                  fontSize: 12.5, fontWeight: 600, fontFamily: INTER,
-                  cursor: (!query.trim() || isRunning) ? "not-allowed" : "pointer",
-                  transition: "all 0.2s ease",
-                  alignSelf: "flex-end",
-                }}
-              >
-                {isRunning ? "Thinking..." : "Ask"}
-              </button>
-            </div>
+            <div ref={messagesEndRef} />
           </div>
 
-          {/* Conversation actions (Reset Conversation button shown if messages exist) */}
-          {messages.length > 0 && (
-            <div style={{ display: "flex", justifyContent: "center", marginTop: 10 }}>
+          {/* Persistent Input Console */}
+          <div style={{
+            background: "transparent",
+            padding: "16px 20px 64px",
+            flexShrink: 0,
+          }}>
+            <div style={{ display: "flex", gap: 10, alignItems: "flex-end", maxWidth: 768, margin: "0 auto", width: "100%" }}>
+              <div style={{
+                flex: 1, display: "flex", alignItems: "flex-end", gap: 10,
+                background: COLORS.surface, border: "1px solid rgba(139, 92, 26, 0.08)",
+                borderRadius: 14, padding: "10px 14px",
+                boxShadow: "0 8px 30px rgba(0, 0, 0, 0.08), 0 2px 8px rgba(0, 0, 0, 0.04)",
+              }}>
+                <textarea
+                  ref={inputRef}
+                  value={query}
+                  onChange={(e) => setQuery(e.target.value)}
+                  onKeyDown={handleKeyDown}
+                  placeholder="Ask anything about your architecture..."
+                  disabled={isRunning}
+                  rows={1}
+                  style={{
+                    flex: 1, border: "none", background: "none", outline: "none",
+                    fontSize: 13.5, color: COLORS.text, fontFamily: INTER,
+                    resize: "none", minHeight: 24, maxHeight: 120, lineHeight: 1.5,
+                  }}
+                />
+                <button
+                  onClick={() => handleInvestigate()}
+                  disabled={!query.trim() || isRunning}
+                  style={{
+                    padding: "8px 16px",
+                    background: (!query.trim() || isRunning) ? COLORS.borderLight : `linear-gradient(135deg, ${COLORS.accent}, #8B5CF6)`,
+                    color: (!query.trim() || isRunning) ? COLORS.textMuted : "#FFFFFF",
+                    border: "none", borderRadius: 10,
+                    fontSize: 12.5, fontWeight: 600, fontFamily: INTER,
+                    cursor: (!query.trim() || isRunning) ? "not-allowed" : "pointer",
+                    transition: "all 0.2s ease",
+                    alignSelf: "flex-end",
+                  }}
+                >
+                  {isRunning ? "Thinking..." : "Ask"}
+                </button>
+              </div>
+            </div>
+
+            {/* Conversation actions (Reset Conversation button shown if messages exist) */}
+            {messages.length > 0 && (
+              <div style={{ display: "flex", justifyContent: "center", marginTop: 10 }}>
+                <button
+                  onClick={handleReset}
+                  style={{
+                    background: "none", border: "none", cursor: "pointer",
+                    fontSize: 11, fontWeight: 600, color: COLORS.textMuted,
+                    padding: "4px 8px", borderRadius: 6,
+                  }}
+                  className="hover:bg-neutral-50"
+                >
+                  Reset Conversation
+                </button>
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* Right Column: Code Explorer Side Panel */}
+        {selectedId && selectedNode && (
+          <div style={{
+            width: 480,
+            borderLeft: `1px solid ${COLORS.border}`,
+            background: COLORS.surface,
+            display: "flex",
+            flexDirection: "column",
+            overflow: "hidden",
+            boxShadow: "-4px 0 24px rgba(0, 0, 0, 0.04)",
+            zIndex: 40,
+            animation: "slideIn 0.25s cubic-bezier(0.16, 1, 0.3, 1)",
+          }}>
+            {/* Header */}
+            <div style={{
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "space-between",
+              padding: "16px 20px",
+              borderBottom: `1px solid ${COLORS.borderLight}`,
+              flexShrink: 0,
+            }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                <Code size={16} color={COLORS.accent} />
+                <div>
+                  <h3 style={{ fontSize: 14, fontWeight: 700, color: COLORS.text, margin: 0, letterSpacing: "-0.01em" }}>
+                    {selectedNode.name}
+                  </h3>
+                  <span style={{
+                    fontSize: 9.5,
+                    fontWeight: 600,
+                    textTransform: "uppercase",
+                    letterSpacing: "0.05em",
+                    color: COLORS.accentText,
+                    background: COLORS.accentBg,
+                    padding: "2px 6px",
+                    borderRadius: 4,
+                    marginTop: 4,
+                    display: "inline-block",
+                  }}>
+                    {selectedNode.kind === "api" ? "API Gate" : selectedNode.kind === "state" ? "State Slice" : selectedNode.kind}
+                  </span>
+                </div>
+              </div>
               <button
-                onClick={handleReset}
+                onClick={handleCloseExplorer}
                 style={{
-                  background: "none", border: "none", cursor: "pointer",
-                  fontSize: 11, fontWeight: 600, color: COLORS.textMuted,
-                  padding: "4px 8px", borderRadius: 6,
+                  background: "none",
+                  border: "none",
+                  cursor: "pointer",
+                  color: COLORS.textMuted,
+                  padding: 4,
+                  borderRadius: "50%",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
                 }}
-                className="hover:bg-neutral-50"
+                className="hover:bg-neutral-100"
               >
-                Reset Conversation
+                <X size={16} />
               </button>
             </div>
-          )}
-        </div>
+
+            {/* Scrollable Content */}
+            <div style={{ flex: 1, overflow: "auto", padding: "20px" }}>
+              {/* Secondary navigation action */}
+              <button
+                onClick={() => {
+                  navigate("/architecture", { state: { focusNode: selectedId, fromAI: true } });
+                }}
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  gap: 6,
+                  width: "100%",
+                  padding: "10px",
+                  borderRadius: 10,
+                  background: `linear-gradient(135deg, ${COLORS.accent}, #8B5CF6)`,
+                  color: "#FFFFFF",
+                  border: "none",
+                  fontSize: 12,
+                  fontWeight: 600,
+                  fontFamily: INTER,
+                  cursor: "pointer",
+                  boxShadow: "0 4px 12px rgba(99, 102, 241, 0.2)",
+                  marginBottom: 20,
+                  transition: "transform 0.15s ease",
+                }}
+                onMouseEnter={e => e.currentTarget.style.transform = "translateY(-1px)"}
+                onMouseLeave={e => e.currentTarget.style.transform = "translateY(0)"}
+              >
+                <ExternalLink size={13} />
+                Open in Architecture Studio
+              </button>
+
+              {/* File details */}
+              <div style={{ display: "flex", flexDirection: "column", gap: 12, marginBottom: 20 }}>
+                {selectedNode.file && (
+                  <div>
+                    <span style={{ fontSize: 10.5, color: COLORS.textMuted, fontWeight: 600 }}>FILE PATH</span>
+                    <div style={{ fontFamily: MONO, fontSize: 11, color: COLORS.text, background: COLORS.surfaceAlt, padding: "8px 10px", borderRadius: 6, border: `1px solid ${COLORS.borderLight}`, marginTop: 4, wordBreak: "break-all" }}>
+                      {selectedNode.file}
+                    </div>
+                  </div>
+                )}
+
+                {/* Specs depending on entity type */}
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+                  {selectedNode.metadata?.loc && (
+                    <div style={{ background: COLORS.surfaceAlt, padding: "8px 10px", borderRadius: 6, border: `1px solid ${COLORS.borderLight}` }}>
+                      <span style={{ fontSize: 9.5, color: COLORS.textMuted, fontWeight: 600 }}>LINES OF CODE</span>
+                      <div style={{ fontSize: 12, fontWeight: 600, color: COLORS.text, marginTop: 2 }}>{selectedNode.metadata.loc}</div>
+                    </div>
+                  )}
+
+                  {selectedNode.metadata?.line && (
+                    <div style={{ background: COLORS.surfaceAlt, padding: "8px 10px", borderRadius: 6, border: `1px solid ${COLORS.borderLight}` }}>
+                      <span style={{ fontSize: 9.5, color: COLORS.textMuted, fontWeight: 600 }}>DECLARATION LINE</span>
+                      <div style={{ fontSize: 12, fontWeight: 600, color: COLORS.text, marginTop: 2 }}>L{selectedNode.metadata.line}</div>
+                    </div>
+                  )}
+
+                  {selectedNode.metadata?.method && (
+                    <div style={{ background: COLORS.surfaceAlt, padding: "8px 10px", borderRadius: 6, border: `1px solid ${COLORS.borderLight}` }}>
+                      <span style={{ fontSize: 9.5, color: COLORS.textMuted, fontWeight: 600 }}>HTTP METHOD</span>
+                      <div style={{ fontSize: 12, fontWeight: 700, color: COLORS.accentText, marginTop: 2 }}>{selectedNode.metadata.method}</div>
+                    </div>
+                  )}
+
+                  {selectedNode.metadata?.endpoint && (
+                    <div style={{ background: COLORS.surfaceAlt, padding: "8px 10px", borderRadius: 6, border: `1px solid ${COLORS.borderLight}`, gridColumn: "span 2" }}>
+                      <span style={{ fontSize: 9.5, color: COLORS.textMuted, fontWeight: 600 }}>API ENDPOINT</span>
+                      <div style={{ fontSize: 11, fontFamily: MONO, color: COLORS.text, marginTop: 2, wordBreak: "break-all" }}>{selectedNode.metadata.endpoint}</div>
+                    </div>
+                  )}
+
+                  {selectedNode.metadata?.path && (
+                    <div style={{ background: COLORS.surfaceAlt, padding: "8px 10px", borderRadius: 6, border: `1px solid ${COLORS.borderLight}`, gridColumn: "span 2" }}>
+                      <span style={{ fontSize: 9.5, color: COLORS.textMuted, fontWeight: 600 }}>ROUTE PATH</span>
+                      <div style={{ fontSize: 11, fontFamily: MONO, color: COLORS.text, marginTop: 2 }}>{selectedNode.metadata.path}</div>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* Props (if applicable) */}
+              {selectedNode.metadata?.props && selectedNode.metadata.props.length > 0 && (
+                <div style={{ marginBottom: 20 }}>
+                  <span style={{ fontSize: 10.5, color: COLORS.textMuted, fontWeight: 600 }}>PROPS</span>
+                  <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginTop: 6 }}>
+                    {selectedNode.metadata.props.map((p, pi) => {
+                      const name = typeof p === "string" ? p : (p?.name || "");
+                      const type = typeof p === "object" && p?.type ? `: ${p.type}` : "";
+                      const req = typeof p === "object" && p?.required ? "*" : "";
+                      return (
+                        <span key={pi} style={{ fontFamily: MONO, fontSize: 10.5, color: COLORS.accentText, background: COLORS.accentBg, padding: "2px 8px", borderRadius: 6 }}>
+                          {name}{req}{type}
+                        </span>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+
+              {/* Hooks (if applicable) */}
+              {selectedNode.metadata?.hooks && selectedNode.metadata.hooks.length > 0 && (
+                <div style={{ marginBottom: 20 }}>
+                  <span style={{ fontSize: 10.5, color: COLORS.textMuted, fontWeight: 600 }}>HOOKS CALLED</span>
+                  <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginTop: 6 }}>
+                    {selectedNode.metadata.hooks.map((h, hi) => {
+                      const name = typeof h === "string" ? h : (h?.name || JSON.stringify(h));
+                      return (
+                        <span key={hi} style={{ fontFamily: MONO, fontSize: 10.5, color: "#0D9488", background: "#CCFBF1", padding: "2px 8px", borderRadius: 6 }}>
+                          {name}
+                        </span>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+
+              {/* Imports */}
+              {selectedNode.metadata?.imports && selectedNode.metadata.imports.length > 0 && (
+                <div style={{ marginBottom: 20 }}>
+                  <span style={{ fontSize: 10.5, color: COLORS.textMuted, fontWeight: 600 }}>IMPORTS</span>
+                  <div style={{ display: "flex", flexDirection: "column", gap: 4, marginTop: 6, maxHeight: 150, overflow: "auto", background: COLORS.surfaceAlt, padding: 10, borderRadius: 8, border: `1px solid ${COLORS.borderLight}` }}>
+                    {selectedNode.metadata.imports.map((imp, impIdx) => {
+                      const impText = typeof imp === "string" ? imp : (imp?.name || JSON.stringify(imp));
+                      return (
+                        <div key={impIdx} style={{ fontFamily: MONO, fontSize: 10.5, color: COLORS.text, whiteSpace: "nowrap" }}>
+                          {impText}
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+
+              {/* Exports */}
+              <div style={{ marginBottom: 20 }}>
+                <span style={{ fontSize: 10.5, color: COLORS.textMuted, fontWeight: 600 }}>EXPORTS</span>
+                <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginTop: 6 }}>
+                  <span style={{ fontFamily: MONO, fontSize: 10.5, color: COLORS.text, background: COLORS.surfaceAlt, padding: "4px 8px", borderRadius: 6, border: `1px solid ${COLORS.borderLight}` }}>
+                    {selectedNode.metadata?.isDefaultExport ? `default export ${selectedNode.name}` : `export ${selectedNode.name}`}
+                  </span>
+                </div>
+              </div>
+
+              {/* Related Files (connections) */}
+              {(() => {
+                const incomingEdges = knowledgeGraph?.edges?.filter(e => e.target === selectedId) || [];
+                const outgoingEdges = knowledgeGraph?.edges?.filter(e => e.source === selectedId) || [];
+
+                const incomingNodes = incomingEdges
+                  .map(e => knowledgeGraph.nodes.find(n => n.id === e.source))
+                  .filter(Boolean);
+
+                const outgoingNodes = outgoingEdges
+                  .map(e => knowledgeGraph.nodes.find(n => n.id === e.target))
+                  .filter(Boolean);
+
+                return (
+                  <div style={{ display: "flex", flexDirection: "column", gap: 16, marginBottom: 20 }}>
+                    {incomingNodes.length > 0 && (
+                      <div>
+                        <span style={{ fontSize: 10.5, color: COLORS.textMuted, fontWeight: 600 }}>DEPENDENTS (USED BY)</span>
+                        <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginTop: 6 }}>
+                          {incomingNodes.slice(0, 10).map((n, ni) => (
+                            <span
+                              key={ni}
+                              onClick={() => dispatch(selectNodeId(n.id))}
+                              style={{
+                                fontFamily: INTER, fontSize: 11, fontWeight: 500,
+                                color: "#3B82F6", background: "rgba(59, 130, 246, 0.05)",
+                                border: "1px dashed rgba(59, 130, 246, 0.2)",
+                                padding: "3px 8px", borderRadius: 6, cursor: "pointer",
+                                transition: "all 0.15s",
+                              }}
+                              onMouseEnter={e => {
+                                e.currentTarget.style.color = "#2563EB";
+                                e.currentTarget.style.background = "rgba(59, 130, 246, 0.1)";
+                                e.currentTarget.style.borderStyle = "solid";
+                              }}
+                              onMouseLeave={e => {
+                                e.currentTarget.style.color = "#3B82F6";
+                                e.currentTarget.style.background = "rgba(59, 130, 246, 0.05)";
+                                e.currentTarget.style.borderStyle = "dashed";
+                              }}
+                            >
+                              {n.name}
+                            </span>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                    {outgoingNodes.length > 0 && (
+                      <div>
+                        <span style={{ fontSize: 10.5, color: COLORS.textMuted, fontWeight: 600 }}>DEPENDENCIES (USES)</span>
+                        <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginTop: 6 }}>
+                          {outgoingNodes.slice(0, 10).map((n, ni) => (
+                            <span
+                              key={ni}
+                              onClick={() => dispatch(selectNodeId(n.id))}
+                              style={{
+                                fontFamily: INTER, fontSize: 11, fontWeight: 500,
+                                color: "#3B82F6", background: "rgba(59, 130, 246, 0.05)",
+                                border: "1px dashed rgba(59, 130, 246, 0.2)",
+                                padding: "3px 8px", borderRadius: 6, cursor: "pointer",
+                                transition: "all 0.15s",
+                              }}
+                              onMouseEnter={e => {
+                                e.currentTarget.style.color = "#2563EB";
+                                e.currentTarget.style.background = "rgba(59, 130, 246, 0.1)";
+                                e.currentTarget.style.borderStyle = "solid";
+                              }}
+                              onMouseLeave={e => {
+                                e.currentTarget.style.color = "#3B82F6";
+                                e.currentTarget.style.background = "rgba(59, 130, 246, 0.05)";
+                                e.currentTarget.style.borderStyle = "dashed";
+                              }}
+                            >
+                              {n.name}
+                            </span>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                );
+              })()}
+
+              {/* Source Code */}
+              {(() => {
+                const file = knowledgeGraph?.rawFiles?.find(f => f.path === selectedNode.file);
+                const codeContent = file?.content || "// Source code not found in scanned files";
+                return (
+                  <div>
+                    <span style={{ fontSize: 10.5, color: COLORS.textMuted, fontWeight: 600 }}>SOURCE CODE</span>
+                    <pre style={{
+                      background: "#1E1E2E",
+                      color: "#E4E4E7",
+                      padding: "16px",
+                      borderRadius: 10,
+                      fontFamily: MONO,
+                      fontSize: 12,
+                      lineHeight: 1.6,
+                      overflowX: "auto",
+                      maxHeight: 400,
+                      margin: "6px 0 0",
+                      border: "1px solid #2E2E3E",
+                    }}>
+                      <code>{codeContent}</code>
+                    </pre>
+                  </div>
+                );
+              })()}
+            </div>
+          </div>
+        )}
       </div>
 
       {/* ─── Keyframes ───────────────────────────────────────────────────────── */}
@@ -911,6 +1258,10 @@ export default function Investigation() {
         @keyframes spin {
           from { transform: rotate(0deg); }
           to   { transform: rotate(360deg); }
+        }
+        @keyframes slideIn {
+          from { transform: translateX(100%); }
+          to   { transform: translateX(0); }
         }
       `}</style>
     </div>

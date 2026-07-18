@@ -514,7 +514,7 @@ const Workspace = () => {
       };
       const targetRoute = routes[targetDomainId];
       if (targetRoute) {
-        navigate(targetRoute);
+        navigate(targetRoute, { state: { fromWorkspace: true } });
       }
       setTransitionPhase(null);
       setExtraRotation(0);

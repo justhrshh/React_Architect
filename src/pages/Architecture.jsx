@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { useSelector, useDispatch } from "react-redux";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useLocation } from "react-router-dom";
 import { setActiveRoom } from "@/redux/slices/uiSlice";
 import { selectSelectedProject } from "@/redux/slices/hubSlice";
 import { selectNodeId } from "@/redux/slices/graphSlice";
@@ -45,6 +45,36 @@ function ArchitectureFlow() {
   const [showInspector, setShowInspector] = useState(true);
   const [isFlowFullscreen, setIsFlowFullscreen] = useState(false);
   const flowRef = useRef(null);
+
+  const location = useLocation();
+
+  const [origin, setOrigin] = useState(() => {
+    if (location.state?.fromAI) return "ai";
+    if (location.state?.fromWorkspace) return "workspace";
+    return "hub";
+  });
+
+  useEffect(() => {
+    if (location.state?.fromAI) {
+      setTimeout(() => setOrigin("ai"), 0);
+    } else if (location.state?.fromWorkspace) {
+      setTimeout(() => setOrigin("workspace"), 0);
+    }
+  }, [location.state]);
+
+  useEffect(() => {
+    if (location.state?.focusNode) {
+      const targetNode = location.state.focusNode;
+      // Clear location state so that clicking/refreshing doesn't keep resetting the active tab to flow
+      window.history.replaceState({}, document.title);
+      
+      setTimeout(() => {
+        setActiveTab("flow");
+        setShowInspector(true);
+        dispatch(selectNodeId(targetNode));
+      }, 0);
+    }
+  }, [location.state, dispatch]);
 
 
   const validation = useMemo(() => {
@@ -118,9 +148,13 @@ function ArchitectureFlow() {
   }, [reduxFiles]);
 
   const handleBack = useCallback(() => {
-    dispatch(setActiveRoom("project-brain"));
-    navigate("/workspace");
-  }, [dispatch, navigate]);
+    if (origin === "ai") {
+      navigate("/investigation");
+    } else {
+      dispatch(setActiveRoom("project-brain"));
+      navigate("/workspace");
+    }
+  }, [dispatch, navigate, origin]);
 
   useEffect(() => {
     const handleKeyDown = (e) => {
@@ -393,6 +427,7 @@ function ArchitectureFlow() {
         activeTab={activeTab} 
         onSelectNode={handleSelectSearchNode}
         knowledgeGraph={knowledgeGraph}
+        backText={origin === "ai" || origin === "workspace" ? "Back (Esc)" : "Command Center"}
       />
       
       {/* Perspectives tabs switching bar with inline exports */}

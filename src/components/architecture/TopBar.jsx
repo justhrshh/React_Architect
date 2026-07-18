@@ -2,7 +2,7 @@ import { useState, useEffect, useRef, useMemo } from "react";
 import { ArrowLeft, ChevronRight, GitBranch, Search, X } from "lucide-react";
 import { INTER, SERIF, MONO } from "./constants";
 
-export default function TopBar({ nodeCount, projectName, handleBack, activeTab, onSelectNode, knowledgeGraph }) {
+export default function TopBar({ nodeCount, projectName, handleBack, activeTab, onSelectNode, knowledgeGraph, backText }) {
   const [searchQuery, setSearchQuery] = useState("");
   const [debouncedQuery, setDebouncedQuery] = useState("");
   const [isFocused, setIsFocused] = useState(false);
@@ -151,7 +151,7 @@ export default function TopBar({ nodeCount, projectName, handleBack, activeTab, 
         onMouseLeave={e => e.currentTarget.style.background = "#FAF9F6"}
       >
         <ArrowLeft size={13} strokeWidth={2.5} />
-        Command Center
+        {backText || "Command Center"}
       </button>
 
       <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
