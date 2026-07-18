@@ -6,6 +6,12 @@ Trace milestones and sprints for the React Architect workspace platform.
 
 ## Completed Sprints
 
+### Sprint 13 — Core AI Integrations & Life Cycles
+- **Sprint 13.1 (Studio Discoverability)**: Added Arrow keys and Enter key keyboard navigation interaction hints underneath the "Enter Workspace" button in the Hub workspace selector.
+- **Sprint 13.2 (Connect Architect AI with Architecture Studio)**: Enabled dynamic links in AI text responses to center, focus, and open components in Architecture Studio. Built the inline Code Explorer sidebar inside the chat view, resolved rendering crashes for components properties parsed as objects, and implemented origin-aware back navigation.
+- **Sprint 13.3 (Project-Scoped Conversations)**: Scoped AI chat histories dynamically based on active selected project IDs using dedicated localStorage namespaces to isolate conversations.
+- **Sprint 13.4 (Persistent Workspace Sessions)**: Added initialization tracking inside `hubSlice.js` to skip redundant AST rebuilding and play workspace boot sequences only once per active session.
+
 ### Sprint 11: Production Hardening & Impact Analysis UI
 - Normalized store casing (`src/redux/store.js`) and hardened engine imports with explicit `.js` extensions for Node/Vite ESM compatibility.
 - Added route-level code splitting with `React.lazy`/`Suspense` so heavy studio pages load as separate chunks.

@@ -473,15 +473,24 @@ AI Workspace Redesign (Architect AI)
 * Implemented global `Escape` keyboard listener to navigate back history or fall back to `/workspace`.
 * Verified with clean linter, 6/6 node tests, and production build checks.
 
+### ✅ Sprint 13.4 Complete
+
+Core AI Integrations & Persistent Workspace Sessions
+
+*   **Sprint 13.1 (Studio Discoverability)**: Appended Arrow keys and Enter key keyboard navigation hints beneath the "Enter Workspace" button in the Hub workspace selector.
+*   **Sprint 13.2 (Connect Architect AI with Architecture Studio)**: Enabled dynamic links in AI response text to center, focus, and open components in Architecture Studio. Built the inline Code Explorer sidebar inside the chat view, resolved rendering crashes for components properties parsed as objects, and implemented origin-aware back navigation.
+*   **Sprint 13.3 (Project-Scoped Conversations)**: Scoped AI chat histories dynamically based on active selected project IDs using dedicated localStorage namespaces.
+*   **Sprint 13.4 (Persistent Workspace Sessions)**: Added initialization tracking inside `hubSlice.js` to skip redundant AST rebuilding and play workspace boot sequences only once per active session.
+
 ---
 
 ## Current Version
-React Architect v8.5 — Architect AI
+React Architect v9.0 — Persistent Workspace Sessions
 
 ---
 
 ## Current Milestone
-Sprint 12.5 Complete
+Sprint 13.4 Complete
 
 
 
