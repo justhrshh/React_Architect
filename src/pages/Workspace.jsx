@@ -3,7 +3,7 @@ import { useSelector, useDispatch } from "react-redux";
 import { useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
 import { getProjectHandle } from "@/lib/analysis/projectStore";
-import { selectSelectedProject, clearSelectedProject } from "@/redux/slices/hubSlice";
+import { selectSelectedProject, clearSelectedProject, setProjectInitialized } from "@/redux/slices/hubSlice";
 import { setAppMode, setActiveRoom } from "@/redux/slices/uiSlice";
 import { startProjectAnalysis } from "@/services/analysisService";
 
@@ -232,8 +232,9 @@ const Workspace = () => {
   const [transitionPhase, setTransitionPhase] = useState(null);
   const [extraRotation, setExtraRotation] = useState(0);
 
+  const isInitialized = useSelector((state) => state.hub.initializedProjects?.[selectedProject?.id] ?? false);
   // Experience Redesign state machine ("dormant" -> "booting" -> "awakening" -> "understood" -> "briefing" -> "ready")
-  const [introStep, setIntroStep] = useState("dormant");
+  const [introStep, setIntroStep] = useState(() => isInitialized ? "ready" : "dormant");
 
   const knowledgeGraph = useSelector((state) => state.graph.knowledgeGraph);
   const rawFiles = knowledgeGraph?.rawFiles || [];
@@ -412,6 +413,13 @@ const Workspace = () => {
       return () => clearTimeout(timer);
     }
   }, [introStep]);
+
+  // Mark project as initialized when boot sequence finishes
+  useEffect(() => {
+    if (introStep === "ready" && selectedProject?.id && !isInitialized) {
+      dispatch(setProjectInitialized({ projectId: selectedProject.id, initialized: true }));
+    }
+  }, [introStep, selectedProject?.id, isInitialized, dispatch]);
 
   useEffect(() => {
     const resize = () => { setVw(window.innerWidth); setVh(window.innerHeight); };

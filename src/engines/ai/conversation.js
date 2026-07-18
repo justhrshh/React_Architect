@@ -2,7 +2,10 @@
  * conversation.js
  * Module-scoped conversation state manager.
  * Tracks messages, provides multi-turn history for Gemini API.
+ * Project-scoped conversation history is persisted in localStorage.
  */
+
+import { store } from '../../redux/store.js';
 
 /** @enum {string} */
 export const ROLES = {
@@ -11,8 +14,67 @@ export const ROLES = {
   ASSISTANT: 'assistant',
 };
 
-let _messages = [];
-let _turnCount = 0;
+const GLOBAL_KEY = 'global';
+const CACHE = {};
+
+/**
+ * Resolves the active project ID from the Redux store.
+ * @returns {string}
+ */
+function getActiveProjectId() {
+  try {
+    const state = store.getState();
+    return state?.hub?.selectedProjectId || GLOBAL_KEY;
+  } catch {
+    return GLOBAL_KEY;
+  }
+}
+
+/**
+ * Loads the project conversation state from cache or localStorage.
+ * @param {string} projectId
+ * @returns {{ messages: object[], turnCount: number }}
+ */
+function getProjectState(projectId) {
+  if (CACHE[projectId]) {
+    return CACHE[projectId];
+  }
+
+  try {
+    const storageKey = `react-architect:ai-conversations:${projectId}`;
+    const data = localStorage.getItem(storageKey);
+    if (data) {
+      const parsed = JSON.parse(data);
+      if (parsed && Array.isArray(parsed.messages)) {
+        CACHE[projectId] = {
+          messages: parsed.messages,
+          turnCount: typeof parsed.turnCount === 'number' ? parsed.turnCount : 0
+        };
+        return CACHE[projectId];
+      }
+    }
+  } catch (e) {
+    console.error('Failed to parse conversation from localStorage', e);
+  }
+
+  CACHE[projectId] = { messages: [], turnCount: 0 };
+  return CACHE[projectId];
+}
+
+/**
+ * Saves the project conversation state to cache and localStorage.
+ * @param {string} projectId
+ * @param {{ messages: object[], turnCount: number }} state
+ */
+function saveProjectState(projectId, state) {
+  CACHE[projectId] = state;
+  try {
+    const storageKey = `react-architect:ai-conversations:${projectId}`;
+    localStorage.setItem(storageKey, JSON.stringify(state));
+  } catch (e) {
+    console.error('Failed to save conversation to localStorage', e);
+  }
+}
 
 /**
  * Add a message to the conversation.
@@ -22,19 +84,24 @@ let _turnCount = 0;
  * @returns {object} The message object (mutable reference for streaming updates)
  */
 export function addMessage(role, content, metadata = null) {
+  const projectId = getActiveProjectId();
+  const state = getProjectState(projectId);
+
   const msg = {
     role,
     content,
     timestamp: Date.now(),
-    turn: _turnCount,
+    turn: state.turnCount,
     metadata,
   };
 
-  _messages.push(msg);
+  state.messages.push(msg);
 
   if (role === ROLES.USER) {
-    _turnCount++;
+    state.turnCount++;
   }
+
+  saveProjectState(projectId, state);
 
   return msg;
 }
@@ -44,7 +111,11 @@ export function addMessage(role, content, metadata = null) {
  * @returns {object[]}
  */
 export function getMessages() {
-  return [..._messages];
+  const projectId = getActiveProjectId();
+  const state = getProjectState(projectId);
+  // Persist current state to localStorage to capture any direct object mutations (e.g. streaming updates)
+  saveProjectState(projectId, state);
+  return [...state.messages];
 }
 
 /**
@@ -54,7 +125,10 @@ export function getMessages() {
  * @returns {{ role: string, parts: { text: string }[] }[]}
  */
 export function getHistory(maxTurns = 3) {
-  const conversational = _messages.filter(
+  const projectId = getActiveProjectId();
+  const state = getProjectState(projectId);
+
+  const conversational = state.messages.filter(
     m => m.role !== ROLES.SYSTEM && m.content !== 'Thinking...'
   );
 
@@ -71,13 +145,16 @@ export function getHistory(maxTurns = 3) {
  * @returns {number}
  */
 export function getTurnCount() {
-  return _turnCount;
+  const projectId = getActiveProjectId();
+  const state = getProjectState(projectId);
+  return state.turnCount;
 }
 
 /**
  * Reset all conversation state.
  */
 export function resetConversation() {
-  _messages = [];
-  _turnCount = 0;
+  const projectId = getActiveProjectId();
+  const state = { messages: [], turnCount: 0 };
+  saveProjectState(projectId, state);
 }

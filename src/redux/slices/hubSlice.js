@@ -93,6 +93,8 @@ const initialState = {
   projects: loadFromStorage(),
   /** @type {string|null} */
   selectedProjectId: null,
+  /** @type {Object.<string, boolean>} */
+  initializedProjects: {},
 };
 
 // ---------------------------------------------------------------------------
@@ -171,6 +173,9 @@ const hubSlice = createSlice({
       if (state.selectedProjectId === action.payload) {
         state.selectedProjectId = null;
       }
+      if (state.initializedProjects) {
+        delete state.initializedProjects[action.payload];
+      }
       saveToStorage(state.projects);
     },
 
@@ -213,6 +218,18 @@ const hubSlice = createSlice({
         saveToStorage(state.projects);
       }
     },
+
+    /**
+     * Sets the workspace initialization status for a project.
+     * payload: { projectId: string, initialized: boolean }
+     */
+    setProjectInitialized(state, action) {
+      const { projectId, initialized } = action.payload;
+      if (!state.initializedProjects) {
+        state.initializedProjects = {};
+      }
+      state.initializedProjects[projectId] = initialized;
+    },
   },
 });
 
@@ -223,6 +240,7 @@ export const {
   selectProject,
   clearSelectedProject,
   updateLastOpened,
+  setProjectInitialized,
 } = hubSlice.actions;
 
 export default hubSlice.reducer;
