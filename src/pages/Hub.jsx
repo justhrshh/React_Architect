@@ -817,12 +817,7 @@ const Hub = () => {
           }
         `}</style>
 
-        {/* Hero Section copy with split text character slide-up animations */}
         <div ref={hubCopyRef} className="mb-20 text-left">
-          <p className="font-mono text-[10px] md:text-xs uppercase tracking-widestest text-ink-dim mb-8 flex items-center gap-3 select-none">
-            <span className="pill-dot" />
-            Sprint 05 — Command Center
-          </p>
 
           {/* Exact size, spacing, line height and character mask animations from the Landing page */}
           <h1 className="font-display font-[800] tracking-tightest leading-[0.88] text-balance text-white text-[14vw] md:text-[10.5vw] lg:text-[8.6vw]">

@@ -39,9 +39,7 @@ const HeroCopy = () => {
       gsap.from(`[data-testid="${LANDING.launchButton}"]`, {
         y: 18, opacity: 0, duration: 1, ease: "expo.out", delay: 1.25,
       });
-      gsap.from(`[data-testid="${LANDING.whisper}"]`, {
-        opacity: 0, duration: 1.4, ease: "power2.out", delay: 1.6,
-      });
+
       gsap.from(`[data-testid="${LANDING.scrollHint}"]`, {
         opacity: 0, y: 10, duration: 1, ease: "power2.out", delay: 1.8,
       });
@@ -51,13 +49,7 @@ const HeroCopy = () => {
 
   return (
     <div ref={rootRef} className="relative z-10">
-      <p
-        data-testid={LANDING.whisper}
-        className="font-mono text-[10px] md:text-xs uppercase tracking-widestest text-ink-dim mb-8 md:mb-10 flex items-center gap-3"
-      >
-        <span className="pill-dot" />
-        Sprint 02 — Product Identity
-      </p>
+
 
       <h1
         data-testid={LANDING.heroTitle}

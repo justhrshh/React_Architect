@@ -60,6 +60,12 @@ const BootSequence = ({ onComplete }) => {
       <div className="grid-bg absolute inset-0 opacity-60" />
       <div className="absolute inset-0 vignette" />
 
+      <style>{`
+        header {
+          display: none !important;
+        }
+      `}</style>
+
       <div className="relative z-10 flex items-start justify-between">
         <div ref={titleRef}>
           <p className="font-mono text-[10px] uppercase tracking-widestest text-ink-dim mb-3 flex items-center gap-2">

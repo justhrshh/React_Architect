@@ -85,34 +85,103 @@ export default function InvestigationBrief({
 
         {/* Studio Contextual Action Button (Primary Action) */}
         {!transitionPhase && (active || recommendedDomainId) && (
-          <motion.button
-            onClick={() => startSignatureTransition(active ?? recommendedDomainId)}
-            initial={{ opacity: 0, y: 8 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.4, delay: 0.2 }}
-            className="group flex items-center gap-[18px] focus:outline-none cursor-pointer"
-          >
-            <div style={{
-              width: 40, height: 1,
-              background: `linear-gradient(to right, transparent, ${displayColor}77)`,
-            }} />
-            <div
-              style={{
-                fontFamily: "'JetBrains Mono', monospace",
-                fontSize: "9px", letterSpacing: "2.8px",
-                color: "rgba(255,255,255,0.5)", textTransform: "uppercase",
-                transition: "color 0.3s",
-              }}
-              onMouseEnter={e => (e.currentTarget.style.color = "rgba(255,255,255,0.95)")}
-              onMouseLeave={e => (e.currentTarget.style.color = "rgba(255,255,255,0.5)")}
+          <>
+            <motion.button
+              onClick={() => startSignatureTransition(active ?? recommendedDomainId)}
+              initial={{ opacity: 0, y: 8 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.4, delay: 0.2 }}
+              className="group flex items-center gap-[18px] focus:outline-none cursor-pointer"
             >
-              {intel.actionLabel}
-            </div>
-            <div style={{
-              width: 40, height: 1,
-              background: `linear-gradient(to left, transparent, ${displayColor}77)`,
-            }} />
-          </motion.button>
+              <div style={{
+                width: 40, height: 1,
+                background: `linear-gradient(to right, transparent, ${displayColor}77)`,
+              }} />
+              <div
+                style={{
+                  fontFamily: "'JetBrains Mono', monospace",
+                  fontSize: "9px", letterSpacing: "2.8px",
+                  color: "rgba(255,255,255,0.5)", textTransform: "uppercase",
+                  transition: "color 0.3s",
+                }}
+                onMouseEnter={e => (e.currentTarget.style.color = "rgba(255,255,255,0.95)")}
+                onMouseLeave={e => (e.currentTarget.style.color = "rgba(255,255,255,0.5)")}
+              >
+                {intel.actionLabel}
+              </div>
+              <div style={{
+                width: 40, height: 1,
+                background: `linear-gradient(to left, transparent, ${displayColor}77)`,
+              }} />
+            </motion.button>
+
+            {/* Keyboard hints dynamically updating based on index */}
+            {(() => {
+              const domainIds = ["architecture", "routes", "state", "api", "documentation"];
+              const selectedId = active ?? recommendedDomainId;
+              const selectedIndex = domainIds.indexOf(selectedId);
+              
+              const kbdStyle = {
+                padding: "2px 5px",
+                border: "1px solid rgba(255, 255, 255, 0.12)",
+                borderRadius: "4px",
+                margin: "0 4px",
+                background: "rgba(255, 255, 255, 0.03)",
+                fontFamily: "'JetBrains Mono', monospace",
+                fontSize: "8.5px",
+                color: "rgba(255, 255, 255, 0.6)",
+              };
+
+              const hintContainerStyle = {
+                marginTop: "16px",
+                display: "flex",
+                flexDirection: "column",
+                gap: "6px",
+                fontFamily: "'JetBrains Mono', monospace",
+                fontSize: "8.5px",
+                letterSpacing: "1.2px",
+                color: "rgba(255, 255, 255, 0.25)",
+                textTransform: "uppercase",
+                paddingLeft: "10px",
+              };
+
+              if (selectedIndex === 0) {
+                return (
+                  <div style={hintContainerStyle}>
+                    <div>
+                      Press <kbd style={kbdStyle}>Enter</kbd> to open
+                    </div>
+                    <div>
+                      Press <kbd style={kbdStyle}>→</kbd> for next studio
+                    </div>
+                  </div>
+                );
+              } else if (selectedIndex === domainIds.length - 1) {
+                return (
+                  <div style={hintContainerStyle}>
+                    <div>
+                      Press <kbd style={kbdStyle}>Enter</kbd> to open
+                    </div>
+                    <div>
+                      Press <kbd style={kbdStyle}>←</kbd> for previous studio
+                    </div>
+                  </div>
+                );
+              } else if (selectedIndex > 0 && selectedIndex < domainIds.length - 1) {
+                return (
+                  <div style={hintContainerStyle}>
+                    <div>
+                      Press <kbd style={kbdStyle}>←</kbd> or <kbd style={kbdStyle}>→</kbd> to browse studios
+                    </div>
+                    <div>
+                      Press <kbd style={kbdStyle}>Enter</kbd> to open
+                    </div>
+                  </div>
+                );
+              }
+              return null;
+            })()}
+          </>
         )}
 
         {/* Guidance Alert if no domain is selected */}
