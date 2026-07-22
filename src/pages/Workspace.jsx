@@ -239,6 +239,24 @@ const Workspace = () => {
   const knowledgeGraph = useSelector((state) => state.graph.knowledgeGraph);
   const rawFiles = knowledgeGraph?.rawFiles || [];
 
+  // Global Keyboard Shortcuts (Esc = Navigate to Hub)
+  useEffect(() => {
+    const handleKeyDown = (e) => {
+      const tag = document.activeElement?.tagName?.toLowerCase();
+      if (tag === "input" || tag === "textarea" || document.activeElement?.isContentEditable) {
+        return;
+      }
+
+      if (e.key === "Escape" || e.key === "Esc") {
+        e.preventDefault();
+        navigate("/hub");
+      }
+    };
+
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [navigate]);
+
   // Parse project's package.json dependencies dynamically
   const packageJsonFile = rawFiles.find(f => f.name === "package.json");
   let dependencies = {};

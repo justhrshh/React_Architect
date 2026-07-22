@@ -660,6 +660,31 @@ const Hub = () => {
     dispatch(setAppMode("hub"));
   }, [dispatch]);
 
+  // Global Keyboard Shortcuts (Esc = Close Overlay / Navigate to Landing)
+  useEffect(() => {
+    const handleKeyDown = (e) => {
+      const tag = document.activeElement?.tagName?.toLowerCase();
+      if (tag === "input" || tag === "textarea" || document.activeElement?.isContentEditable) {
+        return;
+      }
+
+      if (e.key === "Escape" || e.key === "Esc") {
+        e.preventDefault();
+        if (showImport || renameTarget || deleteTarget || ctxMenu) {
+          setShowImport(false);
+          setRenameTarget(null);
+          setDeleteTarget(null);
+          setCtxMenu(null);
+        } else {
+          navigate("/");
+        }
+      }
+    };
+
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [showImport, renameTarget, deleteTarget, ctxMenu, navigate]);
+
 
 
   // GSAP text reveal

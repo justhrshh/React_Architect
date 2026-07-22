@@ -79,72 +79,93 @@ function ImpactGroup({ label, items, tone, onNavigate }) {
   );
 }
 
-function AccordionSection({ id, title, count, expanded, onToggle, children, refProp }) {
+// Horizontally scrollable pill row — Huly inbox style
+function InboxRow({ label, children, noPad }) {
+  const rowRef = useRef(null);
+
+  // Enable pointer-drag scrolling
+  useEffect(() => {
+    const el = rowRef.current;
+    if (!el) return;
+    let isDown = false, startX = 0, scrollLeft = 0;
+    const onDown = e => { isDown = true; startX = e.pageX - el.offsetLeft; scrollLeft = el.scrollLeft; el.style.cursor = "grabbing"; };
+    const onUp = () => { isDown = false; el.style.cursor = "grab"; };
+    const onMove = e => { if (!isDown) return; e.preventDefault(); const x = e.pageX - el.offsetLeft; el.scrollLeft = scrollLeft - (x - startX); };
+    el.addEventListener("mousedown", onDown);
+    el.addEventListener("mouseleave", onUp);
+    el.addEventListener("mouseup", onUp);
+    el.addEventListener("mousemove", onMove);
+    return () => { el.removeEventListener("mousedown", onDown); el.removeEventListener("mouseleave", onUp); el.removeEventListener("mouseup", onUp); el.removeEventListener("mousemove", onMove); };
+  }, []);
+
   return (
-    <div
-      ref={refProp}
-      style={{
-        borderBottom: "1px solid rgba(139, 92, 26, 0.04)",
-        background: expanded ? "rgba(255, 255, 255, 0.25)" : "transparent",
-        transition: "background-color 0.2s ease"
-      }}
-    >
-      <button
-        onClick={() => onToggle(id)}
+    <div style={{ borderBottom: "1px solid #F1F5F9", padding: noPad ? "12px 20px" : "12px 20px" }}>
+      {label && (
+        <span style={{ fontSize: 9, fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase", color: "#94A3B8", fontFamily: INTER, display: "block", marginBottom: 8 }}>
+          {label}
+        </span>
+      )}
+      <div
+        ref={rowRef}
         style={{
-          width: "100%",
           display: "flex",
-          alignItems: "center",
-          justifyContent: "space-between",
-          padding: "14px 20px",
-          border: "none",
-          background: "transparent",
-          cursor: "pointer",
-          textAlign: "left",
-          outline: "none"
+          flexDirection: "row",
+          gap: 6,
+          overflowX: "auto",
+          scrollbarWidth: "none",
+          cursor: "grab",
+          WebkitOverflowScrolling: "touch",
+          paddingBottom: 2,
         }}
       >
-        <span style={{ fontSize: 11, fontWeight: 700, fontFamily: INTER, color: expanded ? "#8B7E66" : "#2E2D2B", textTransform: "uppercase", letterSpacing: "0.05em", display: "flex", alignItems: "center", gap: 6 }}>
-          {title}
-          {count !== undefined && count > 0 && (
-            <span style={{
-              fontSize: 9.5,
-              fontWeight: 650,
-              background: expanded ? "#FAF9F6" : "#F5F3EF",
-              color: expanded ? "#8B7E66" : "#8C867C",
-              padding: "1px 5px",
-              borderRadius: 999,
-              fontFamily: MONO
-            }}>
-              {count}
-            </span>
-          )}
-        </span>
-        <ChevronDown
-          size={14}
-          style={{
-            color: expanded ? "#8B7E66" : "#8C867C",
-            transform: expanded ? "rotate(180deg)" : "rotate(0deg)",
-            transition: "transform 0.25s cubic-bezier(0.4, 0, 0.2, 1)"
-          }}
-        />
-      </button>
+        {children}
+      </div>
+    </div>
+  );
+}
 
-      <AnimatePresence initial={false}>
-        {expanded && (
-          <motion.div
-            initial={{ height: 0, opacity: 0 }}
-            animate={{ height: "auto", opacity: 1 }}
-            exit={{ height: 0, opacity: 0 }}
-            transition={{ duration: 0.22, ease: [0.16, 1, 0.3, 1] }}
-            style={{ overflow: "hidden" }}
-          >
-            <div style={{ padding: "0 20px 18px", fontSize: 11.5, color: "#4B5563", fontFamily: INTER, lineHeight: 1.5 }}>
-              {children}
-            </div>
-          </motion.div>
-        )}
-      </AnimatePresence>
+function Pill({ children, color = "#4B5563", bg = "#F1F5F9", onClick, title }) {
+  return (
+    <span
+      title={title}
+      onClick={onClick}
+      style={{
+        display: "inline-flex",
+        alignItems: "center",
+        flexShrink: 0,
+        fontSize: 11,
+        fontFamily: INTER,
+        fontWeight: 500,
+        color,
+        background: bg,
+        padding: "4px 10px",
+        borderRadius: 999,
+        cursor: onClick ? "pointer" : "default",
+        whiteSpace: "nowrap",
+        transition: "opacity 0.15s",
+        userSelect: "none",
+      }}
+      className={onClick ? "hover:opacity-75" : ""}
+    >
+      {children}
+    </span>
+  );
+}
+
+// Flat key-value row for overview fields
+function InfoRow({ label, value }) {
+  return (
+    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "9px 20px", borderBottom: "1px solid #F8FAFC" }}>
+      <span style={{ fontSize: 11, fontWeight: 500, color: "#94A3B8", fontFamily: INTER, flexShrink: 0 }}>{label}</span>
+      <span style={{ fontSize: 11, fontFamily: INTER, color: "#334155", fontWeight: 500, maxWidth: 180, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", textAlign: "right" }} title={typeof value === "string" ? value : undefined}>{value}</span>
+    </div>
+  );
+}
+
+function SectionHeader({ title }) {
+  return (
+    <div style={{ padding: "16px 20px 6px" }}>
+      <span style={{ fontSize: 9, fontWeight: 700, letterSpacing: "0.1em", textTransform: "uppercase", color: "#CBD5E1", fontFamily: INTER }}>{title}</span>
     </div>
   );
 }
@@ -156,7 +177,8 @@ export default function InspectorPanel({
   treeNode,
   onHighlightDependencies,
   onHighlightParents,
-  onHighlightChildren
+  onHighlightChildren,
+  onClose
 }) {
   const [toast, setToast] = useState(null);
   const [copied, setCopied] = useState(false);
@@ -286,21 +308,9 @@ Explain the architecture like a senior engineer during onboarding.`;
     navigate("/investigation");
   }, [navigate]);
 
-  // Accordion Sections Expand States
-  const [expandedSections, setExpandedSections] = useState({
-    overview: true,
-    health: true,
-    hierarchy: false,
-    dependencies: false,
-    hooks: false,
-    state: false,
-    apis: false,
-    imports: false,
-    impact: false,
-    related: false,
-  });
+  // (accordion state removed — now flat inbox rows)
 
-  const impactRef = useRef(null);
+
 
   // Toast auto-clear
   useEffect(() => {
@@ -318,13 +328,7 @@ Explain the architecture like a senior engineer during onboarding.`;
     }
   }, [copied]);
 
-  // Section toggle handler
-  const handleToggleSection = useCallback((sectionId) => {
-    setExpandedSections(prev => ({
-      ...prev,
-      [sectionId]: !prev[sectionId]
-    }));
-  }, []);
+
 
   // Action handlers
   const handleOpenFile = () => {
@@ -529,21 +533,33 @@ Explain the architecture like a senior engineer during onboarding.`;
   if (!node) {
     return (
       <aside style={{
-        width: 308,
-        background: "#EFECE6",
-        borderLeft: "1px solid rgba(139, 92, 26, 0.06)",
+        position: "absolute",
+        top: 16,
+        right: 16,
+        bottom: 24,
+        width: 340,
+        background: "#FFFFFF",
+        borderRadius: 20,
+        border: "1px solid rgba(226, 232, 240, 0.8)",
+        boxShadow: "0 10px 40px rgba(15, 23, 42, 0.06)",
         display: "flex",
         flexDirection: "column",
-        flexShrink: 0,
+        zIndex: 40,
+        overflow: "hidden",
       }}>
-        <div style={{ padding: "12px 20px 11px", borderBottom: "1px solid rgba(139, 92, 26, 0.05)" }}>
-          <span style={{ fontSize: 9, fontWeight: 700, letterSpacing: "0.1em", textTransform: "uppercase", color: "#8C867C", fontFamily: INTER }}>
+        <div style={{ padding: "16px 20px 14px", borderBottom: "1px solid rgba(226, 232, 240, 0.8)", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+          <span style={{ fontSize: 10, fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase", color: "#94A3B8", fontFamily: INTER }}>
             Architectural Inspector
           </span>
+          {onClose && (
+            <button onClick={onClose} style={{ background: "transparent", border: "none", cursor: "pointer", color: "#94A3B8" }}>
+              ✕
+            </button>
+          )}
         </div>
         <div className="flex-1 flex flex-col justify-center items-center p-6 text-center">
-          <Info size={24} className="text-neutral-400 mb-2" />
-          <span style={{ fontSize: 12, color: "#8C867C", fontFamily: INTER, fontWeight: 500 }}>Select a component to inspect its architecture</span>
+          <Info size={24} className="text-slate-400 mb-2" />
+          <span style={{ fontSize: 12, color: "#64748B", fontFamily: INTER, fontWeight: 500 }}>Select a component to inspect its architecture</span>
         </div>
       </aside>
     );
@@ -555,16 +571,27 @@ Explain the architecture like a senior engineer during onboarding.`;
   const importsList = node.metadata?.imports || [];
 
   return (
-    <aside style={{
-      width: 308,
-      background: "#EFECE6",
-      borderLeft: "1px solid rgba(139, 92, 26, 0.06)",
-      display: "flex",
-      flexDirection: "column",
-      flexShrink: 0,
-      overflow: "hidden",
-      position: "relative"
-    }}>
+    <motion.aside
+      initial={{ x: 40, opacity: 0 }}
+      animate={{ x: 0, opacity: 1 }}
+      exit={{ x: 40, opacity: 0 }}
+      transition={{ duration: 0.25, ease: "easeOut" }}
+      style={{
+        position: "absolute",
+        top: 16,
+        right: 16,
+        bottom: 24,
+        width: 340,
+        background: "#FFFFFF",
+        borderRadius: 20,
+        border: "1px solid rgba(226, 232, 240, 0.8)",
+        boxShadow: "0 10px 40px rgba(15, 23, 42, 0.06)",
+        display: "flex",
+        flexDirection: "column",
+        zIndex: 40,
+        overflow: "hidden",
+      }}
+    >
       {/* Toast Notification */}
       <AnimatePresence>
         {toast && (
@@ -599,608 +626,248 @@ Explain the architecture like a senior engineer during onboarding.`;
       </AnimatePresence>
 
       {/* Header */}
-      <div style={{ padding: "12px 20px 11px", borderBottom: "1px solid rgba(139, 92, 26, 0.05)", flexShrink: 0 }}>
-        <span style={{ fontSize: 9, fontWeight: 700, letterSpacing: "0.1em", textTransform: "uppercase", color: "#8C867C", fontFamily: INTER }}>
+      <div style={{ padding: "14px 20px 12px", borderBottom: "1px solid #F1F5F9", flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+        <span style={{ fontSize: 9, fontWeight: 700, letterSpacing: "0.1em", textTransform: "uppercase", color: "#94A3B8", fontFamily: INTER }}>
           Architectural Specs
         </span>
+        {onClose && (
+          <button
+            onClick={onClose}
+            title="Close Inspector"
+            style={{
+              background: "#F1F5F9",
+              border: "none",
+              borderRadius: "50%",
+              width: 22,
+              height: 22,
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              cursor: "pointer",
+              color: "#64748B",
+              fontSize: 12,
+              fontWeight: 700,
+              transition: "all 0.15s ease",
+            }}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.background = "#E2E8F0";
+              e.currentTarget.style.color = "#0F172A";
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.background = "#F1F5F9";
+              e.currentTarget.style.color = "#64748B";
+            }}
+          >
+            ✕
+          </button>
+        )}
       </div>
 
-      {/* Accordion container */}
+      {/* Flat inbox-style sections */}
       <div style={{ flex: 1, overflowY: "auto", scrollbarWidth: "none" }}>
-        
+
         {/* Node Summary Panel */}
-        <div style={{ padding: "18px 20px" }}>
+        <div style={{ padding: "18px 20px 14px", borderBottom: "1px solid #F1F5F9" }}>
           <span style={{
-            fontSize: 8.5,
+            fontSize: 9,
             fontWeight: 700,
             letterSpacing: "0.06em",
             textTransform: "uppercase",
             color: cfg.text,
             background: cfg.bg,
-            padding: "2px 6px",
-            borderRadius: 4,
+            padding: "2px 8px",
+            borderRadius: 999,
             fontFamily: INTER,
           }}>
             {cfg.label}
           </span>
           <h2 style={{
-            fontSize: 20,
-            fontWeight: 650,
-            color: "#2E2D2B",
-            letterSpacing: "-0.035em",
-            margin: "6px 0 3px",
+            fontSize: 22,
+            fontWeight: 700,
+            color: "#0F172A",
+            letterSpacing: "-0.04em",
+            margin: "8px 0 0",
             lineHeight: 1.2,
             fontFamily: INTER,
           }}>
             {node.name}
           </h2>
-          <p style={{ fontSize: 10, color: "#6B7280", fontFamily: INTER, margin: "0 0 14px", fontWeight: 500 }}>
-            {getRoleLabel()}
-          </p>
-
-          {/* Quick Actions Grid */}
-          <div style={{
-            display: "grid",
-            gridTemplateColumns: "repeat(4, 1fr)",
-            gap: 6,
-            background: "#F9FAFB",
-            border: "1px solid #F1F5F9",
-            borderRadius: 10,
-            padding: 8,
-          }}>
-            <button
-              onClick={handleOpenFile}
-              title="Open file in IDE"
-              style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 4, padding: "6px 0", border: "none", background: "transparent", cursor: "pointer" }}
-              className="hover:bg-neutral-100 rounded-lg group"
-            >
-              <FolderOpen size={13} className="text-neutral-500 group-hover:text-neutral-800" />
-              <span style={{ fontSize: 8.5, fontWeight: 600, color: "#6B7280", fontFamily: INTER }}>Open</span>
-            </button>
-            <button
-              onClick={handleCopyPath}
-              title="Copy absolute path"
-              style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 4, padding: "6px 0", border: "none", background: "transparent", cursor: "pointer" }}
-              className="hover:bg-neutral-100 rounded-lg group"
-            >
-              {copied ? (
-                <Check size={13} className="text-emerald-500" />
-              ) : (
-                <Copy size={13} className="text-neutral-500 group-hover:text-neutral-800" />
-              )}
-              <span style={{ fontSize: 8.5, fontWeight: 600, color: "#6B7280", fontFamily: INTER }}>{copied ? "Copied" : "Path"}</span>
-            </button>
-            <button
-              onClick={() => handleHighlight("dependencies")}
-              title="Highlight active dependencies"
-              style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 4, padding: "6px 0", border: "none", background: "transparent", cursor: "pointer" }}
-              className="hover:bg-neutral-100 rounded-lg group"
-            >
-              <Network size={13} className="text-neutral-500 group-hover:text-neutral-800" />
-              <span style={{ fontSize: 8.5, fontWeight: 600, color: "#6B7280", fontFamily: INTER }}>Deps</span>
-            </button>
-            <button
-              onClick={() => handleHighlight("parents")}
-              title="Highlight parent nodes"
-              style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 4, padding: "6px 0", border: "none", background: "transparent", cursor: "pointer" }}
-              className="hover:bg-neutral-100 rounded-lg group"
-            >
-              <ArrowUpCircle size={13} className="text-neutral-500 group-hover:text-neutral-800" />
-              <span style={{ fontSize: 8.5, fontWeight: 600, color: "#6B7280", fontFamily: INTER }}>Parents</span>
-            </button>
-            <button
-              onClick={() => handleHighlight("children")}
-              title="Highlight children nodes"
-              style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 4, padding: "6px 0", border: "none", background: "transparent", cursor: "pointer" }}
-              className="hover:bg-neutral-100 rounded-lg group"
-            >
-              <ArrowDownCircle size={13} className="text-neutral-500 group-hover:text-neutral-800" />
-              <span style={{ fontSize: 8.5, fontWeight: 600, color: "#6B7280", fontFamily: INTER }}>Children</span>
-            </button>
-            <button
-              onClick={handleScrollToImpact}
-              title="Scroll to Impact analysis"
-              style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 4, padding: "6px 0", border: "none", background: "transparent", cursor: "pointer" }}
-              className="hover:bg-neutral-100 rounded-lg group"
-            >
-              <Activity size={13} className="text-neutral-500 group-hover:text-neutral-800" />
-              <span style={{ fontSize: 8.5, fontWeight: 600, color: "#6B7280", fontFamily: INTER }}>Impact</span>
-            </button>
-            <button
-              onClick={() => setIsAIModalOpen(true)}
-              title="Explain using simulated AI"
-              style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 4, padding: "6px 0", border: "none", background: "transparent", cursor: "pointer" }}
-              className="hover:bg-neutral-100 rounded-lg group"
-            >
-              <Sparkles size={13} className="text-blue-500 group-hover:text-blue-600" />
-              <span style={{ fontSize: 8.5, fontWeight: 600, color: "#6B7280", fontFamily: INTER }}>Explain</span>
-            </button>
-
-          </div>
         </div>
 
-        {/* 1. OVERVIEW */}
-        <AccordionSection
-          id="overview"
-          title="Overview"
-          count={node.metadata?.loc}
-          expanded={expandedSections.overview}
-          onToggle={handleToggleSection}
-        >
-          <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-              <span style={{ color: "#9CA3AF", fontSize: 10.5, fontWeight: 600 }}>File Path</span>
-              <span style={{ color: "#4B5563", fontSize: 10.5, fontFamily: MONO, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", maxWidth: 160 }} title={node.file}>{node.file}</span>
-            </div>
-            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-              <span style={{ color: "#9CA3AF", fontSize: 10.5, fontWeight: 600 }}>Decl Line</span>
-              <span style={{ color: "#4B5563", fontSize: 10.5, fontFamily: MONO }}>L{node.metadata?.line || 1}</span>
-            </div>
-            {node.kind === "component" && (
-              <>
-                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-                  <span style={{ color: "#9CA3AF", fontSize: 10.5, fontWeight: 600 }}>Export Style</span>
-                  <span style={{ color: "#4B5563", fontSize: 10.5, fontFamily: MONO }}>{node.metadata?.isDefaultExport ? "Default Export" : "Named Export"}</span>
-                </div>
-                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-                  <span style={{ color: "#9CA3AF", fontSize: 10.5, fontWeight: 600 }}>Paradigm</span>
-                  <span style={{ color: "#4B5563", fontSize: 10.5, fontFamily: MONO }}>{node.metadata?.isClassComponent ? "Class Component" : "Functional"}</span>
-                </div>
-              </>
+        {/* 1. OVERVIEW — key/value flat rows */}
+        <SectionHeader title="Overview" />
+        <InfoRow label="File" value={node.file?.split("/").pop() || node.file} />
+        <InfoRow label="Line" value={`L${node.metadata?.line || 1}`} />
+        <InfoRow label="LOC" value={node.metadata?.loc ?? "—"} />
+        {node.kind === "component" && (
+          <>
+            <InfoRow label="Export" value={node.metadata?.isDefaultExport ? "Default" : "Named"} />
+            <InfoRow label="Paradigm" value={node.metadata?.isClassComponent ? "Class" : "Functional"} />
+          </>
+        )}
+        {node.kind === "route" && (
+          <>
+            <InfoRow label="Router" value={treeNode?.metadata?.routerType || node.metadata?.source || "Router"} />
+            {node.subtype === "endpoint" && node.metadata?.componentName && (
+              <InfoRow label="Component" value={node.metadata.componentName} />
             )}
-            {node.kind === "route" && (
-              <>
-                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-                  <span style={{ color: "#9CA3AF", fontSize: 10.5, fontWeight: 600 }}>Router Host</span>
-                  <span style={{ color: "#4B5563", fontSize: 10.5, fontFamily: MONO }}>{treeNode?.metadata?.routerType || node.metadata?.source || "Router"}</span>
-                </div>
-                {node.subtype === "endpoint" && node.metadata?.componentName && (
-                  <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-                    <span style={{ color: "#9CA3AF", fontSize: 10.5, fontWeight: 600 }}>Target Component</span>
-                    <span style={{ color: "#2563EB", fontSize: 10.5, fontFamily: MONO, fontWeight: 600 }}>{node.metadata.componentName}</span>
-                  </div>
-                )}
-              </>
-            )}
-
-            {propsList.length > 0 && (
-              <div style={{ marginTop: 8, borderTop: "1px dashed #F1F3F5", paddingTop: 8 }}>
-                <span style={{ fontSize: 9, color: "#9CA3AF", fontWeight: 700, textTransform: "uppercase" }}>Props / Properties</span>
-                <div style={{ display: "flex", flexDirection: "column", gap: 4, marginTop: 4 }}>
-                  {propsList.map(prop => (
-                    <div key={prop.name} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", fontSize: 10 }}>
-                      <span style={{ fontFamily: MONO, color: "#4B5563" }}>{prop.name}</span>
-                      <span style={{ color: "#9CA3AF" }}>{prop.type || "any"}</span>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
-          </div>
-        </AccordionSection>
+          </>
+        )}
+        {propsList.length > 0 && (
+          <InboxRow label="Props">
+            {propsList.map(p => (
+              <Pill key={p.name} bg="#F1F5F9" color="#334155" title={p.type || "any"}>
+                {p.name}
+              </Pill>
+            ))}
+          </InboxRow>
+        )}
 
         {/* 2. ARCHITECTURE HEALTH */}
         {node.kind === "component" && maintainability && (
-          <AccordionSection
-            id="health"
-            title="Architecture Health"
-            count={recommendations.length}
-            expanded={expandedSections.health}
-            onToggle={handleToggleSection}
-          >
-            <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-                <span style={{ color: "#9CA3AF", fontSize: 10.5, fontWeight: 600 }}>Maintainability Score</span>
+          <>
+            <SectionHeader title="Architecture Health" />
+            <div style={{ padding: "4px 20px 12px", borderBottom: "1px solid #F1F5F9" }}>
+              {/* Score bar */}
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 8 }}>
+                <span style={{ fontSize: 11, fontWeight: 500, color: "#94A3B8", fontFamily: INTER }}>Maintainability</span>
                 <span style={{
-                  fontSize: 12,
-                  fontFamily: MONO,
+                  fontSize: 13,
+                  fontFamily: INTER,
                   fontWeight: 700,
                   color: maintainability.score >= 85 ? "#059669" : maintainability.score >= 70 ? "#D97706" : "#DC2626"
-                }}>
-                  {maintainability.score} / 100
-                </span>
+                }}>{maintainability.score}<span style={{ fontSize: 10, fontWeight: 400, color: "#94A3B8" }}>/100</span></span>
               </div>
-              
-              <div style={{ display: "flex", flexDirection: "column", gap: 5, marginTop: 2 }}>
-                <span style={{ fontSize: 9, color: "#9CA3AF", fontWeight: 700, textTransform: "uppercase" }}>Complexity Drivers</span>
-                {maintainability.drivers.map((drv, idx) => (
-                  <div key={idx} style={{ display: "flex", alignItems: "center", gap: 5, fontSize: 10, color: "#4B5563" }}>
-                    {drv.type === "success" ? (
-                      <CheckCircle size={10} className="text-emerald-500 shrink-0" />
-                    ) : (
-                      <AlertTriangle size={10} className="text-amber-500 shrink-0" />
-                    )}
-                    <span>{drv.text}</span>
-                  </div>
-                ))}
-                {isCyclic && (
-                  <div style={{ display: "flex", alignItems: "center", gap: 5, fontSize: 10, color: "#DC2626" }}>
-                    <XCircle size={10} className="text-red-500 shrink-0" />
-                    <span>Cyclic Render Loop detected</span>
-                  </div>
-                )}
-              </div>
-
-              <div style={{ display: "flex", flexDirection: "column", gap: 6, marginTop: 4, borderTop: "1px dashed #F1F3F5", paddingTop: 8 }}>
-                <span style={{ fontSize: 9, color: "#9CA3AF", fontWeight: 700, textTransform: "uppercase" }}>Recommendations</span>
-                {recommendations.map((rec, i) => {
-                  const isInfo = rec.toLowerCase().includes("consider") || rec.toLowerCase().includes("split") || rec.toLowerCase().includes("decompose");
-                  return (
-                    <div key={i} className="flex gap-1.5 p-2 rounded-lg border border-neutral-100 bg-[#F9FAFB] text-[10px] text-neutral-600 leading-normal">
-                      {isInfo ? (
-                        <Info size={10} className="text-blue-500 shrink-0 mt-0.5" />
-                      ) : (
-                        <CheckCircle size={10} className="text-emerald-500 shrink-0 mt-0.5" />
-                      )}
-                      <span>{rec}</span>
-                    </div>
-                  );
-                })}
+              <div style={{ height: 4, background: "#F1F5F9", borderRadius: 99, overflow: "hidden" }}>
+                <div style={{ height: "100%", width: `${maintainability.score}%`, background: maintainability.score >= 85 ? "#10B981" : maintainability.score >= 70 ? "#F59E0B" : "#EF4444", borderRadius: 99, transition: "width 0.5s ease" }} />
               </div>
             </div>
-          </AccordionSection>
+            {recommendations.length > 0 && (
+              <div style={{ padding: "12px 20px 14px", borderBottom: "1px solid #F1F5F9" }}>
+                <span style={{ fontSize: 9, fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase", color: "#94A3B8", fontFamily: INTER, display: "block", marginBottom: 8 }}>
+                  Suggestions & Best Practices
+                </span>
+                <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                  {recommendations.map((rec, i) => {
+                    const isWarn = rec.toLowerCase().includes("consider") || rec.toLowerCase().includes("split") || rec.toLowerCase().includes("combines") || rec.toLowerCase().includes("large");
+                    return (
+                      <div
+                        key={i}
+                        style={{
+                          background: isWarn ? "#FFF7ED" : "#F0FDF4",
+                          border: `1px solid ${isWarn ? "#FED7AA" : "#BBF7D0"}`,
+                          borderRadius: 10,
+                          padding: "9px 12px",
+                          display: "flex",
+                          alignItems: "flex-start",
+                          gap: 8,
+                        }}
+                      >
+                        <div style={{
+                          width: 6, height: 6, borderRadius: "50%",
+                          background: isWarn ? "#EA580C" : "#16A34A",
+                          marginTop: 5, flexShrink: 0,
+                        }} />
+                        <span style={{
+                          fontSize: 11,
+                          lineHeight: 1.45,
+                          color: isWarn ? "#9A3412" : "#166534",
+                          fontFamily: INTER,
+                          fontWeight: 500,
+                        }}>
+                          {rec}
+                        </span>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+          </>
         )}
 
         {/* 3. HIERARCHY */}
-        <AccordionSection
-          id="hierarchy"
-          title="Hierarchy"
-          count={parentNodes.length + childNodes.length}
-          expanded={expandedSections.hierarchy}
-          onToggle={handleToggleSection}
-        >
-          <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-            <div>
-              <p style={{ fontSize: 9, color: "#9CA3AF", fontWeight: 700, textTransform: "uppercase", margin: "0 0 5px" }}>Rendered By (Parents)</p>
-              {parentNodes.length === 0 ? (
-                <p style={{ fontSize: 10.5, color: "#9CA3AF", fontStyle: "italic", margin: 0 }}>None (Entry point)</p>
-              ) : (
-                <div style={{ display: "flex", flexWrap: "wrap", gap: 4 }}>
-                  {parentNodes.map(p => (
-                    <span
-                      key={p.id}
-                      onClick={() => onNavigate(p.id)}
-                      style={{ fontSize: 9.5, fontFamily: MONO, color: "#4B5563", background: "#F3F4F6", padding: "2px 5px", borderRadius: 4, cursor: "pointer" }}
-                      className="hover:bg-neutral-200"
-                    >
-                      {p.name}
-                    </span>
-                  ))}
-                </div>
-              )}
-            </div>
-
-            <div>
-              <p style={{ fontSize: 9, color: "#9CA3AF", fontWeight: 700, textTransform: "uppercase", margin: "5px 0 5px" }}>Renders (Children)</p>
-              {childNodes.length === 0 ? (
-                <p style={{ fontSize: 10.5, color: "#9CA3AF", fontStyle: "italic", margin: 0 }}>None (Leaf Component)</p>
-              ) : (
-                <div style={{ display: "flex", flexWrap: "wrap", gap: 4 }}>
-                  {childNodes.map(c => (
-                    <span
-                      key={c.id}
-                      onClick={() => onNavigate(c.id)}
-                      style={{ fontSize: 9.5, fontFamily: MONO, color: "#2563EB", background: "#EFF6FF", padding: "2px 5px", borderRadius: 4, cursor: "pointer" }}
-                      className="hover:bg-blue-100"
-                    >
-                      {c.name}
-                    </span>
-                  ))}
-                </div>
-              )}
-            </div>
-          </div>
-        </AccordionSection>
-
-        {/* 4. DEPENDENCIES */}
-        <AccordionSection
-          id="dependencies"
-          title="Dependencies"
-          count={dependenciesList.external.length + dependenciesList.internal.length}
-          expanded={expandedSections.dependencies}
-          onToggle={handleToggleSection}
-        >
-          <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-            <div>
-              <p style={{ fontSize: 9, color: "#9CA3AF", fontWeight: 700, textTransform: "uppercase", margin: "0 0 5px" }}>Third-Party Packages</p>
-              {dependenciesList.external.length === 0 ? (
-                <p style={{ fontSize: 10.5, color: "#9CA3AF", fontStyle: "italic", margin: 0 }}>None</p>
-              ) : (
-                <div style={{ display: "flex", flexWrap: "wrap", gap: 4 }}>
-                  {dependenciesList.external.map(ext => (
-                    <span
-                      key={ext}
-                      style={{ fontSize: 9.5, fontFamily: MONO, color: "#0891B2", background: "#ECFEFF", padding: "2px 5px", borderRadius: 4 }}
-                    >
-                      {ext}
-                    </span>
-                  ))}
-                </div>
-              )}
-            </div>
-
-            <div>
-              <p style={{ fontSize: 9, color: "#9CA3AF", fontWeight: 700, textTransform: "uppercase", margin: "5px 0 5px" }}>Internal Modules</p>
-              {dependenciesList.internal.length === 0 ? (
-                <p style={{ fontSize: 10.5, color: "#9CA3AF", fontStyle: "italic", margin: 0 }}>None</p>
-              ) : (
-                <div style={{ display: "flex", flexWrap: "wrap", gap: 4 }}>
-                  {dependenciesList.internal.map(int => (
-                    <span
-                      key={int}
-                      style={{ fontSize: 9.5, fontFamily: MONO, color: "#4B5563", background: "#F3F4F6", padding: "2px 5px", borderRadius: 4 }}
-                      title={int}
-                    >
-                      {int.split("/").pop()}
-                    </span>
-                  ))}
-                </div>
-              )}
-            </div>
-          </div>
-        </AccordionSection>
+        {(parentNodes.length > 0 || childNodes.length > 0) && (
+          <>
+            {parentNodes.length > 0 && (
+              <InboxRow label="Parents">
+                {parentNodes.map(p => (
+                  <Pill key={p.id} bg="#F8FAFC" color="#475569" onClick={() => onNavigate(p.id)} title={p.file}>
+                    {p.name}
+                  </Pill>
+                ))}
+              </InboxRow>
+            )}
+            {childNodes.length > 0 && (
+              <InboxRow label="Children">
+                {childNodes.map(c => (
+                  <Pill key={c.id} bg="#EFF6FF" color="#2563EB" onClick={() => onNavigate(c.id)} title={c.file}>
+                    {c.name}
+                  </Pill>
+                ))}
+              </InboxRow>
+            )}
+          </>
+        )}
 
         {/* 5. HOOKS */}
         {hooksList.length > 0 && (
-          <AccordionSection
-            id="hooks"
-            title="Hooks"
-            count={hooksList.length}
-            expanded={expandedSections.hooks}
-            onToggle={handleToggleSection}
-          >
-            <div style={{ display: "flex", flexWrap: "wrap", gap: 4 }}>
-              {hooksList.map(hook => {
-                const builtin = BUILTIN_HOOKS.has(hook);
-                return (
-                  <span
-                    key={hook}
-                    style={{
-                      fontSize: 9.5,
-                      fontFamily: MONO,
-                      color: builtin ? "#6B7280" : "#059669",
-                      background: builtin ? "#F3F4F6" : "#ECFDF5",
-                      padding: "2px 5px",
-                      borderRadius: 4
-                    }}
-                  >
-                    {hook}
-                  </span>
-                );
-              })}
-            </div>
-          </AccordionSection>
+          <InboxRow label="Hooks">
+            {hooksList.map(hook => {
+              const builtin = BUILTIN_HOOKS.has(hook);
+              return (
+                <Pill key={hook} bg={builtin ? "#F8FAFC" : "#ECFDF5"} color={builtin ? "#64748B" : "#059669"}>
+                  {hook}
+                </Pill>
+              );
+            })}
+          </InboxRow>
         )}
 
         {/* 6. STATE */}
         {consumedStates.length > 0 && (
-          <AccordionSection
-            id="state"
-            title="State"
-            count={consumedStates.length}
-            expanded={expandedSections.state}
-            onToggle={handleToggleSection}
-          >
-            <div style={{ display: "flex", flexWrap: "wrap", gap: 4 }}>
-              {consumedStates.map(state => (
-                <span
-                  key={state.id}
-                  style={{ fontSize: 9.5, fontFamily: MONO, color: "#4F46E5", background: "#EEF2FF", padding: "2px 5px", borderRadius: 4 }}
-                >
-                  {state.name}
-                </span>
-              ))}
-            </div>
-          </AccordionSection>
+          <InboxRow label="State">
+            {consumedStates.map(s => (
+              <Pill key={s.id} bg="#EEF2FF" color="#4F46E5">{s.name}</Pill>
+            ))}
+          </InboxRow>
         )}
 
         {/* 7. APIS */}
         {apiCalls.length > 0 && (
-          <AccordionSection
-            id="apis"
-            title="APIs"
-            count={apiCalls.length}
-            expanded={expandedSections.apis}
-            onToggle={handleToggleSection}
-          >
-            <div style={{ display: "flex", flexDirection: "column", gap: 5 }}>
-              {apiCalls.map(api => (
-                <div
-                  key={api.id}
-                  style={{ fontSize: 9.5, fontFamily: MONO, color: "#D97706", background: "#FFFBEB", padding: "4px 8px", borderRadius: 4, border: "1px solid #FDE68A" }}
-                >
-                  {api.name}
-                </div>
-              ))}
-            </div>
-          </AccordionSection>
+          <InboxRow label="APIs">
+            {apiCalls.map(api => (
+              <Pill key={api.id} bg="#FFFBEB" color="#B45309">{api.name}</Pill>
+            ))}
+          </InboxRow>
         )}
 
         {/* 8. IMPORTS */}
         {importsList.length > 0 && (
-          <AccordionSection
-            id="imports"
-            title="Imports"
-            count={importsList.length}
-            expanded={expandedSections.imports}
-            onToggle={handleToggleSection}
-          >
-            <pre style={{
-              fontSize: 9.5,
-              color: "#6B7280",
-              fontFamily: MONO,
-              margin: 0,
-              padding: 8,
-              background: "#F9FAFB",
-              border: "1px solid #E5E7EB",
-              borderRadius: 6,
-              overflowX: "auto",
-              whiteSpace: "pre"
-            }}>
-              {importsList.join("\n")}
-            </pre>
-          </AccordionSection>
-        )}
-
-        {/* 9. IMPACT ANALYSIS */}
-        {impact && (
-          <AccordionSection
-            refProp={impactRef}
-            id="impact"
-            title="Impact Analysis"
-            count={impact.blastRadius}
-            expanded={expandedSections.impact}
-            onToggle={handleToggleSection}
-          >
-            <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-              <div style={{
-                border: `1px solid ${RISK_STYLE[impact.riskLevel]?.border || "#E5E7EB"}`,
-                background: RISK_STYLE[impact.riskLevel]?.bg || "#F9FAFB",
-                borderRadius: 12,
-                padding: 12,
-                display: "flex",
-                flexDirection: "column",
-                gap: 10,
-              }}>
-                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12 }}>
-                  <div style={{ display: "flex", alignItems: "center", gap: 6, minWidth: 0 }}>
-                    <GitBranch size={13} style={{ color: RISK_STYLE[impact.riskLevel]?.text || "#4B5563", flexShrink: 0 }} />
-                    <span style={{ fontSize: 11, color: "#374151", fontFamily: INTER, fontWeight: 650 }}>
-                      Blast Radius
-                    </span>
-                  </div>
-                  <div style={{ display: "flex", alignItems: "baseline", gap: 4 }}>
-                    <span style={{ fontSize: 16, color: RISK_STYLE[impact.riskLevel]?.text || "#111827", fontFamily: MONO, fontWeight: 800, lineHeight: 1 }}>
-                      {impact.blastRadius}
-                    </span>
-                    <span style={{ fontSize: 9, color: "#6B7280", fontFamily: INTER, fontWeight: 600 }}>
-                      nodes
-                    </span>
-                  </div>
-                </div>
-
-                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 5 }}>
-                  {[
-                    ["Components", impact.affectedByKind.component, "#2563EB"],
-                    ["Routes", impact.affectedByKind.route, "#0891B2"],
-                    ["State", impact.affectedByKind.state, "#4F46E5"],
-                    ["APIs", impact.affectedByKind.api, "#D97706"],
-                  ].map(([label, value, color]) => (
-                    <div key={label} style={{ background: "rgba(255,255,255,0.7)", border: "1px solid rgba(255,255,255,0.8)", borderRadius: 8, padding: "5px 6px" }}>
-                      <div style={{ fontSize: 11.5, color, fontFamily: MONO, fontWeight: 800, lineHeight: 1 }}>{value}</div>
-                      <div style={{ fontSize: 9, color: "#6B7280", fontFamily: INTER, marginTop: 1 }}>{label}</div>
-                    </div>
-                  ))}
-                </div>
-
-                <div style={{
-                  alignSelf: "flex-start",
-                  color: RISK_STYLE[impact.riskLevel]?.text || "#4B5563",
-                  background: "rgba(255,255,255,0.8)",
-                  border: `1px solid ${RISK_STYLE[impact.riskLevel]?.border || "#E5E7EB"}`,
-                  borderRadius: 999,
-                  padding: "2px 7px",
-                  fontSize: 9,
-                  fontFamily: MONO,
-                  fontWeight: 800,
-                  textTransform: "uppercase",
-                  letterSpacing: "0.04em",
-                }}>
-                  {RISK_STYLE[impact.riskLevel]?.label || "Unknown Risk"}
-                </div>
-              </div>
-
-              <div style={{ display: "flex", flexDirection: "column", gap: 8, marginTop: 4 }}>
-                <ImpactGroup
-                  label="Used By (Upstream)"
-                  items={impact.direct.usedBy}
-                  tone={{ text: "#2563EB", bg: "#EFF6FF" }}
-                  onNavigate={onNavigate}
-                />
-                <ImpactGroup
-                  label="Uses (Downstream)"
-                  items={impact.direct.uses}
-                  tone={{ text: "#4B5563", bg: "#F3F4F6" }}
-                  onNavigate={onNavigate}
-                />
-              </div>
-
-              <div className="flex gap-1.5 p-2 rounded-lg border border-neutral-100 bg-[#F9FAFB] text-[10px] text-neutral-600 leading-relaxed mt-2">
-                {impact.riskLevel === "high" ? (
-                  <AlertTriangle size={11} className="text-red-500 shrink-0 mt-0.5" />
-                ) : impact.riskLevel === "medium" ? (
-                  <AlertTriangle size={11} className="text-amber-500 shrink-0 mt-0.5" />
-                ) : (
-                  <CheckCircle size={11} className="text-emerald-500 shrink-0 mt-0.5" />
-                )}
-                <span>
-                  {impact.riskLevel === "high"
-                    ? "Review every dependent node before renaming, moving, or deleting this element."
-                    : impact.riskLevel === "medium"
-                      ? "Inspect direct dependents before refactoring this element."
-                      : "This element has a narrow dependency surface and is likely safe to refactor."}
-                </span>
-              </div>
-            </div>
-          </AccordionSection>
+          <InboxRow label="Imports">
+            {importsList.map((imp, i) => (
+              <Pill key={i} bg="#F8FAFC" color="#475569">{imp.split("/").pop()}</Pill>
+            ))}
+          </InboxRow>
         )}
 
         {/* 10. RELATED FILES */}
-        <AccordionSection
-          id="related"
-          title="Related Files"
-          count={relatedFiles.length}
-          expanded={expandedSections.related}
-          onToggle={handleToggleSection}
-        >
-          {relatedFiles.length === 0 ? (
-            <p style={{ fontSize: 10.5, color: "#9CA3AF", fontStyle: "italic", margin: 0 }}>No related files found in folder</p>
-          ) : (
-            <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
-              {relatedFiles.map(rf => (
-                <div
-                  key={rf.path}
-                  onClick={() => rf.nodeId && onNavigate(rf.nodeId)}
-                  style={{
-                    display: "flex",
-                    alignItems: "center",
-                    gap: 6,
-                    padding: "4px 8px",
-                    borderRadius: 6,
-                    cursor: rf.nodeId ? "pointer" : "default",
-                    background: "transparent",
-                    transition: "background 0.15s",
-                  }}
-                  className={rf.nodeId ? "hover:bg-neutral-100" : ""}
-                >
-                  <FileCode size={12} className={rf.nodeId ? "text-blue-500" : "text-neutral-400"} />
-                  <span
-                    style={{
-                      fontSize: 10,
-                      fontFamily: MONO,
-                      color: rf.nodeId ? "#2563EB" : "#4B5563",
-                      textDecoration: rf.nodeId ? "underline" : "none"
-                    }}
-                    title={rf.path}
-                  >
-                    {rf.name}
-                  </span>
-                  <span style={{
-                    fontSize: 8.5,
-                    fontFamily: INTER,
-                    color: "#9CA3AF",
-                    background: "#F3F4F6",
-                    padding: "1px 4px",
-                    borderRadius: 4,
-                    marginLeft: "auto"
-                  }}>
-                    {rf.type}
-                  </span>
-                </div>
-              ))}
-            </div>
-          )}
-        </AccordionSection>
+        {relatedFiles.length > 0 && (
+          <InboxRow label="Related Files">
+            {relatedFiles.map(rf => (
+              <Pill
+                key={rf.path}
+                bg={rf.nodeId ? "#EFF6FF" : "#F8FAFC"}
+                color={rf.nodeId ? "#2563EB" : "#64748B"}
+                onClick={rf.nodeId ? () => onNavigate(rf.nodeId) : undefined}
+                title={rf.path}
+              >
+                <FileCode size={10} style={{ marginRight: 4, flexShrink: 0, display: "inline" }} />
+                {rf.name}
+              </Pill>
+            ))}
+          </InboxRow>
+        )}
       </div>
 
       {/* AI Explanation Modal */}
@@ -1384,6 +1051,6 @@ Explain the architecture like a senior engineer during onboarding.`;
           </div>
         )}
       </AnimatePresence>
-    </aside>
+    </motion.aside>
   );
 }

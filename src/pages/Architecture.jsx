@@ -1,52 +1,42 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { useSelector, useDispatch } from "react-redux";
 import { useNavigate, useLocation } from "react-router-dom";
+import { motion, AnimatePresence } from "framer-motion";
 import { setActiveRoom } from "@/redux/slices/uiSlice";
 import { selectSelectedProject } from "@/redux/slices/hubSlice";
 import { selectNodeId } from "@/redux/slices/graphSlice";
-import gsap from "gsap";
-import { FileCode, ShieldAlert, XCircle, AlertTriangle, CheckCircle, Info, ChevronRight } from "lucide-react";
 import { buildArchitectureModel } from "@/engines/adapters/architectureAdapter";
-import { calculateMaintainability } from "@/engines/analysis/modules/maintainability";
 
-function findParentIds(nodesList, targetId, currentPath = []) {
-  for (const node of nodesList) {
-    if (node.id === targetId) {
-      return currentPath;
-    }
-    if (node.children && node.children.length > 0) {
-      const path = findParentIds(node.children, targetId, [...currentPath, node.id]);
-      if (path) return path;
-    }
-  }
-  return null;
-}
-
-// Extracted Subcomponents & Constants
 import { INTER, MONO, findPathToNode } from "@/components/architecture/constants";
-import InspectorPanel from "@/components/architecture/InspectorPanel";
-import TopBar from "@/components/architecture/TopBar";
-import TreeNode from "@/components/architecture/TreeNode";
-import FlowDiagram from "@/components/architecture/FlowDiagram";
+import InspectorPanel      from "@/components/architecture/InspectorPanel";
+import TopBar              from "@/components/architecture/TopBar";
+import FlowDiagram         from "@/components/architecture/FlowDiagram";
+import ArchitectureSidebar from "@/components/architecture/ArchitectureSidebar";
+import CommandDock         from "@/components/architecture/CommandDock";
+import TreeNode            from "@/components/architecture/TreeNode";
+import AIArchitecturalAdvisorModal from "@/components/architecture/AIArchitecturalAdvisorModal";
+import ArchitectureDnaCard from "@/components/architecture/ArchitectureDnaCard";
+import ArchitectureHealthGauge from "@/components/architecture/ArchitectureHealthGauge";
 
-// ─── Inner React Flow Canvas Component ─────────────────────────────────────────
+import {
+  FileCode, AlertTriangle, CheckCircle, ChevronRight, TrendingUp, Layers, Cpu, GitBranch, Sparkles,
+} from "lucide-react";
 
-function ArchitectureFlow() {
+function ArchitectureStudio() {
   const dispatch = useDispatch();
   const navigate = useNavigate();
-  
-  const selectedProject = useSelector(selectSelectedProject);
-  const knowledgeGraph = useSelector((state) => state.graph.knowledgeGraph);
-  const reduxFiles = useSelector((state) => state.graph.files);
-  const analysis = useSelector((state) => state.analysis);
-
-  // Tab Selection Switcher: "summary" | "explore" | "flow" | "graph"
-  const [activeTab, setActiveTab] = useState("summary");
-  const [showInspector, setShowInspector] = useState(true);
-  const [isFlowFullscreen, setIsFlowFullscreen] = useState(false);
-  const flowRef = useRef(null);
-
   const location = useLocation();
+
+  const selectedProject = useSelector(selectSelectedProject);
+  const knowledgeGraph  = useSelector((state) => state.graph.knowledgeGraph);
+  const reduxFiles      = useSelector((state) => state.graph.files);
+  const analysis        = useSelector((state) => state.analysis);
+
+  const [activeTab, setActiveTab] = useState(() => location.state?.tab || "summary");
+  const [showInspector, setShowInspector] = useState(false);
+  const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
+  const [showAIModal, setShowAIModal] = useState(false);
+  const flowRef = useRef(null);
 
   const [origin, setOrigin] = useState(() => {
     if (location.state?.fromAI) return "ai";
@@ -55,19 +45,14 @@ function ArchitectureFlow() {
   });
 
   useEffect(() => {
-    if (location.state?.fromAI) {
-      setTimeout(() => setOrigin("ai"), 0);
-    } else if (location.state?.fromWorkspace) {
-      setTimeout(() => setOrigin("workspace"), 0);
-    }
+    if (location.state?.fromAI) setOrigin("ai");
+    else if (location.state?.fromWorkspace) setOrigin("workspace");
   }, [location.state]);
 
   useEffect(() => {
     if (location.state?.focusNode) {
       const targetNode = location.state.focusNode;
-      // Clear location state so that clicking/refreshing doesn't keep resetting the active tab to flow
       window.history.replaceState({}, document.title);
-      
       setTimeout(() => {
         setActiveTab("flow");
         setShowInspector(true);
@@ -75,7 +60,6 @@ function ArchitectureFlow() {
       }, 0);
     }
   }, [location.state, dispatch]);
-
 
   const validation = useMemo(() => {
     return knowledgeGraph?.validation || { errors: [], warnings: [], suggestions: [] };
@@ -85,67 +69,30 @@ function ArchitectureFlow() {
     return knowledgeGraph?.nodes.filter(n => n.kind === "component") || [];
   }, [knowledgeGraph]);
 
-
   const selectedId = useSelector((state) => state.graph.selectedNodeId);
-
   const [highlightedIds, setHighlightedIds] = useState(new Set());
-
-  const setSelectedId = useCallback((id) => {
-    dispatch(selectNodeId(id));
-  }, [dispatch]);
 
   const handleSelectNode = useCallback((id) => {
     dispatch(selectNodeId(id));
     setHighlightedIds(new Set());
+    setShowInspector(true);
   }, [dispatch]);
 
-  const handleSelectSearchNode = useCallback((id) => {
-    handleSelectNode(id);
-    if (activeTab === "summary") {
-      setActiveTab("explore");
-    }
-  }, [activeTab, handleSelectNode]);
-
-  const handleHighlightParents = useCallback(() => {
-    if (!selectedId || !knowledgeGraph) return;
-    const parents = knowledgeGraph.edges
-      .filter(e => e.type === "RENDERS" && e.target === selectedId)
-      .map(e => e.source);
-    setHighlightedIds(new Set(parents));
-  }, [selectedId, knowledgeGraph]);
-
-  const handleHighlightChildren = useCallback(() => {
-    if (!selectedId || !knowledgeGraph) return;
-    const children = knowledgeGraph.edges
-      .filter(e => e.type === "RENDERS" && e.source === selectedId)
-      .map(e => e.target);
-    setHighlightedIds(new Set(children));
-  }, [selectedId, knowledgeGraph]);
-
-  const handleHighlightDependencies = useCallback(() => {
-    if (!selectedId || !knowledgeGraph) return;
-    const deps = knowledgeGraph.edges
-      .filter(e => e.source === selectedId || e.target === selectedId)
-      .map(e => e.source === selectedId ? e.target : e.source);
-    setHighlightedIds(new Set(deps));
-  }, [selectedId, knowledgeGraph]);
   useEffect(() => {
     if (reduxNodes.length > 0 && !selectedId) {
       const dashboardNode = reduxNodes.find(n => n.name.toLowerCase().includes("dashboard") || n.id.toLowerCase().includes("dashboard"));
-      const appNode = reduxNodes.find(n => n.name === "App" || n.id.includes("App"));
-      const defaultNode = dashboardNode || appNode || reduxNodes[0];
-      setSelectedId(defaultNode.id);
+      const appNode       = reduxNodes.find(n => n.name === "App" || n.id.includes("App"));
+      const defaultNode   = dashboardNode || appNode || reduxNodes[0];
+      dispatch(selectNodeId(defaultNode.id));
     }
-  }, [reduxNodes, selectedId, setSelectedId]);
+  }, [reduxNodes, selectedId, dispatch]);
 
   const selectedNode = useMemo(() => {
     if (!knowledgeGraph) return null;
     return knowledgeGraph.nodes.find(n => n.id === selectedId) || null;
   }, [knowledgeGraph, selectedId]);
 
-  const uniqueFiles = useMemo(() => {
-    return reduxFiles || [];
-  }, [reduxFiles]);
+  const uniqueFiles = useMemo(() => reduxFiles || [], [reduxFiles]);
 
   const handleBack = useCallback(() => {
     if (origin === "ai") {
@@ -156,778 +103,577 @@ function ArchitectureFlow() {
     }
   }, [dispatch, navigate, origin]);
 
-  useEffect(() => {
-    const handleKeyDown = (e) => {
-      const isInput = document.activeElement.tagName === "INPUT" || document.activeElement.tagName === "TEXTAREA" || document.activeElement.isContentEditable;
-
-      if (e.key === "Tab") {
-        if (isInput) return;
-        e.preventDefault();
-        setShowInspector(prev => !prev);
-        return;
-      }
-
-      if ((e.ctrlKey || e.metaKey) && e.key === "f") {
-        e.preventDefault();
-        const searchInput = document.getElementById("architecture-search-input");
-        if (searchInput) {
-          searchInput.focus();
-        }
-        return;
-      }
-
-      if (isInput) return;
-
-      if (e.key.toLowerCase() === "f" && !e.ctrlKey && !e.metaKey && !e.altKey) {
-        e.preventDefault();
-        setActiveTab("flow");
-        setIsFlowFullscreen(prev => !prev);
-        return;
-      }
-
-      if (e.key === "Escape") {
-        e.preventDefault();
-        if (isFlowFullscreen) {
-          setIsFlowFullscreen(false);
-        } else {
-          handleBack();
-        }
-      }
-    };
-
-    window.addEventListener("keydown", handleKeyDown);
-    return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [selectedId, isFlowFullscreen, handleBack]);
-
-  // Guard: if no project is active, redirect to Hub
-  useEffect(() => {
-    if (!selectedProject) {
-      navigate("/hub");
-    }
-  }, [selectedProject, navigate]);
-
-  // Traversal layer model generation
   const architectureModel = useMemo(() => {
     return buildArchitectureModel(knowledgeGraph);
   }, [knowledgeGraph]);
 
-  // Breadcrumbs generator
   const breadcrumbs = useMemo(() => {
     if (!selectedId) return [];
     return findPathToNode(architectureModel, selectedId) || [];
   }, [architectureModel, selectedId]);
 
-  const treeNode = breadcrumbs.length > 0 ? breadcrumbs[breadcrumbs.length - 1] : null;
-
-  // Tree expand/collapse states
   const [expandedNodes, setExpandedNodes] = useState({});
-
   const toggleExpand = useCallback((id) => {
     setExpandedNodes(prev => ({ ...prev, [id]: !prev[id] }));
   }, []);
 
-  // Pre-expand roots and categories on load
   useEffect(() => {
     if (architectureModel.length > 0) {
-      const timer = setTimeout(() => {
-        setExpandedNodes(prev => {
-          const next = { ...prev };
-          architectureModel.forEach(root => {
-            next[root.id] = true;
-            if (root.children) {
-              root.children.forEach(cat => {
-                next[cat.id] = true;
-              });
-            }
-          });
-          return next;
+      setExpandedNodes(prev => {
+        const next = { ...prev };
+        architectureModel.forEach(root => {
+          next[root.id] = true;
+          if (root.children) {
+            root.children.forEach(cat => { next[cat.id] = true; });
+          }
         });
-      }, 0);
-      return () => clearTimeout(timer);
+        return next;
+      });
     }
   }, [architectureModel]);
 
-  // Auto-expand tree folders leading to selected node when selectedId changes
+  // Global Keyboard Shortcuts (Tab = Toggle Sidebar, Esc = Close Inspector / Back, Space = Architect AI)
   useEffect(() => {
-    if (selectedId && architectureModel.length > 0) {
-      const parentIds = findParentIds(architectureModel, selectedId);
-      if (parentIds && parentIds.length > 0) {
-        const timer = setTimeout(() => {
-          setExpandedNodes(prev => {
-            const next = { ...prev };
-            parentIds.forEach(id => {
-              next[id] = true;
-            });
-            return next;
-          });
-        }, 0);
-        return () => clearTimeout(timer);
+    const handleKeyDown = (e) => {
+      const tag = document.activeElement?.tagName?.toLowerCase();
+      if (tag === "input" || tag === "textarea" || document.activeElement?.isContentEditable) {
+        return;
       }
-    }
-  }, [selectedId, architectureModel]);
 
-  // Smoothly scroll selected node into view in Explore tab
-  useEffect(() => {
-    if (selectedId && activeTab === "explore") {
-      const timer = setTimeout(() => {
-        const el = document.querySelector(`[data-node-id="${selectedId}"]`);
-        if (el) {
-          el.scrollIntoView({ behavior: "smooth", block: "nearest" });
+      if (e.key === "Tab") {
+        e.preventDefault();
+        setIsSidebarCollapsed(prev => !prev);
+      } else if (e.key === "Escape" || e.key === "Esc") {
+        e.preventDefault();
+        if (showInspector) {
+          setShowInspector(false);
+          setHighlightedIds(new Set());
+        } else {
+          handleBack();
         }
-      }, 100);
-      return () => clearTimeout(timer);
+      } else if (e.key === " " || e.code === "Space") {
+        e.preventDefault();
+        navigate("/investigation");
+      }
+    };
+
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [showInspector, handleBack, navigate]);
+
+  const handleOpenArchitectAiConnection = useCallback(() => {
+    navigate('/investigation');
+  }, [navigate]);
+
+  const handleRecommendationClick = useCallback((rec) => {
+    if (rec.targetId) {
+      dispatch(selectNodeId(rec.targetId));
+      setShowInspector(true);
+      return;
     }
-  }, [selectedId, activeTab]);
-
-
-  // Derive summary metrics
-  const summaryMetrics = useMemo(() => {
-    const componentCount = reduxNodes.length;
-    const routeCount = knowledgeGraph?.nodes.filter(n => n.kind === "route" && n.subtype !== "router").length || 0;
-    const contextCount = knowledgeGraph?.nodes.filter(n => n.kind === "component" && (n.subtype === "provider" || n.subtype === "context")).length || 0;
-    const apiEndpointCount = knowledgeGraph?.nodes.filter(n => n.kind === "api" && n.subtype === "endpoint").length || 0;
-    const stateCount = knowledgeGraph?.nodes.filter(n => n.kind === "state" && n.subtype === "slice").length || 0;
+    if (!knowledgeGraph?.nodes) return;
+    const textToMatch = `${rec.title} ${rec.desc}`.toLowerCase();
     
-    // Largest component
+    // Find component/file matching recommendation title or description
+    const matchedNode = knowledgeGraph.nodes.find(n => {
+      if (!n) return false;
+      const name = (n.name || '').toLowerCase();
+      const file = (n.file || n.id || '').toLowerCase();
+      return (name && textToMatch.includes(name)) || (file && textToMatch.includes(file));
+    });
+
+    if (matchedNode) {
+      dispatch(selectNodeId(matchedNode.id));
+      setShowInspector(true);
+    } else if (reduxNodes.length > 0) {
+      dispatch(selectNodeId(reduxNodes[0].id));
+      setShowInspector(true);
+    }
+  }, [knowledgeGraph, reduxNodes, dispatch]);
+
+  const summaryMetrics = useMemo(() => {
+    const componentsCount = knowledgeGraph?.nodes.filter(n => n.kind === "component").length || reduxNodes.length;
+    const hooksCount      = knowledgeGraph?.nodes.filter(n => n.kind === "hook" || (n.name && /^use[A-Z]/.test(n.name))).length || 0;
+    const servicesCount   = knowledgeGraph?.nodes.filter(n => n.kind === "api" || n.kind === "service").length || 0;
+    const pagesCount      = knowledgeGraph?.nodes.filter(n => n.kind === "route" || n.file?.includes("pages")).length || 0;
+    const routesCount     = knowledgeGraph?.nodes.filter(n => n.kind === "route").length || 0;
+    
+    const totalLoc = reduxNodes.reduce((sum, n) => sum + (n.metadata?.loc || 0), 0);
+
     let largestComp = null;
     reduxNodes.forEach(c => {
       const loc = c.metadata?.loc || 0;
-      if (!largestComp || loc > (largestComp.metadata?.loc || 0)) {
-        largestComp = c;
-      }
+      if (!largestComp || loc > (largestComp.metadata?.loc || 0)) largestComp = c;
     });
 
-    // Circular loops
-    const cycles = validation.warnings?.filter(w => w.type === "CIRCULAR_REFERENCE") || [];
+    const cycles    = validation.warnings?.filter(w => w.type === "CIRCULAR_REFERENCE") || [];
+    const deadComps = analysis?.deadCode?.unusedComponents || [];
 
-    // Dead component check
-    const deadComps = analysis.deadCode?.unusedComponents || [];
+    // Dynamic AI Recommendations derived from live analysis & knowledge graph
+    const recommendations = [];
 
-    // Poor maintainability components
-    const poorMaintainabilityComps = [];
-    reduxNodes.forEach(c => {
-      const m = calculateMaintainability(c, knowledgeGraph);
-      if (m && m.score < 70) {
-        poorMaintainabilityComps.push({ component: c, score: m.score });
-      }
+    // 1. Circular dependency loops
+    if (cycles.length > 0) {
+      recommendations.push({
+        title: `Circular dependency loop`,
+        desc: `${cycles.length} circular reference hint(s) detected across project modules.`,
+        level: "HIGH", color: "#EF4444", bg: "#FEE2E2", iconColor: "#DC2626",
+        targetId: cycles[0]?.nodeId || null
+      });
+    }
+
+    // 2. High LOC / Complex Components (scan all components)
+    const largeComponents = reduxNodes.filter(c => (c.metadata?.loc || 0) > 180).sort((a,b) => (b.metadata?.loc||0) - (a.metadata?.loc||0));
+    largeComponents.slice(0, 2).forEach(comp => {
+      const loc = comp.metadata?.loc || 0;
+      recommendations.push({
+        title: `Refactor ${comp.name}`,
+        desc: `${loc} LOC — consider splitting into smaller sub-components or custom hooks.`,
+        level: loc > 300 ? "HIGH" : "MEDIUM",
+        color: loc > 300 ? "#EF4444" : "#F59E0B",
+        bg: loc > 300 ? "#FEE2E2" : "#FEF3C7",
+        iconColor: loc > 300 ? "#DC2626" : "#D97706",
+        targetId: comp.id
+      });
     });
-    poorMaintainabilityComps.sort((a, b) => a.score - b.score);
+
+    // 3. Components with heavy effect hooks
+    const heavyHooksComps = reduxNodes.filter(c => {
+      const hooks = c.metadata?.hooks || [];
+      return hooks.filter(h => typeof h === "string" && h.includes("Effect")).length >= 2;
+    });
+    heavyHooksComps.slice(0, 1).forEach(comp => {
+      recommendations.push({
+        title: `Multiple useEffect in ${comp.name}`,
+        desc: `Contains 2+ side-effect hooks. Separate responsibilities or extract custom hook.`,
+        level: "MEDIUM", color: "#8B5CF6", bg: "#F3E8FF", iconColor: "#7C3AED",
+        targetId: comp.id
+      });
+    });
+
+    // 4. Dead / Unused components
+    if (deadComps.length > 0) {
+      deadComps.slice(0, 2).forEach(dc => {
+        const name = typeof dc === 'string' ? dc : dc.name;
+        const target = reduxNodes.find(n => n.name === name || n.id === dc.id);
+        recommendations.push({
+          title: `Unused entity: ${name}`,
+          desc: `'${name}' is not imported or referenced anywhere in the dependency graph.`,
+          level: "LOW", color: "#64748B", bg: "#F1F5F9", iconColor: "#64748B",
+          targetId: target?.id || null
+        });
+      });
+    }
+
+    // 5. Fallback clean structure recommendation
+    if (recommendations.length === 0) {
+      recommendations.push({
+        title: "Clean Modular Structure",
+        desc: "All components pass architectural health & coupling guidelines cleanly.",
+        level: "LOW", color: "#10B981", bg: "#ECFDF5", iconColor: "#059669",
+        targetId: reduxNodes[0]?.id || null
+      });
+    }
 
     return {
-      componentCount,
-      routeCount,
-      contextCount,
-      apiEndpointCount,
-      stateCount,
+      componentsCount,
+      hooksCount,
+      servicesCount,
+      pagesCount,
+      routesCount,
+      totalLoc,
       largestComp,
       cycles,
       deadComps,
-      poorMaintainabilityComps
+      recommendations,
     };
   }, [reduxNodes, knowledgeGraph, validation, analysis]);
 
-  if (!selectedProject) return null;
+  useEffect(() => {
+    if (!selectedProject) navigate("/hub");
+  }, [selectedProject, navigate]);
 
-  if (!knowledgeGraph) {
+  if (!selectedProject || !knowledgeGraph) {
     return (
-      <div style={{ display: "flex", flexDirection: "column", height: "100vh", width: "100vw", background: "#F7F6F3", padding: 40, boxSizing: "border-box" }}>
-        <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 30 }}>
-          <div className="animate-pulse bg-neutral-200 h-8 w-48 rounded-lg" />
-          <div className="animate-pulse bg-neutral-200 h-8 w-24 rounded-lg" />
-        </div>
-        <div className="grid grid-cols-3 gap-6 flex-1">
-          <div className="col-span-2 flex flex-col gap-6">
-            <div className="animate-pulse bg-white border border-[rgba(139,92,26,0.04)] rounded-2xl p-6 flex flex-col gap-4" style={{ height: 260, boxShadow: "0 1px 3px rgba(45, 42, 38, 0.02), 0 4px 16px rgba(45, 42, 38, 0.03)" }}>
-              <div className="h-4 bg-neutral-200 rounded w-1/4" />
-              <div className="h-3 bg-neutral-100 rounded w-3/4" />
-              <div className="h-3 bg-neutral-100 rounded w-1/2" />
-            </div>
-            <div className="animate-pulse bg-white border border-[rgba(139,92,26,0.04)] rounded-2xl p-6 flex-1 flex flex-col gap-4" style={{ boxShadow: "0 1px 3px rgba(45, 42, 38, 0.02), 0 4px 16px rgba(45, 42, 38, 0.03)" }}>
-              <div className="h-4 bg-neutral-200 rounded w-1/5" />
-              <div className="h-3 bg-neutral-100 rounded w-1/2" />
-            </div>
+      <div style={{
+        display: "flex", alignItems: "center", justifyContent: "center",
+        height: "100vh", width: "100vw", background: "#ECEDF8", fontFamily: INTER
+      }}>
+        <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 12 }}>
+          <div style={{
+            width: 40, height: 40, borderRadius: 12,
+            background: "linear-gradient(135deg, #6366F1, #8B5CF6)",
+            display: "flex", alignItems: "center", justifyContent: "center"
+          }}>
+            <span style={{ color: "#FFF", fontSize: 20 }}>⟳</span>
           </div>
-          <div className="animate-pulse bg-white border border-[rgba(139,92,26,0.04)] rounded-2xl p-6 flex flex-col gap-4" style={{ boxShadow: "0 1px 3px rgba(45, 42, 38, 0.02), 0 4px 16px rgba(45, 42, 38, 0.03)" }}>
-            <div className="h-4 bg-neutral-200 rounded w-1/3" />
-            <div className="h-3 bg-neutral-100 rounded w-full" />
-            <div className="h-3 bg-neutral-100 rounded w-1/2" />
-          </div>
+          <span style={{ fontSize: 13, color: "#64748B", fontWeight: 500 }}>Initializing Architecture Studio...</span>
         </div>
       </div>
     );
   }
 
-  // Early return for Fullscreen Focus Mode for Flow perspective
-  if (isFlowFullscreen && activeTab === "flow") {
-    return (
-      <div style={{ width: "100vw", height: "100vh", position: "relative", overflow: "hidden", display: "flex", flexDirection: "column" }}>
-        <FlowDiagram
-          ref={flowRef}
-          architectureModel={architectureModel}
-          selectedId={selectedId}
-          onSelectNode={handleSelectNode}
-          highlightedIds={highlightedIds}
-        />
-        {/* Floating escape full-screen button */}
-        <button
-          onClick={() => setIsFlowFullscreen(false)}
-          style={{
-            position: "absolute",
-            top: 20,
-            left: 20,
-            zIndex: 100,
-            background: "#FFFFFF",
-            border: "1px solid #E8EAED",
-            borderRadius: 12,
-            padding: "8px 16px",
-            boxShadow: "0 4px 12px rgba(0,0,0,0.08)",
-            color: "#374151",
-            fontFamily: INTER,
-            fontSize: 12,
-            fontWeight: 600,
-            cursor: "pointer",
-            display: "flex",
-            alignItems: "center",
-            gap: 6
-          }}
-          className="hover:bg-neutral-50"
-        >
-          <span>Exit Focus Mode</span>
-          <span style={{ fontSize: 10, color: "#9CA3AF", background: "#F3F4F6", padding: "1px 4px", borderRadius: 4, fontFamily: MONO }}>Esc</span>
-        </button>
-      </div>
-    );
-  }
-
-  const handleExport = (type) => {
-    if (flowRef.current) {
-      flowRef.current.exportModel(type);
-    }
-  };
+  const healthScore = analysis?.architectureHealth?.score || 100;
+  const leftOffset = (isSidebarCollapsed ? 76 : 260) + 26;
+  const rightOffset = showInspector && selectedNode ? 380 : 16;
 
   return (
-    <div style={{
-      display: "flex",
-      flexDirection: "column",
-      height: "100vh",
-      width: "100vw",
-      overflow: "hidden",
-      fontFamily: INTER,
-    }} className="page-fade">
-      <style>{`
-        @keyframes node-highlight-flash {
-          0% { background-color: #DBEAFE; transform: scale(1.03); box-shadow: 0 0 8px rgba(59, 130, 246, 0.4); }
-          100% { transform: scale(1); box-shadow: none; }
-        }
-      `}</style>
-      <TopBar 
-        nodeCount={reduxNodes.length} 
-        projectName={selectedProject.name} 
-        handleBack={handleBack} 
-        activeTab={activeTab} 
-        onSelectNode={handleSelectSearchNode}
-        knowledgeGraph={knowledgeGraph}
-        backText={origin === "ai" || origin === "workspace" ? "Back (Esc)" : "Command Center"}
-      />
-      
-      {/* Perspectives tabs switching bar with inline exports */}
-      <div style={{
+    <div
+      style={{
         display: "flex",
-        background: "#FFFFFF",
-        borderBottom: "1px solid rgba(139, 92, 26, 0.05)",
-        padding: "0 24px",
-        height: 40,
-        alignItems: "center",
-        flexShrink: 0,
-        zIndex: 10,
-        boxShadow: "0 1px 2px rgba(45,42,38,0.01)",
-        justifyContent: "space-between"
-      }}>
-        <div style={{ display: "flex", gap: 28, height: "100%", alignItems: "center" }}>
-          {[
-            { id: "summary", label: "Summary", desc: "Overall Health Diagnostics" },
-            { id: "explore", label: "Explore", desc: "Component Traversal Tree" },
-            { id: "flow",    label: "Flow",    desc: "Architecture Flow Diagram" }
-          ].map((tab) => {
-            const isActive = activeTab === tab.id;
-            return (
-              <button
-                key={tab.id}
-                onClick={() => {
-                  setActiveTab(tab.id);
-                  setIsFlowFullscreen(false); // Reset focus mode when switching tabs
-                }}
-                style={{
-                  background: "transparent",
-                  border: "none",
-                  borderBottom: isActive ? "2px solid #8B7E66" : "2px solid transparent",
-                  color: isActive ? "#8B7E66" : "#8C867C",
-                  fontSize: 12,
-                  fontWeight: isActive ? 600 : 500,
-                  padding: "10px 4px 8px",
-                  cursor: "pointer",
-                  transition: "color 0.15s, border-color 0.15s",
-                  fontFamily: INTER,
-                  height: "100%"
-                }}
-                onMouseEnter={e => { if (!isActive) e.currentTarget.style.color = "#2E2D2B"; }}
-                onMouseLeave={e => { if (!isActive) e.currentTarget.style.color = "#8C867C"; }}
-              >
-                {tab.label}
-              </button>
-            );
-          })}
-        </div>
-
-        {/* Export options row */}
-        {activeTab === "flow" && (
-          <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-            <span style={{ fontSize: 9.5, fontWeight: 700, color: "#9CA3AF", fontFamily: INTER, textTransform: "uppercase", letterSpacing: "0.04em", marginRight: 2 }}>Export:</span>
-            {['SVG', 'PNG', 'PDF'].map((type) => (
-              <button
-                key={type}
-                onClick={() => handleExport(type)}
-                style={{
-                  background: "#FAF9F6",
-                  border: "1px solid rgba(139, 92, 26, 0.08)",
-                  borderRadius: 6,
-                  padding: "2px 8px",
-                  fontSize: 10,
-                  fontWeight: 600,
-                  fontFamily: INTER,
-                  color: "#2E2D2B",
-                  cursor: "pointer",
-                  transition: "all 0.15s",
-                }}
-                className="hover:bg-neutral-100 hover:text-neutral-900 active:bg-neutral-200"
-              >
-                {type}
-              </button>
-            ))}
-
-          </div>
-        )}
+        flexDirection: "column",
+        height: "100vh",
+        width: "100vw",
+        overflow: "hidden",
+        fontFamily: INTER,
+        backgroundColor: "#F6F7FB",
+        position: "relative",
+      }}
+    >
+      {/* ── Ambient Background Glow Blobs ── */}
+      <div style={{ position: "absolute", inset: 0, pointerEvents: "none", overflow: "hidden" }}>
+        <div style={{ position: "absolute", top: -160, left: -80, width: 520, height: 520, borderRadius: 999, background: "rgba(221,214,254,0.45)", filter: "blur(64px)" }} />
+        <div style={{ position: "absolute", top: "50%", right: -160, width: 520, height: 520, borderRadius: 999, background: "rgba(165,243,252,0.35)", filter: "blur(64px)" }} />
+        <div style={{ position: "absolute", bottom: 0, left: "33%", width: 420, height: 420, borderRadius: 999, background: "rgba(fbcfe8,0.25)", filter: "blur(64px)" }} />
       </div>
 
-      <div style={{ display: "flex", flex: 1, overflow: "hidden" }}>
-        
-        {/* Left Directory Tree Pane (Shown only in Explore mode) */}
+      {/* ── 1. Floating Global Header ── */}
+      <TopBar
+        projectName={selectedProject.name}
+        healthScore={healthScore}
+        activeTab={activeTab}
+        handleBack={handleBack}
+        isSidebarCollapsed={isSidebarCollapsed}
+        showInspector={showInspector && !!selectedNode}
+        leftOffset={leftOffset}
+        rightOffset={rightOffset}
+      />
+
+      {/* ── 2. Left Collapsible Sidebar ── */}
+      <ArchitectureSidebar
+        activeTab={activeTab}
+        onTabChange={setActiveTab}
+        isCollapsed={isSidebarCollapsed}
+        onToggleCollapse={() => setIsSidebarCollapsed(prev => !prev)}
+      />
+
+      {/* ── 3. Center Mount Station ── */}
+      <main
+        style={{
+          position: "absolute",
+          top: 86,
+          left: leftOffset,
+          right: rightOffset,
+          bottom: 44,
+          background: "transparent",
+          border: "none",
+          boxShadow: "none",
+          overflow: "hidden",
+          transition: "left 0.3s ease, right 0.3s ease",
+          display: "flex",
+          flexDirection: "column",
+          zIndex: 20,
+        }}
+      >
+        {/* SUMMARY STUDIO */}
+        {activeTab === "summary" && (
+          <div style={{ flex: 1, overflowY: "auto", padding: "32px 36px", boxSizing: "border-box" }}>
+            <div style={{ maxWidth: 1080, margin: "0 auto", display: "flex", flexDirection: "column", gap: 28 }}>
+              
+              {/* ── HEADER ── */}
+              <div>
+                <div style={{ fontSize: 10.5, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.12em", color: "#818CF8", fontFamily: INTER, marginBottom: 4 }}>
+                  ARCHITECTURAL BRIEFING
+                </div>
+                <h1 style={{ fontSize: 32, fontWeight: 800, color: "#0F172A", letterSpacing: "-0.03em", margin: 0, fontFamily: INTER, lineHeight: 1.15 }}>
+                  {selectedProject.name} <span style={{ color: "#94A3B8", fontWeight: 400 }}>— architecture at a glance.</span>
+                </h1>
+                <p style={{ fontSize: 13.5, color: "#64748B", margin: "8px 0 0", fontFamily: INTER, lineHeight: 1.5 }}>
+                  A calm, holistic view of your codebase. <strong style={{ color: "#334155" }}>{(reduxFiles?.length || reduxNodes.length).toLocaleString()} files</strong>, <strong style={{ color: "#334155" }}>{summaryMetrics.totalLoc.toLocaleString()} lines of code</strong>, analyzed 2 minutes ago. Overall health is <strong style={{ color: "#10B981" }}>{healthScore}%</strong>.
+                </p>
+              </div>
+
+              {/* ── ROW 1: HEALTH & PROJECT DNA ── */}
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1.6fr", gap: 20 }}>
+                
+                {/* ARCHITECTURE HEALTH GAUGE CARD */}
+                <div style={{
+                  background: "#FFFFFF", borderRadius: 24, border: "1px solid rgba(226,232,240,0.8)",
+                  boxShadow: "0 8px 30px rgba(15,23,42,0.03)", padding: "24px 20px", display: "flex", flexDirection: "column",
+                  alignItems: "center", justifyContent: "center", position: "relative", overflow: "hidden",
+                }}>
+                  <div style={{ position: "absolute", top: 20, left: 24, fontSize: 10.5, fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase", color: "#94A3B8", fontFamily: INTER, zIndex: 10 }}>
+                    ARCHITECTURE HEALTH
+                  </div>
+
+                  <div style={{ marginTop: 12 }}>
+                    <ArchitectureHealthGauge score={healthScore} />
+                  </div>
+                </div>
+
+                {/* ARCHITECTURE DNA CARD */}
+                <ArchitectureDnaCard
+                  reduxNodes={reduxNodes}
+                  reduxFiles={reduxFiles}
+                  knowledgeGraph={knowledgeGraph}
+                  summaryMetrics={summaryMetrics}
+                  onFullStatsClick={() => setActiveTab("explore")}
+                />
+
+              </div>
+
+              {/* ── ROW 2: AI RECOMMENDATIONS & DEPENDENCY ANALYSIS ── */}
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 20 }}>
+                
+                {/* AI RECOMMENDATIONS CARD */}
+                <div style={{
+                  background: "#FFFFFF", borderRadius: 24, border: "1px solid rgba(226,232,240,0.8)",
+                  boxShadow: "0 8px 30px rgba(15,23,42,0.03)", padding: "24px", display: "flex", flexDirection: "column", gap: 16,
+                }}>
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                      <Sparkles size={14} color="#8B5CF6" />
+                      <span style={{ fontSize: 10.5, fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase", color: "#94A3B8", fontFamily: INTER }}>
+                        AI RECOMMENDATIONS
+                      </span>
+                    </div>
+                    <button
+                      onClick={handleOpenArchitectAiConnection}
+                      style={{ fontSize: 11, fontWeight: 600, color: "#6366F1", border: "none", background: "transparent", cursor: "pointer" }}
+                    >
+                      Ask Architect
+                    </button>
+                  </div>
+
+                  <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+                    {summaryMetrics.recommendations.map(rec => (
+                      <div
+                        key={rec.title}
+                        onClick={() => handleRecommendationClick(rec)}
+                        title="Click to inspect this component / file in Inspector Panel"
+                        style={{
+                          background: "#F8FAFC",
+                          borderRadius: 16,
+                          padding: "12px 14px",
+                          display: "flex",
+                          alignItems: "center",
+                          justifyContent: "space-between",
+                          gap: 12,
+                          border: "1px solid rgba(241,245,249,0.8)",
+                          cursor: "pointer",
+                          transition: "all 0.15s ease",
+                        }}
+                        onMouseEnter={(e) => {
+                          e.currentTarget.style.background = "#F1F5F9";
+                          e.currentTarget.style.borderColor = "rgba(99, 102, 241, 0.3)";
+                        }}
+                        onMouseLeave={(e) => {
+                          e.currentTarget.style.background = "#F8FAFC";
+                          e.currentTarget.style.borderColor = "rgba(241,245,249,0.8)";
+                        }}
+                      >
+                        <div style={{ width: 32, height: 32, borderRadius: 10, background: rec.bg, color: rec.iconColor, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+                          <AlertTriangle size={15} />
+                        </div>
+                        <div style={{ flex: 1, minWidth: 0 }}>
+                          <div style={{ fontSize: 13, fontWeight: 700, color: "#0F172A", fontFamily: INTER }}>{rec.title}</div>
+                          <div style={{ fontSize: 11, color: "#64748B", marginTop: 2, fontFamily: INTER }}>{rec.desc}</div>
+                        </div>
+                        <span style={{ fontSize: 9.5, fontWeight: 700, color: rec.color, background: rec.bg, padding: "3px 8px", borderRadius: 8, fontFamily: INTER }}>
+                          {rec.level}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                {/* DEPENDENCY ANALYSIS CARD */}
+                <div style={{
+                  background: "#FFFFFF", borderRadius: 24, border: "1px solid rgba(226,232,240,0.8)",
+                  boxShadow: "0 8px 30px rgba(15,23,42,0.03)", padding: "24px", display: "flex", flexDirection: "column", gap: 16,
+                }}>
+                  <div style={{ fontSize: 10.5, fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase", color: "#94A3B8", fontFamily: INTER }}>
+                    DEPENDENCY ANALYSIS
+                  </div>
+
+                  <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+                    {[
+                      { label: "Coupling", val: `${Math.round(analysis?.architectureHealth?.couplingScore ?? (100 - healthScore))}%`, sub: healthScore >= 80 ? "Loosely coupled" : "Moderately coupled", bar: Math.round(analysis?.architectureHealth?.couplingScore ?? (100 - healthScore)), color: "#8B5CF6" },
+                      { label: "Cohesion", val: `${Math.round(analysis?.architectureHealth?.cohesionScore ?? healthScore)}%`, sub: "Strong module boundaries", bar: Math.round(analysis?.architectureHealth?.cohesionScore ?? healthScore), color: "#10B981" },
+                      { label: "Cyclic deps", val: `${summaryMetrics.cycles.length}`, sub: summaryMetrics.cycles.length > 0 ? `${summaryMetrics.cycles.length} circular loops in graph` : "Zero circular dependencies", bar: summaryMetrics.cycles.length * 20, color: summaryMetrics.cycles.length > 0 ? "#EF4444" : "#10B981" },
+                      { label: "Reuse index", val: `${Math.round(analysis?.architectureHealth?.reuseIndex ?? 85)}%`, sub: "Above baseline", bar: Math.round(analysis?.architectureHealth?.reuseIndex ?? 85), color: "#3B82F6" },
+                    ].map(dep => (
+                      <div key={dep.label} style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+                        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline" }}>
+                          <span style={{ fontSize: 13, fontWeight: 600, color: "#0F172A", fontFamily: INTER }}>{dep.label}</span>
+                          <span style={{ fontSize: 14, fontWeight: 800, color: "#0F172A", fontFamily: INTER }}>{dep.val}</span>
+                        </div>
+                        <div style={{ width: "100%", height: 6, borderRadius: 99, background: "#F1F5F9", overflow: "hidden" }}>
+                          <div style={{ width: `${Math.min(100, Math.max(5, dep.bar))}%`, height: "100%", borderRadius: 99, background: dep.color }} />
+                        </div>
+                        <span style={{ fontSize: 10.5, color: "#94A3B8", fontFamily: INTER }}>{dep.sub}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+              </div>
+
+            </div>
+          </div>
+        )}
+
+        {/* EXPLORER STUDIO */}
         {activeTab === "explore" && (
-          <aside className="w-64 flex flex-col gap-6 shrink-0 overflow-y-auto select-none" style={{ background: "#EFECE6", borderRight: "1px solid rgba(139, 92, 26, 0.06)", padding: 24 }}>
-            <div>
-              <h4 className="font-mono text-[9px] uppercase tracking-widest text-neutral-500 mb-3.5 font-bold">
-                Detected Files
-              </h4>
-              <div className="flex flex-col gap-2">
-                {uniqueFiles.map((f) => {
+          <div style={{ flex: 1, display: "flex", padding: "16px", gap: 16, boxSizing: "border-box", overflow: "hidden" }}>
+            
+            <div style={{
+              width: 220, background: "#F8FAFC", borderRadius: 12, border: "1px solid rgba(226,232,240,0.8)",
+              padding: "12px", display: "flex", flexDirection: "column", gap: 8, overflowY: "auto"
+            }}>
+              <span style={{ fontSize: 9.5, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.06em", color: "#94A3B8" }}>
+                Project Files ({uniqueFiles.length})
+              </span>
+              <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
+                {uniqueFiles.map(f => {
                   const active = selectedNode && selectedNode.file === f;
                   const matchingNode = reduxNodes.find(n => n.file === f);
                   return (
-                    <div
+                    <button
                       key={f}
-                      onClick={() => {
-                        if (matchingNode) {
-                          handleSelectNode(matchingNode.id);
-                        }
+                      onClick={() => { if (matchingNode) handleSelectNode(matchingNode.id); }}
+                      style={{
+                        display: "flex", alignItems: "center", gap: 6, padding: "5px 7px", borderRadius: 6,
+                        border: "none", background: active ? "#EEF2FF" : "transparent",
+                        color: active ? "#6366F1" : matchingNode ? "#0F172A" : "#94A3B8",
+                        cursor: matchingNode ? "pointer" : "default", textAlign: "left",
+                        fontSize: 11, fontFamily: MONO, width: "100%", transition: "all 0.12s ease"
                       }}
-                      className={`flex items-center gap-2 px-3 py-1.5 rounded-lg border transition-all duration-150 ${
-                        matchingNode ? "cursor-pointer" : "opacity-60 cursor-not-allowed"
-                      } ${
-                        active 
-                          ? "border-blue-200 bg-blue-50/60 text-blue-700 shadow-sm" 
-                          : matchingNode
-                          ? "border-transparent text-neutral-600 hover:text-neutral-900 hover:bg-neutral-100 hover:border-neutral-200"
-                          : "border-transparent text-neutral-400"
-                      }`}
+                      onMouseEnter={e => { if (!active && matchingNode) e.currentTarget.style.background = "#F1F5F9"; }}
+                      onMouseLeave={e => { if (!active) e.currentTarget.style.background = "transparent"; }}
                     >
-                      <FileCode size={12} className={active ? "text-blue-500" : "text-neutral-400"} />
-                      <span className="font-mono text-[10.5px] truncate" title={f}>{f.split("/").pop()}</span>
-                    </div>
+                      <FileCode size={11} color={active ? "#6366F1" : "#94A3B8"} />
+                      <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                        {f.split("/").pop()}
+                      </span>
+                    </button>
                   );
                 })}
               </div>
             </div>
 
-            {/* Diagnostics Alerts */}
-            {((validation.errors && validation.errors.length > 0) || (validation.warnings && validation.warnings.length > 0)) && (
-              <div className="mt-2 pt-4 border-t border-[rgba(139,92,26,0.06)]">
-                <h4 className="font-mono text-[9px] uppercase tracking-widest text-neutral-500 mb-3.5 font-bold flex items-center gap-1.5">
-                  <ShieldAlert size={11} className="text-amber-500" />
-                  Code Diagnostics
-                </h4>
-                <div className="flex flex-col gap-2.5 max-h-80 overflow-y-auto pr-1">
-                  {validation.errors.map((err, i) => {
-                    const matchingNode = err.file ? reduxNodes.find(n => n.file === err.file) : null;
-                    return (
-                      <div
-                        key={`err-${i}`}
-                        onClick={() => {
-                          if (matchingNode) handleSelectNode(matchingNode.id);
-                        }}
-                        className={`p-2.5 rounded-xl border border-red-100 bg-red-50/40 text-red-800 text-[11px] leading-normal flex flex-col gap-1 transition-all duration-150 ${
-                          matchingNode ? "cursor-pointer hover:bg-red-50 hover:border-red-200" : ""
-                        }`}
-                      >
-                        <div className="flex items-start gap-1.5 font-bold text-red-700">
-                          <XCircle size={11} className="text-red-500 shrink-0 mt-0.5" />
-                          <span>{err.type || "Error"}</span>
-                        </div>
-                        <p className="text-neutral-600 font-sans text-[10px] leading-normal">{err.message}</p>
-                        {err.file && (
-                          <span className="font-mono text-[9px] text-neutral-400 truncate mt-0.5" title={err.file}>
-                            {err.file.split("/").pop()}
-                          </span>
-                        )}
-                      </div>
-                    );
-                  })}
-                  {validation.warnings.map((warn, i) => {
-                    const matchingNode = warn.file ? reduxNodes.find(n => n.file === warn.file) : null;
-                    return (
-                      <div
-                        key={`warn-${i}`}
-                        onClick={() => {
-                          if (matchingNode) handleSelectNode(matchingNode.id);
-                        }}
-                        className={`p-2.5 rounded-xl border border-amber-100 bg-amber-50/40 text-amber-800 text-[11px] leading-normal flex flex-col gap-1 transition-all duration-150 ${
-                          matchingNode ? "cursor-pointer hover:bg-amber-50 hover:border-amber-200" : ""
-                        }`}
-                      >
-                        <div className="flex items-start gap-1.5 font-bold text-amber-700">
-                          <AlertTriangle size={11} className="text-amber-600 shrink-0 mt-0.5" />
-                          <span>{warn.type || "Warning"}</span>
-                        </div>
-                        <p className="text-neutral-600 font-sans text-[10px] leading-normal">{warn.message}</p>
-                        {warn.file && (
-                          <span className="font-mono text-[9px] text-neutral-400 truncate mt-0.5" title={warn.file}>
-                            {warn.file.split("/").pop()}
-                          </span>
-                        )}
-                      </div>
-                    );
-                  })}
-                </div>
-              </div>
-            )}
-          </aside>
-        )}
-
-        {/* Center content depending on active tab view */}
-        <main className="flex-1 flex flex-col relative overflow-hidden" style={{ background: "#F7F6F3" }}>
-          
-          {/* TAB 1: SUMMARY VIEW */}
-          {activeTab === "summary" && (
-            <div style={{ flex: 1, overflowY: "auto", padding: "32px 40px", boxSizing: "border-box" }} className="w-full flex flex-col gap-8 max-w-6xl mx-auto">
-              
-              {/* Header block */}
-              <div>
-                <h1 style={{ fontSize: 26, fontWeight: 700, color: "#2E2D2B", letterSpacing: "-0.04em", margin: "0 0 6px", fontFamily: INTER }}>
-                  Architecture Summary
-                </h1>
-                <p style={{ fontSize: 13, color: "#8C867C", margin: 0, fontFamily: INTER }}>
-                  High-level diagnostics and metric insights of the project.
-                </p>
-              </div>
-
-              {/* Grid 1: Health & Metrics overview */}
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                
-                {/* Health & Score Card */}
-                <div style={{ background: "#FFFFFF", border: "1px solid rgba(139, 92, 26, 0.04)", borderRadius: 16, padding: "28px 24px", display: "flex", flexDirection: "column", gap: 18, boxShadow: "0 1px 3px rgba(45, 42, 38, 0.02), 0 4px 16px rgba(45, 42, 38, 0.03)" }}>
-                  <span style={{ fontSize: 10, fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase", color: "#9CA3AF" }}>
-                    Architecture Health
-                  </span>
-                  
-                  <div style={{ display: "flex", alignItems: "center", gap: 20 }}>
-                    <div style={{
-                      width: 72,
-                      height: 72,
-                      borderRadius: "50%",
-                      border: "4px solid #FAF9F6",
-                      borderTopColor: (analysis.architectureHealth?.score || 100) >= 80 ? "#10B981" : (analysis.architectureHealth?.score || 100) >= 60 ? "#F59E0B" : "#EF4444",
-                      display: "flex",
-                      alignItems: "center",
-                      justifyContent: "center",
-                      fontSize: 22,
-                      fontWeight: 700,
-                      color: "#2E2D2B",
-                      fontFamily: MONO
-                    }}>
-                      {analysis.architectureHealth?.score || 100}
-                    </div>
-                    <div>
-                      <div style={{ fontSize: 32, fontWeight: 750, color: (analysis.architectureHealth?.score || 100) >= 80 ? "#10B981" : (analysis.architectureHealth?.score || 100) >= 60 ? "#F59E0B" : "#EF4444", fontFamily: INTER, lineHeight: 1 }}>
-                        Grade {analysis.architectureHealth?.grade || "A"}
-                      </div>
-                      <span style={{ fontSize: 11.5, color: "#8C867C", fontFamily: INTER }}>Based on modularity standards</span>
-                    </div>
-                  </div>
-
-                  <div style={{ display: "flex", flexDirection: "column", gap: 6, borderTop: "1px solid rgba(139, 92, 26, 0.05)", paddingTop: 14 }}>
-                    {(analysis.architectureHealth?.ruleResults || []).map(r => (
-                      <div key={r.id} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", fontSize: 11, color: "#4B5563" }}>
-                        <span>{r.label}</span>
-                        {r.deduction > 0 ? (
-                          <span style={{ color: "#EF4444", fontWeight: 600 }}>-{r.deduction} pts</span>
-                        ) : (
-                          <span style={{ color: "#10B981", fontWeight: 650 }}>Optimal</span>
-                        )}
-                      </div>
-                    ))}
-                  </div>
-                </div>
-
-                {/* Project DNA Metrics Card */}
-                <div style={{ background: "#FFFFFF", border: "1px solid rgba(139, 92, 26, 0.04)", borderRadius: 16, padding: "28px 24px", display: "flex", flexDirection: "column", gap: 18, boxShadow: "0 1px 3px rgba(45, 42, 38, 0.02), 0 4px 16px rgba(45, 42, 38, 0.03)" }}>
-                  <span style={{ fontSize: 10, fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase", color: "#9CA3AF" }}>
-                    Project DNA
-                  </span>
-
-                  <div className="grid grid-cols-2 gap-4 flex-1">
-                    {[
-                      { label: "Components", value: summaryMetrics.componentCount },
-                      { label: "State Slices", value: summaryMetrics.stateCount },
-                      { label: "API Services", value: summaryMetrics.apiEndpointCount },
-                      { label: "Routing Paths", value: summaryMetrics.routeCount },
-                    ].map(dna => (
-                      <div key={dna.label} style={{ background: "#F7F6F3", borderRadius: 12, padding: "16px 20px", display: "flex", flexDirection: "column", justifyContent: "center" }}>
-                        <span style={{ fontSize: 24, fontWeight: 700, color: "#2E2D2B", fontFamily: MONO, lineHeight: 1.15 }}>{dna.value}</span>
-                        <span style={{ fontSize: 10, color: "#8C867C", marginTop: 4, fontFamily: INTER }}>{dna.label}</span>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-
-                {/* Recommended Investigation */}
-                <div style={{ background: "#FFFFFF", border: "1px solid rgba(139, 92, 26, 0.04)", borderRadius: 16, padding: "28px 24px", display: "flex", flexDirection: "column", gap: 18, boxShadow: "0 1px 3px rgba(45, 42, 38, 0.02), 0 4px 16px rgba(45, 42, 38, 0.03)" }}>
-                  <span style={{ fontSize: 10, fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase", color: "#9CA3AF" }}>
-                    Recommended Action
-                  </span>
-
-                  <div style={{ display: "flex", flexDirection: "column", gap: 10, flex: 1, justifyContent: "center" }}>
-                    {summaryMetrics.cycles.length > 0 ? (
-                      <div style={{ display: "flex", gap: 8 }}>
-                        <XCircle size={14} className="text-red-500 shrink-0 mt-0.5" />
-                        <p style={{ fontSize: 11.5, color: "#4B5563", margin: 0, lineHeight: "normal" }}>
-                          Investigate circular component rendering loop between <strong>{summaryMetrics.cycles[0].message.split('"')[1] || "modules"}</strong>.
-                        </p>
-                      </div>
-                    ) : summaryMetrics.poorMaintainabilityComps.length > 0 ? (
-                      <div style={{ display: "flex", gap: 8 }}>
-                        <AlertTriangle size={14} className="text-amber-500 shrink-0 mt-0.5" />
-                        <p style={{ fontSize: 11.5, color: "#4B5563", margin: 0, lineHeight: "normal" }}>
-                          Improve component <strong>{summaryMetrics.poorMaintainabilityComps[0].component.name}</strong> (Maintainability Score: {summaryMetrics.poorMaintainabilityComps[0].score}/100) to resolve architectural risks.
-                        </p>
-                      </div>
-                    ) : summaryMetrics.deadComps.length > 0 ? (
-                      <div style={{ display: "flex", gap: 8 }}>
-                        <Info size={14} className="text-blue-500 shrink-0 mt-0.5" />
-                        <p style={{ fontSize: 11.5, color: "#4B5563", margin: 0, lineHeight: "normal" }}>
-                          Review and clean up dead component <strong>{summaryMetrics.deadComps[0].name}</strong> which appears unused.
-                        </p>
-                      </div>
-                    ) : (
-                      <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-                        <CheckCircle size={18} className="text-emerald-500 shrink-0" />
-                        <p style={{ fontSize: 11.5, color: "#10B981", margin: 0, fontWeight: 600 }}>
-                          Architecture matches optimal code quality parameters!
-                        </p>
-                      </div>
-                    )}
-                  </div>
-                  
-                  {summaryMetrics.largestComp && (
-                    <div style={{ borderTop: "1px solid rgba(139, 92, 26, 0.05)", paddingTop: 10, display: "flex", alignItems: "center", justifyContent: "space-between", fontSize: 10.5, color: "#8C867C" }}>
-                      <span>Largest Component</span>
-                      <strong style={{ fontFamily: MONO, color: "#2E2D2B" }}>{summaryMetrics.largestComp.name} ({summaryMetrics.largestComp.metadata?.loc} lines)</strong>
-                    </div>
-                  )}
-                </div>
-
-              </div>
-
-              {/* Grid 2: Warnings & Issues list */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                
-                {/* Circular Loops & Dead components */}
-                <div style={{ background: "#FFFFFF", border: "1px solid rgba(139, 92, 26, 0.04)", borderRadius: 16, padding: "28px 24px", display: "flex", flexDirection: "column", gap: 18, boxShadow: "0 1px 3px rgba(45, 42, 38, 0.02), 0 4px 16px rgba(45, 42, 38, 0.03)" }}>
-                  <span style={{ fontSize: 10, fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase", color: "#9CA3AF" }}>
-                    Rendering Cycles & Dead Modules
-                  </span>
-
-                  <div style={{ display: "flex", flexDirection: "column", gap: 8, maxHeight: 220, overflowY: "auto" }}>
-                    {summaryMetrics.cycles.map((c, i) => (
-                      <div key={i} className="flex gap-2 p-2.5 rounded-xl bg-[#FFF2F0] text-[11px] text-[#8C1E1A] border border-[rgba(220,38,38,0.08)] leading-normal">
-                        <AlertTriangle size={12} className="text-red-500 shrink-0 mt-0.5" />
-                        <span>{c.message}</span>
-                      </div>
-                    ))}
-                    {summaryMetrics.deadComps.map((c, i) => (
-                      <div key={i} className="flex gap-2 p-2.5 rounded-xl bg-[#FAF9F6] text-[11px] text-[#4A4742] border border-[rgba(139,92,26,0.04)] leading-normal">
-                        <Info size={12} className="text-neutral-400 shrink-0 mt-0.5" />
-                        <span>Unused component: <strong>{c.name}</strong> ({c.file})</span>
-                      </div>
-                    ))}
-                    {summaryMetrics.cycles.length === 0 && summaryMetrics.deadComps.length === 0 && (
-                      <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: "30px 0", color: "#D1D5DB" }}>
-                        <CheckCircle size={22} className="text-emerald-400 mb-1" />
-                        <span style={{ fontSize: 11.5, color: "#9CA3AF" }}>No circular renders or dead components found.</span>
-                      </div>
-                    )}
-                  </div>
-                </div>
-
-                {/* Largest Files Grid */}
-                <div style={{ background: "#FFFFFF", border: "1px solid rgba(139, 92, 26, 0.04)", borderRadius: 16, padding: "28px 24px", display: "flex", flexDirection: "column", gap: 18, boxShadow: "0 1px 3px rgba(45, 42, 38, 0.02), 0 4px 16px rgba(45, 42, 38, 0.03)" }}>
-                  <span style={{ fontSize: 10, fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase", color: "#9CA3AF" }}>
-                    Largest Code Modules
-                  </span>
-
-                  <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-                    {reduxNodes
-                      .slice()
-                      .sort((a, b) => (b.metadata?.loc || 0) - (a.metadata?.loc || 0))
-                      .slice(0, 5)
-                      .map((c, i) => (
-                        <div key={c.id} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "6px 0", borderBottom: "1px solid rgba(139, 92, 26, 0.04)" }}>
-                          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                            <span style={{ fontSize: 10, color: "#8C867C", fontFamily: MONO }}>0{i+1}</span>
-                            <span style={{ fontSize: 12, fontFamily: MONO, color: "#2E2D2B" }}>{c.name}</span>
-                          </div>
-                          <span style={{ fontSize: 11.5, color: "#8C867C", fontFamily: MONO }}>{c.metadata?.loc || 0} lines</span>
-                        </div>
-                      ))}
-                  </div>
-                </div>
-
-              </div>
-
-            </div>
-          )}
-
-          {/* TAB 2: EXPLORE TREE VIEW */}
-          {activeTab === "explore" && (
-            <div style={{ flex: 1, display: "flex", flexDirection: "column", padding: "20px 24px 28px", boxSizing: "border-box", overflow: "hidden" }}>
-              
-              {/* Breadcrumbs Trail */}
-              {breadcrumbs && (
-                <div style={{ flexShrink: 0 }}>
-                  {breadcrumbs.length === 0 ? (
-                    <div style={{ display: "flex", alignItems: "center", gap: 6, background: "#FFFFFF", border: "1px solid rgba(139, 92, 26, 0.04)", borderRadius: 12, padding: "8px 12px", marginBottom: 16, boxShadow: "0 1px 3px rgba(45, 42, 38, 0.02), 0 4px 16px rgba(45, 42, 38, 0.03)" }}>
-                      <span style={{ fontSize: 10, fontWeight: 650, color: "#9CA3AF", textTransform: "uppercase", letterSpacing: "0.02em", fontFamily: INTER }}>Path:</span>
-                      <span style={{ fontSize: 11.5, color: "#A8B0BF", fontStyle: "italic", fontFamily: INTER }}>No component selected</span>
-                    </div>
-                  ) : (
-                    <div style={{ display: "flex", alignItems: "center", gap: 6, background: "#FFFFFF", border: "1px solid rgba(139, 92, 26, 0.04)", borderRadius: 12, padding: "8px 12px", marginBottom: 16, flexWrap: "wrap", boxShadow: "0 1px 3px rgba(45, 42, 38, 0.02), 0 4px 16px rgba(45, 42, 38, 0.03)" }}>
-                      <span style={{ fontSize: 10, fontWeight: 650, color: "#9CA3AF", textTransform: "uppercase", letterSpacing: "0.02em", fontFamily: INTER }}>Path:</span>
-                      {breadcrumbs.map((crumb, idx) => (
-                        <div key={crumb.id} style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                          {idx > 0 && <ChevronRight size={10} color="#D1D5DB" strokeWidth={2.5} />}
-                          <span
-                            onClick={() => handleSelectNode(crumb.id)}
-                            style={{
-                              fontSize: 11.5,
-                              fontFamily: MONO,
-                              fontWeight: idx === breadcrumbs.length - 1 ? 650 : 500,
-                              color: idx === breadcrumbs.length - 1 ? "#8B7E66" : "#8C867C",
-                              cursor: "pointer",
-                            }}
-                            className="hover:underline"
-                          >
-                            {crumb.name}
-                          </span>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                </div>
-              )}
-
+            <div style={{ flex: 1, display: "flex", flexDirection: "column", gap: 12, overflow: "hidden" }}>
               <div style={{
-                flex: 1,
-                background: "#FFFFFF",
-                border: "1px solid rgba(139, 92, 26, 0.04)",
-                borderRadius: 16,
-                padding: "20px 24px",
-                overflowY: "auto",
-                display: "flex",
-                flexDirection: "column",
-                gap: 4,
-                boxShadow: "0 1px 3px rgba(45, 42, 38, 0.02), 0 4px 16px rgba(45, 42, 38, 0.03)"
+                display: "flex", alignItems: "center", gap: 6, background: "#F8FAFC",
+                borderRadius: 10, padding: "7px 12px", border: "1px solid rgba(226,232,240,0.8)"
               }}>
-                {architectureModel.length === 0 ? (
-                  <div style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", color: "#B8BEC9", fontSize: 13 }}>
-                    No architecture model trees generated.
-                  </div>
+                <span style={{ fontSize: 10, fontWeight: 700, color: "#94A3B8", textTransform: "uppercase" }}>Path:</span>
+                {breadcrumbs.length === 0 ? (
+                  <span style={{ fontSize: 11, color: "#94A3B8", fontStyle: "italic" }}>No entity selected</span>
                 ) : (
-                  architectureModel.map((rootNode) => (
-                    <TreeNode
-                      key={rootNode.id}
-                      node={rootNode}
-                      selectedId={selectedId}
-                      onSelect={handleSelectNode}
-                      expandedNodes={expandedNodes}
-                      toggleExpand={toggleExpand}
-                    />
+                  breadcrumbs.map((crumb, idx) => (
+                    <div key={crumb.id} style={{ display: "flex", alignItems: "center", gap: 5 }}>
+                      {idx > 0 && <ChevronRight size={10} color="#CBD5E1" />}
+                      <span
+                        onClick={() => handleSelectNode(crumb.id)}
+                        style={{
+                          fontSize: 11, fontFamily: MONO, cursor: "pointer",
+                          fontWeight: idx === breadcrumbs.length - 1 ? 700 : 500,
+                          color: idx === breadcrumbs.length - 1 ? "#6366F1" : "#64748B"
+                        }}
+                      >
+                        {crumb.name}
+                      </span>
+                    </div>
                   ))
                 )}
               </div>
 
+              <div style={{
+                flex: 1, background: "#FFFFFF", borderRadius: 12, border: "1px solid rgba(226,232,240,0.8)",
+                padding: "16px 18px", overflowY: "auto"
+              }}>
+                {architectureModel.map(rootNode => (
+                  <TreeNode
+                    key={rootNode.id}
+                    node={rootNode}
+                    selectedId={selectedId}
+                    onSelect={handleSelectNode}
+                    expandedNodes={expandedNodes}
+                    toggleExpand={toggleExpand}
+                  />
+                ))}
+              </div>
             </div>
-          )}
 
-          {/* TAB 3: FLOW VIEW */}
-          {activeTab === "flow" && (
+          </div>
+        )}
+
+        {/* FLOW STUDIO (React Flow / Radial Canvas) */}
+        {activeTab === "flow" && (
+          <div style={{
+            flex: 1,
+            display: "flex",
+            flexDirection: "column",
+            margin: "12px 16px 12px 16px",
+            background: "#FFFFFF",
+            borderRadius: 16,
+            border: "1px solid rgba(226,232,240,0.9)",
+            boxShadow: "0 2px 16px rgba(15,23,42,0.06)",
+            overflow: "hidden",
+          }}>
             <FlowDiagram
               ref={flowRef}
               architectureModel={architectureModel}
+              knowledgeGraph={knowledgeGraph}
               selectedId={selectedId}
               onSelectNode={handleSelectNode}
               highlightedIds={highlightedIds}
             />
-          )}
-
-
-
-        </main>
-
-        {/* Right Inspector Panel */}
-        {showInspector && (
-          <InspectorPanel
-            nodes={reduxNodes}
-            node={selectedNode}
-            treeNode={treeNode}
-            onNavigate={handleSelectNode}
-            knowledgeGraph={knowledgeGraph}
-            onHighlightParents={handleHighlightParents}
-            onHighlightChildren={handleHighlightChildren}
-            onHighlightDependencies={handleHighlightDependencies}
-          />
+          </div>
         )}
+
+      </main>
+
+      {/* ── 4. Floating Right Inspector ── */}
+      {showInspector && selectedNode && (
+        <InspectorPanel
+          node={selectedNode}
+          onNavigate={handleSelectNode}
+          knowledgeGraph={knowledgeGraph}
+          onClose={() => setShowInspector(false)}
+        />
+      )}
+
+      {/* ── 5. Floating Bottom Command Dock ── */}
+      <div style={{ position: "absolute", bottom: 12, left: "50%", transform: "translateX(-50%)", zIndex: 35 }}>
+        <CommandDock
+          activeItem={activeTab === 'flow' ? 'graph' : 'search'}
+          onGraph={() => setActiveTab('flow')}
+          onFocus={() => setActiveTab('flow')}
+          onAIExplain={() => setShowAIModal(true)}
+          onOpenAIStudio={() => navigate('/investigation')}
+          onExport={() => flowRef.current?.exportModel('SVG')}
+          onSelectSearchNode={handleSelectNode}
+          knowledgeGraph={knowledgeGraph}
+          selectedNodeFile={selectedNode?.file}
+        />
       </div>
+
+      {/* ── AI Architectural Advisor Report Modal ── */}
+      <AIArchitecturalAdvisorModal
+        isOpen={showAIModal}
+        onClose={() => setShowAIModal(false)}
+        node={selectedNode}
+        knowledgeGraph={knowledgeGraph}
+        analysis={analysis}
+        selectedProject={selectedProject}
+      />
+
     </div>
   );
 }
 
-// ─── Main Export Component with React Flow Provider ──────────────────────────
-
 export default function Architecture() {
-  // Visual mount continuity transition
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      const el = document.querySelector(".page-fade");
-      if (el) {
-        gsap.fromTo(el, {
-          opacity: 0,
-        }, {
-          opacity: 1,
-          duration: 0.8,
-          ease: "power2.out",
-        });
-      }
-    }, 50);
-    return () => clearTimeout(timer);
-  }, []);
-
-  return <ArchitectureFlow />;
+  return <ArchitectureStudio />;
 }

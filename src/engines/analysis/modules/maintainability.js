@@ -140,19 +140,17 @@ export function calculateMaintainability(node, graph) {
 
   // Recommendations
   const recommendations = [];
-  if (effectHooks > 3) {
+  if (effectHooks >= 2) {
     recommendations.push(`Component contains ${effectHooks} useEffect hooks. Consider separating side-effects or extracting custom hooks.`);
   }
-  if (childNodesCount > 12) {
-    recommendations.push(`Renders more than 12 child components directly. Group children into layout templates or decompose.`);
+  if (childNodesCount > 8) {
+    recommendations.push(`Renders ${childNodesCount} child components directly. Group children into layout templates or decompose.`);
   }
   if (responsibilities.length >= 3) {
     recommendations.push(`Combines multiple responsibilities (${responsibilities.join(", ")}). Consider decomposing into layout/container/view components.`);
   }
-  if (node.subtype === "page" && loc > 250 && responsibilities.length <= 2) {
-    recommendations.push("Large page component detected. Current organization is acceptable since responsibilities are low.");
-  } else if (loc > 300) {
-    recommendations.push(`Component is large (${loc} LOC). Consider extracting independent child widgets or animation timelines.`);
+  if (loc > 180 && !recommendations.some(r => r.includes("LOC") || r.includes("large"))) {
+    recommendations.push(`Component is large (${loc} LOC). Consider extracting independent child widgets or custom hooks.`);
   }
 
   if (recommendations.length === 0) {
