@@ -157,13 +157,13 @@ export default function AIArchitecturalAdvisorModal({
             </p>
           </div>
 
-          {/* Section 3: Blast Radius & Dependencies Impact */}
+          {/* Section 3: Project Impact & Usage */}
           <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
             <span style={{ fontSize: 12, fontWeight: 700, color: '#0F172A' }}>
-              Blast Radius & Dependencies Impact
+              Project Impact & Usage
             </span>
             <p style={{ fontSize: 11.5, color: '#475569', margin: 0, lineHeight: 1.6 }}>
-              Refactoring risk level is classified as '<strong>{riskLevel}</strong>' with a blast radius of {blastRadius} dependent nodes. It directly depends on {outgoingCount} nodes and is consumed upstream by {incomingCount} nodes. Modifying its signature requires checking all render references.
+              Project Impact is classified as '<strong>{riskLevel}</strong>'. This component is referenced by {incomingCount} components and relies on {outgoingCount} sub-components/services ({blastRadius} total connected items across your application). Modifying its props or API may affect dependent features.
             </p>
           </div>
 

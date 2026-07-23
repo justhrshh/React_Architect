@@ -79,25 +79,8 @@ function ImpactGroup({ label, items, tone, onNavigate }) {
   );
 }
 
-// Horizontally scrollable pill row — Huly inbox style
+// Multi-line pill row — flex wrap layout
 function InboxRow({ label, children, noPad }) {
-  const rowRef = useRef(null);
-
-  // Enable pointer-drag scrolling
-  useEffect(() => {
-    const el = rowRef.current;
-    if (!el) return;
-    let isDown = false, startX = 0, scrollLeft = 0;
-    const onDown = e => { isDown = true; startX = e.pageX - el.offsetLeft; scrollLeft = el.scrollLeft; el.style.cursor = "grabbing"; };
-    const onUp = () => { isDown = false; el.style.cursor = "grab"; };
-    const onMove = e => { if (!isDown) return; e.preventDefault(); const x = e.pageX - el.offsetLeft; el.scrollLeft = scrollLeft - (x - startX); };
-    el.addEventListener("mousedown", onDown);
-    el.addEventListener("mouseleave", onUp);
-    el.addEventListener("mouseup", onUp);
-    el.addEventListener("mousemove", onMove);
-    return () => { el.removeEventListener("mousedown", onDown); el.removeEventListener("mouseleave", onUp); el.removeEventListener("mouseup", onUp); el.removeEventListener("mousemove", onMove); };
-  }, []);
-
   return (
     <div style={{ borderBottom: "1px solid #F1F5F9", padding: noPad ? "12px 20px" : "12px 20px" }}>
       {label && (
@@ -106,16 +89,11 @@ function InboxRow({ label, children, noPad }) {
         </span>
       )}
       <div
-        ref={rowRef}
         style={{
           display: "flex",
-          flexDirection: "row",
+          flexWrap: "wrap",
           gap: 6,
-          overflowX: "auto",
-          scrollbarWidth: "none",
-          cursor: "grab",
-          WebkitOverflowScrolling: "touch",
-          paddingBottom: 2,
+          alignItems: "center",
         }}
       >
         {children}
@@ -730,7 +708,12 @@ Explain the architecture like a senior engineer during onboarding.`;
             <div style={{ padding: "4px 20px 12px", borderBottom: "1px solid #F1F5F9" }}>
               {/* Score bar */}
               <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 8 }}>
-                <span style={{ fontSize: 11, fontWeight: 500, color: "#94A3B8", fontFamily: INTER }}>Maintainability</span>
+                <span
+                  style={{ fontSize: 11, fontWeight: 500, color: "#94A3B8", fontFamily: INTER, cursor: "help" }}
+                  title="An overall architectural health score based on code size, responsibility separation, and hook complexity."
+                >
+                  Maintainability (?)
+                </span>
                 <span style={{
                   fontSize: 13,
                   fontFamily: INTER,
@@ -747,36 +730,105 @@ Explain the architecture like a senior engineer during onboarding.`;
                 <span style={{ fontSize: 9, fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase", color: "#94A3B8", fontFamily: INTER, display: "block", marginBottom: 8 }}>
                   Suggestions & Best Practices
                 </span>
-                <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
                   {recommendations.map((rec, i) => {
-                    const isWarn = rec.toLowerCase().includes("consider") || rec.toLowerCase().includes("split") || rec.toLowerCase().includes("combines") || rec.toLowerCase().includes("large");
+                    const isObj = typeof rec === "object" && rec !== null && rec.title;
+                    const title = isObj ? rec.title : "Architectural Advice";
+                    const description = isObj ? rec.description : (typeof rec === "string" ? rec : String(rec));
+                    const confidence = isObj && rec.confidence ? Math.round(rec.confidence * 100) : null;
+                    const severity = isObj ? rec.severity : "medium";
+                    const suggestion = isObj ? rec.refactoringSuggestion : null;
+                    const metrics = isObj ? rec.metrics : null;
+
+                    const isHigh = severity === "high" || severity === "critical";
+                    const isWarn = isHigh || severity === "medium" || (typeof rec === "string" && (rec.toLowerCase().includes("consider") || rec.toLowerCase().includes("combines") || rec.toLowerCase().includes("violation")));
+
                     return (
                       <div
                         key={i}
                         style={{
-                          background: isWarn ? "#FFF7ED" : "#F0FDF4",
-                          border: `1px solid ${isWarn ? "#FED7AA" : "#BBF7D0"}`,
-                          borderRadius: 10,
-                          padding: "9px 12px",
+                          background: isHigh ? "#FEF2F2" : isWarn ? "#FFF7ED" : "#F0FDF4",
+                          border: `1px solid ${isHigh ? "#FCA5A5" : isWarn ? "#FED7AA" : "#BBF7D0"}`,
+                          borderRadius: 12,
+                          padding: "10px 12px",
                           display: "flex",
-                          alignItems: "flex-start",
-                          gap: 8,
+                          flexDirection: "column",
+                          gap: 6,
                         }}
                       >
-                        <div style={{
-                          width: 6, height: 6, borderRadius: "50%",
-                          background: isWarn ? "#EA580C" : "#16A34A",
-                          marginTop: 5, flexShrink: 0,
-                        }} />
-                        <span style={{
-                          fontSize: 11,
-                          lineHeight: 1.45,
-                          color: isWarn ? "#9A3412" : "#166534",
-                          fontFamily: INTER,
-                          fontWeight: 500,
-                        }}>
-                          {rec}
-                        </span>
+                        {/* Title Header & Confidence Badge */}
+                        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", width: "100%" }}>
+                          <div style={{ display: "flex", alignItems: "center", gap: 6, flex: 1 }}>
+                            <div style={{
+                              width: 6, height: 6, borderRadius: "50%",
+                              background: isHigh ? "#DC2626" : isWarn ? "#EA580C" : "#16A34A",
+                              flexShrink: 0,
+                            }} />
+                            <span style={{ fontSize: 11.5, fontWeight: 700, color: isHigh ? "#991B1B" : isWarn ? "#9A3412" : "#166534", fontFamily: INTER }}>
+                              {title}
+                            </span>
+                          </div>
+                          {confidence && (
+                            <span
+                              style={{
+                                fontSize: 8.5,
+                                fontWeight: 700,
+                                fontFamily: MONO,
+                                background: isHigh ? "#FEE2E2" : isWarn ? "#FFEDD5" : "#DCFCE7",
+                                color: isHigh ? "#991B1B" : isWarn ? "#9A3412" : "#166534",
+                                padding: "1px 6px",
+                                borderRadius: 99,
+                                flexShrink: 0,
+                              }}
+                              title="Analysis Engine confidence rating based on static code metrics."
+                            >
+                              {confidence}% CONF
+                            </span>
+                          )}
+                        </div>
+
+                        {/* Why This Matters */}
+                        <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
+                          <span style={{ fontSize: 9, fontWeight: 700, textTransform: "uppercase", color: isHigh ? "#991B1B" : isWarn ? "#9A3412" : "#166534", fontFamily: INTER, opacity: 0.8 }}>
+                            Why this matters
+                          </span>
+                          <span style={{
+                            fontSize: 10.5,
+                            lineHeight: 1.45,
+                            color: isHigh ? "#7F1D1D" : isWarn ? "#7C2D12" : "#14532D",
+                            fontFamily: INTER,
+                            fontWeight: 450,
+                          }}>
+                            {description}
+                          </span>
+                        </div>
+
+                        {/* Triggering Metrics Badges (Human Developer Terms) */}
+                        {metrics && (
+                          <div style={{ display: "flex", flexWrap: "wrap", gap: 4, marginTop: 2 }}>
+                            {metrics.loc && <span style={{ fontSize: 8.5, fontFamily: MONO, background: "rgba(0,0,0,0.04)", color: "#475569", padding: "1px 6px", borderRadius: 4 }}>{metrics.loc} Lines</span>}
+                            {metrics.role && <span style={{ fontSize: 8.5, fontFamily: MONO, background: "rgba(0,0,0,0.04)", color: "#475569", padding: "1px 6px", borderRadius: 4 }}>{metrics.role}</span>}
+                            {metrics.effectHooks !== undefined && <span style={{ fontSize: 8.5, fontFamily: MONO, background: "rgba(0,0,0,0.04)", color: "#475569", padding: "1px 6px", borderRadius: 4 }}>{metrics.effectHooks} Effects</span>}
+                            {metrics.apiCallsCount !== undefined && <span style={{ fontSize: 8.5, fontFamily: MONO, background: "rgba(0,0,0,0.04)", color: "#475569", padding: "1px 6px", borderRadius: 4 }}>{metrics.apiCallsCount} API Calls</span>}
+                            {metrics.projectImpactRating && <span style={{ fontSize: 8.5, fontFamily: MONO, background: "rgba(0,0,0,0.04)", color: "#475569", padding: "1px 6px", borderRadius: 4 }}>Project Impact: {metrics.projectImpactRating}</span>}
+                          </div>
+                        )}
+
+                        {/* Actionable Refactoring Guidance */}
+                        {suggestion && (
+                          <div style={{
+                            marginTop: 4,
+                            paddingTop: 6,
+                            borderTop: `1px solid ${isHigh ? "#FECACA" : isWarn ? "#FFEDD5" : "#DCFCE7"}`,
+                            fontSize: 10,
+                            lineHeight: 1.4,
+                            color: isHigh ? "#991B1B" : isWarn ? "#9A3412" : "#166534",
+                            fontFamily: INTER,
+                            fontWeight: 500,
+                          }}>
+                            💡 <strong>Recommendation:</strong> {suggestion}
+                          </div>
+                        )}
                       </div>
                     );
                   })}
