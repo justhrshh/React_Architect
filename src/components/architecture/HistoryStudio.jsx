@@ -159,15 +159,26 @@ export default function HistoryStudio() {
   const [selectedCommitHash, setSelectedCommitHash] = useState(null);
   const [compareMode, setCompareMode]       = useState('previous'); // 'previous' | 'baseline' | 'current'
 
+  const effectiveGitProvider = project?.gitProvider || project?.gitMetadata?.provider || 'github';
+  const effectiveRepoUrl     = project?.repoUrl || project?.gitMetadata?.remoteUrl || '';
+  const isGitProject         = Boolean(
+    project?.importMethod === 'git' ||
+    project?.importMethod === 'folder-git' ||
+    effectiveRepoUrl ||
+    project?.gitMetadata?.isGitRepo ||
+    project?.gitProvider ||
+    project?.isGitRepo
+  );
+
   // Load branches
   useEffect(() => {
-    if (!project?.gitProvider || !project?.repoUrl) return;
-    const parsed = parseRepoUrl(project.repoUrl);
+    if (!effectiveRepoUrl) return;
+    const parsed = parseRepoUrl(effectiveRepoUrl);
     if (!parsed) return;
-    fetchBranches(project.gitProvider, parsed.owner, parsed.repo, null)
+    fetchBranches(effectiveGitProvider, parsed.owner, parsed.repo, null)
       .then(bList => setBranches(bList))
       .catch(err => console.warn('[HistoryStudio] Failed to load branches:', err));
-  }, [project?.gitProvider, project?.repoUrl]);
+  }, [effectiveGitProvider, effectiveRepoUrl]);
 
   // Load commits & snapshots whenever activeBranch changes
   const refreshHistory = useCallback(async () => {
@@ -182,11 +193,11 @@ export default function HistoryStudio() {
 
       // 2. Fetch real commit history from provider
       let remoteCommits = [];
-      if (project.gitProvider && project.repoUrl) {
-        const parsed = parseRepoUrl(project.repoUrl);
+      if (effectiveRepoUrl) {
+        const parsed = parseRepoUrl(effectiveRepoUrl);
         if (parsed) {
           remoteCommits = await fetchCommitHistory(
-            project.gitProvider, parsed.owner, parsed.repo, activeBranch, null
+            effectiveGitProvider, parsed.owner, parsed.repo, activeBranch, null
           );
         }
       }
@@ -204,7 +215,7 @@ export default function HistoryStudio() {
     } finally {
       setLoadingHistory(false);
     }
-  }, [project?.id, project?.gitProvider, project?.repoUrl, activeBranch, dispatch]);
+  }, [project?.id, effectiveGitProvider, effectiveRepoUrl, activeBranch, dispatch]);
 
   useEffect(() => {
     refreshHistory();
@@ -441,7 +452,7 @@ export default function HistoryStudio() {
     return computeArchDiff(baseSnap.knowledgeGraph, currentSnap.knowledgeGraph, baseSnap.healthScore, currentSnap.healthScore);
   }, [selectedItem, compareMode, enrichedTimeline]);
 
-  if (!project || project.importMethod !== 'git') {
+  if (!project || !isGitProject) {
     return (
       <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '100%', gap: 12, padding: 32 }}>
         <ClockIcon />
@@ -477,16 +488,16 @@ export default function HistoryStudio() {
         {/* Left: Provider + Repository + Branch */}
         <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-            <ProviderDot provider={project.gitProvider} />
+            <ProviderDot provider={effectiveGitProvider} />
             <span style={{ fontSize: 13, fontWeight: 700, color: '#0F172A', fontFamily: INTER }}>
-              {getProviderLabel(project.gitProvider)}
+              {getProviderLabel(effectiveGitProvider)}
             </span>
           </div>
 
           <span style={{ fontSize: 12, color: '#CBD5E1' }}>/</span>
 
           <span style={{ fontSize: 13, fontFamily: MONO, fontWeight: 600, color: '#334155' }}>
-            {project.repoUrl?.replace(/^https?:\/\/[^/]+\//, '').replace(/\.git$/, '') || project.name}
+            {effectiveRepoUrl?.replace(/^https?:\/\/[^/]+\//, '').replace(/\.git$/, '') || project.name}
           </span>
 
           <span style={{ fontSize: 12, color: '#CBD5E1' }}>/</span>

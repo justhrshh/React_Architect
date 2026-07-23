@@ -322,6 +322,15 @@ function ArchitectureStudio() {
   }
 
   const healthScore = analysis?.architectureHealth?.score || 100;
+  const isGitProject = Boolean(
+    selectedProject?.importMethod === 'git' ||
+    selectedProject?.importMethod === 'folder-git' ||
+    selectedProject?.repoUrl ||
+    selectedProject?.gitMetadata?.isGitRepo ||
+    selectedProject?.gitProvider ||
+    selectedProject?.isGitRepo
+  );
+
   const leftOffset = isFullscreen ? 0 : (isSidebarCollapsed ? 76 : 260) + 26;
   const rightOffset = isFullscreen ? 0 : (showInspector && selectedNode ? 380 : 16);
 
@@ -358,7 +367,7 @@ function ArchitectureStudio() {
           showInspector={showInspector && !!selectedNode}
           leftOffset={leftOffset}
           rightOffset={rightOffset}
-          gitMeta={selectedProject?.importMethod === 'git' ? selectedProject : null}
+          gitMeta={isGitProject ? selectedProject : null}
         />
       )}
 
@@ -369,7 +378,7 @@ function ArchitectureStudio() {
           onTabChange={setActiveTab}
           isCollapsed={isSidebarCollapsed}
           onToggleCollapse={() => setIsSidebarCollapsed(prev => !prev)}
-          isGitProject={selectedProject?.importMethod === 'git'}
+          isGitProject={isGitProject}
         />
       )}
 

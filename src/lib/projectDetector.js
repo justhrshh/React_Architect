@@ -46,8 +46,10 @@ const BUILD_TOOL_SIGNATURES = [
 // Public API
 // ---------------------------------------------------------------------------
 
+import { detectGitRepository } from "@/services/gitDetectionService";
+
 /**
- * Reads a folder selected via the File System Access API and extracts metadata.
+ * Reads a folder selected via the File System Access API and extracts metadata & Git status.
  *
  * @param {FileSystemDirectoryHandle} dirHandle
  * @returns {Promise<DetectedProject>}
@@ -65,11 +67,21 @@ export async function detectFromDirectoryHandle(dirHandle) {
   }
 
   const detected = pkg ? detectFromPackageJson(pkg) : fallback(dirHandle.name);
+  const gitMetadata = await detectGitRepository(dirHandle);
 
   return {
     ...detected,
-    importMethod: "folder",
+    importMethod: gitMetadata.isGitRepo ? "folder-git" : "folder",
     folderName: dirHandle.name,
+    gitMetadata,
+    ...(gitMetadata.isGitRepo ? {
+      gitProvider: gitMetadata.provider,
+      repoUrl: gitMetadata.remoteUrl,
+      activeBranch: gitMetadata.currentBranch,
+      defaultBranch: gitMetadata.currentBranch,
+      latestCommitHash: gitMetadata.latestCommitHash,
+      enabledFeatures: gitMetadata.enabledFeatures,
+    } : {}),
   };
 }
 

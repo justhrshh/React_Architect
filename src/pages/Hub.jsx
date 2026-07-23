@@ -159,6 +159,14 @@ function MagneticButton({ onClick, icon: Icon, label }) {
   );
 }
 
+const ImportButton = ({ onClick, label = "Import Project" }) => (
+  <button onClick={onClick} className="btn-17">
+    <span className="text-container">
+      <span className="text">{label}</span>
+    </span>
+  </button>
+);
+
 // Splits text into characters wrapped in overflow masks for GSAP rise transition
 const splitText = (text) => {
   const words = text.split(" ");
@@ -813,13 +821,7 @@ const Hub = () => {
 
       {/* Top Right Action Navigation Links */}
       <div className="fixed top-8 right-12 z-20 flex flex-col items-end gap-3 select-none pointer-events-auto">
-        <button 
-          onClick={() => setShowImport(true)} 
-          className="nav-underline font-mono text-[10px] md:text-xs uppercase tracking-widestest text-ink-dim hover:text-white cursor-pointer transition-colors flex items-center gap-1.5"
-        >
-          <Upload size={11} strokeWidth={2.5} />
-          Import Project
-        </button>
+        <ImportButton onClick={() => setShowImport(true)} label="Import Project" />
       </div>
 
       {/* Bottom Right version badge */}
@@ -830,6 +832,97 @@ const Hub = () => {
       {/* ── Main content scroll wrapper ── */}
       <div className="relative z-10 max-w-5xl mx-auto px-6 pt-28 pb-48 w-full">
         <style>{`
+          .btn-17,
+          .btn-17 *,
+          .btn-17 :after,
+          .btn-17 :before,
+          .btn-17:after,
+          .btn-17:before {
+            border: 0 solid;
+            box-sizing: border-box;
+          }
+          .btn-17 {
+            -webkit-tap-highlight-color: transparent;
+            -webkit-appearance: button;
+            background-color: transparent;
+            background-image: none;
+            color: #fff;
+            cursor: pointer;
+            font-family: 'JetBrains Mono', ui-sans-serif, system-ui, -apple-system, sans-serif;
+            font-size: 0.78rem;
+            font-weight: 900;
+            line-height: 1.5;
+            margin: 0;
+            -webkit-mask-image: -webkit-radial-gradient(#000, #fff);
+            text-transform: uppercase;
+            letter-spacing: 0.12em;
+            border-radius: 99rem;
+            border: 1px solid rgba(255, 255, 255, 0.25);
+            padding: 0.65rem 2rem;
+            z-index: 0;
+            overflow: hidden;
+            position: relative;
+            transition: border-color 0.3s ease;
+          }
+          .btn-17:hover {
+            border-color: #ffffff;
+          }
+          .btn-17:disabled {
+            cursor: default;
+          }
+          .btn-17 .text-container {
+            overflow: hidden;
+            position: relative;
+            display: block;
+            mix-blend-mode: difference;
+          }
+          .btn-17 .text {
+            display: block;
+            position: relative;
+          }
+          .btn-17:hover .text {
+            -webkit-animation: move-up-alternate 0.3s forwards;
+            animation: move-up-alternate 0.3s forwards;
+          }
+          @-webkit-keyframes move-up-alternate {
+            0% { transform: translateY(0); }
+            50% { transform: translateY(80%); }
+            51% { transform: translateY(-80%); }
+            to { transform: translateY(0); }
+          }
+          @keyframes move-up-alternate {
+            0% { transform: translateY(0); }
+            50% { transform: translateY(80%); }
+            51% { transform: translateY(-80%); }
+            to { transform: translateY(0); }
+          }
+          .btn-17:after,
+          .btn-17:before {
+            --skew: 0.2;
+            background: #fff;
+            content: "";
+            display: block;
+            height: 102%;
+            left: calc(-50% - 50% * var(--skew));
+            pointer-events: none;
+            position: absolute;
+            top: -104%;
+            transform: skew(calc(150deg * var(--skew))) translateY(var(--progress, 0));
+            transition: transform 0.2s ease;
+            width: 100%;
+          }
+          .btn-17:after {
+            --progress: 0%;
+            left: calc(50% + 50% * var(--skew));
+            top: 102%;
+            z-index: -1;
+          }
+          .btn-17:hover:before {
+            --progress: 100%;
+          }
+          .btn-17:hover:after {
+            --progress: -102%;
+          }
           .scroll-reveal {
             opacity: 0;
             transform: translateY(30px);
@@ -889,13 +982,9 @@ const Hub = () => {
           </div>
 
           {/* Add New project button immediately below the carousel */}
-          <button 
-            onClick={() => setShowImport(true)}
-            className="mt-2 flex items-center gap-2 px-6 py-3 rounded-full border border-white/10 hover:border-white/20 bg-white/5 text-ink-dim hover:text-white transition-all text-xs tracking-wider uppercase font-semibold pointer-events-auto"
-            style={{ fontFamily: "JetBrains Mono" }}
-          >
-            <Upload size={14} /> Import New Project
-          </button>
+          <div className="mt-2 flex items-center justify-center">
+            <ImportButton onClick={() => setShowImport(true)} label="Import New Project" />
+          </div>
 
         </div>
 

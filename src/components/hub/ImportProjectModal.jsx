@@ -1021,6 +1021,62 @@ const ReviewView = ({ detected, onConfirm, onBack }) => (
       <TechBadge label="Router"     active={detected.hasRouter} />
     </div>
 
+    {/* Git Repository Summary Card */}
+    {detected.gitMetadata && (
+      <div className="p-4 rounded-2xl border border-neutral-200 bg-white shadow-sm flex flex-col gap-3 text-left">
+        <div className="flex items-center justify-between">
+          <span className="font-mono text-[9px] uppercase tracking-widest text-neutral-400 font-bold">
+            Repository Status
+          </span>
+          <span className={`font-mono text-[9.5px] font-bold px-2.5 py-0.5 rounded-full border ${
+            detected.gitMetadata.isGitRepo
+              ? 'border-emerald-200 bg-emerald-50 text-emerald-700'
+              : 'border-neutral-200 bg-neutral-50 text-neutral-500'
+          }`}>
+            {detected.gitMetadata.isGitRepo ? "✓ Git Repository Detected" : "Standalone Project"}
+          </span>
+        </div>
+
+        {detected.gitMetadata.isGitRepo ? (
+          <div className="grid grid-cols-2 gap-2 text-left pt-1">
+            <div className="p-2.5 rounded-xl bg-neutral-50 border border-neutral-100 font-mono text-[10px]">
+              <span className="text-neutral-400 block text-[8.5px] uppercase font-bold">Provider</span>
+              <span className="font-bold text-neutral-900 flex items-center gap-1.5 mt-0.5">
+                <ProviderIcon provider={detected.gitMetadata.provider} size={12} />
+                {detected.gitMetadata.providerLabel}
+              </span>
+            </div>
+            <div className="p-2.5 rounded-xl bg-neutral-50 border border-neutral-100 font-mono text-[10px]">
+              <span className="text-neutral-400 block text-[8.5px] uppercase font-bold">Repository</span>
+              <span className="font-bold text-neutral-900 truncate block mt-0.5">
+                {detected.gitMetadata.owner && detected.gitMetadata.repoName
+                  ? `${detected.gitMetadata.owner}/${detected.gitMetadata.repoName}`
+                  : (detected.gitMetadata.remoteUrl || 'Local Git Repo')}
+              </span>
+            </div>
+            <div className="p-2.5 rounded-xl bg-neutral-50 border border-neutral-100 font-mono text-[10px]">
+              <span className="text-neutral-400 block text-[8.5px] uppercase font-bold">Current Branch</span>
+              <span className="font-bold text-neutral-900 mt-0.5 block">{detected.gitMetadata.currentBranch}</span>
+            </div>
+            <div className="p-2.5 rounded-xl bg-neutral-50 border border-neutral-100 font-mono text-[10px]">
+              <span className="text-neutral-400 block text-[8.5px] uppercase font-bold">Latest Commit</span>
+              <span className="font-bold text-neutral-900 mt-0.5 block">{detected.gitMetadata.latestCommitHash || 'HEAD'}</span>
+            </div>
+          </div>
+        ) : (
+          <p className="font-mono text-[10.5px] text-neutral-500 bg-neutral-50 p-3 rounded-xl border border-neutral-100">
+            No <code>.git</code> repository detected. Imported as a standalone project.
+          </p>
+        )}
+
+        {detected.gitMetadata.isGitRepo && !detected.gitMetadata.remoteUrl && (
+          <p className="font-mono text-[9.5px] text-amber-700 bg-amber-50 p-2.5 rounded-xl border border-amber-200">
+            ⚠️ Git repository detected with no remote URL. Local commit timeline &amp; history enabled.
+          </p>
+        )}
+      </div>
+    )}
+
     {detected._zipParsePending && (
       <p className="font-mono text-[9px] text-neutral-400 border border-neutral-200 rounded-xl px-4 py-3 bg-white">
         Full ZIP analysis (dependencies, routes, components) will be available in Sprint 6.
