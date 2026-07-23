@@ -1,23 +1,27 @@
 import { motion } from 'framer-motion';
 import {
   LayoutGrid, FolderTree, GitBranch, Clock, Settings,
-  ChevronLeft, ChevronRight, Cpu, Sparkles
+  ChevronLeft, ChevronRight, Cpu, Sparkles, GitMerge
 } from 'lucide-react';
 import { INTER, MONO } from './constants';
 
 const NAV_ITEMS = [
-  { id: 'summary',  label: 'Summary',  subtitle: 'Architectural briefing', icon: LayoutGrid },
-  { id: 'explore',  label: 'Explore',  subtitle: 'Files & structure',     icon: FolderTree },
-  { id: 'flow',     label: 'Flow',     subtitle: 'Dependency graph',       icon: GitBranch  },
-  { id: 'settings', label: 'Settings', subtitle: 'Workspace',              icon: Settings   },
+  { id: 'summary',   label: 'Summary',   subtitle: 'Architectural briefing', icon: LayoutGrid },
+  { id: 'explore',   label: 'Explore',   subtitle: 'Files & structure',       icon: FolderTree },
+  { id: 'flow',      label: 'Flow',      subtitle: 'Dependency graph',        icon: GitBranch  },
+  { id: 'settings',  label: 'Settings',  subtitle: 'Workspace',               icon: Settings   },
 ];
+
+const GIT_NAV_ITEM = { id: 'history', label: 'History', subtitle: 'Repository timeline', icon: Clock };
 
 export default function ArchitectureSidebar({
   activeTab = 'flow',
   onTabChange,
   isCollapsed = false,
   onToggleCollapse,
+  isGitProject = false,
 }) {
+  const navItems = isGitProject ? [...NAV_ITEMS, GIT_NAV_ITEM] : NAV_ITEMS;
   return (
     <motion.aside
       initial={false}
@@ -128,7 +132,7 @@ export default function ArchitectureSidebar({
 
       {/* ── Nav Items ── */}
       <nav style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 16 }}>
-        {NAV_ITEMS.map(({ id, label, subtitle, icon: Icon }) => {
+        {navItems.map(({ id, label, subtitle, icon: Icon }) => {
           const isActive = activeTab === id;
           return (
             <button

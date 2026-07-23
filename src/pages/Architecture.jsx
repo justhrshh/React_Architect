@@ -17,6 +17,7 @@ import TreeNode            from "@/components/architecture/TreeNode";
 import AIArchitecturalAdvisorModal from "@/components/architecture/AIArchitecturalAdvisorModal";
 import ArchitectureDnaCard from "@/components/architecture/ArchitectureDnaCard";
 import ArchitectureHealthGauge from "@/components/architecture/ArchitectureHealthGauge";
+import HistoryStudio       from "@/components/architecture/HistoryStudio";
 
 import {
   FileCode, AlertTriangle, CheckCircle, ChevronRight, TrendingUp, Layers, Cpu, GitBranch, Sparkles,
@@ -357,6 +358,7 @@ function ArchitectureStudio() {
           showInspector={showInspector && !!selectedNode}
           leftOffset={leftOffset}
           rightOffset={rightOffset}
+          gitMeta={selectedProject?.importMethod === 'git' ? selectedProject : null}
         />
       )}
 
@@ -367,6 +369,7 @@ function ArchitectureStudio() {
           onTabChange={setActiveTab}
           isCollapsed={isSidebarCollapsed}
           onToggleCollapse={() => setIsSidebarCollapsed(prev => !prev)}
+          isGitProject={selectedProject?.importMethod === 'git'}
         />
       )}
 
@@ -643,6 +646,23 @@ function ArchitectureStudio() {
               onSelectNode={handleSelectNode}
               highlightedIds={highlightedIds}
             />
+          </div>
+        )}
+
+        {/* HISTORY STUDIO — Repository Architecture Timeline */}
+        {activeTab === "history" && (
+          <div style={{
+            flex: 1,
+            display: "flex",
+            flexDirection: "column",
+            margin: "12px 16px 12px 16px",
+            background: "#FFFFFF",
+            borderRadius: 16,
+            border: "1px solid rgba(226,232,240,0.9)",
+            boxShadow: "0 2px 16px rgba(15,23,42,0.06)",
+            overflow: "hidden",
+          }}>
+            <HistoryStudio />
           </div>
         )}
 

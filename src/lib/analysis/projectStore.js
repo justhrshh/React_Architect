@@ -8,7 +8,8 @@
 
 const DB_NAME = "ReactArchitectDB";
 const STORE_NAME = "project_handles";
-const DB_VERSION = 1;
+const SNAPSHOTS_STORE = "architecture_snapshots";
+const DB_VERSION = 2;
 
 /**
  * Initializes the IndexedDB database.
@@ -22,6 +23,12 @@ function getDB() {
       const db = event.target.result;
       if (!db.objectStoreNames.contains(STORE_NAME)) {
         db.createObjectStore(STORE_NAME);
+      }
+      if (!db.objectStoreNames.contains(SNAPSHOTS_STORE)) {
+        const store = db.createObjectStore(SNAPSHOTS_STORE, { keyPath: 'id' });
+        store.createIndex('by_project', 'projectId', { unique: false });
+        store.createIndex('by_branch',  'branch',    { unique: false });
+        store.createIndex('by_project_branch', ['projectId', 'branch'], { unique: false });
       }
     };
 

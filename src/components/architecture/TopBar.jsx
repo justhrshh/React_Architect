@@ -1,6 +1,8 @@
 import { motion } from 'framer-motion';
-import { ChevronRight, Folder } from 'lucide-react';
+import { ChevronRight, Folder, GitBranch, RefreshCw } from 'lucide-react';
 import { INTER } from './constants';
+
+const MONO = "'JetBrains Mono', 'Fira Code', monospace";
 
 export default function TopBar({
   projectName,
@@ -11,6 +13,7 @@ export default function TopBar({
   showInspector = false,
   leftOffset = 286,
   rightOffset = 350,
+  gitMeta = null,
 }) {
   const getHealthStatus = (score) => {
     if (score >= 85) return { text: 'Excellent', color: '#10B981', bg: '#ECFDF5' };
@@ -20,6 +23,22 @@ export default function TopBar({
   };
 
   const health = getHealthStatus(healthScore);
+
+  // Time ago helper
+  const timeAgo = (dateString) => {
+    if (!dateString) return null;
+    const diff = Date.now() - new Date(dateString).getTime();
+    const mins  = Math.floor(diff / 60000);
+    const hours = Math.floor(diff / 3600000);
+    const days  = Math.floor(diff / 86400000);
+    if (mins < 1)   return 'just now';
+    if (mins < 60)  return `${mins}m ago`;
+    if (hours < 24) return `${hours}h ago`;
+    return `${days}d ago`;
+  };
+
+  const isGitProject = !!gitMeta;
+  const hasUpdates   = isGitProject && (gitMeta.remoteAheadBy || 0) > 0;
 
   return (
     <motion.header
@@ -75,8 +94,49 @@ export default function TopBar({
         </span>
       </div>
 
-      {/* ── Right: Project Health ── */}
+      {/* ── Right: Git chip + Health ── */}
       <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+
+        {/* Git status chip — only for git projects */}
+        {isGitProject && (
+          <div style={{
+            display: 'flex', alignItems: 'center', gap: 6,
+            padding: '4px 10px', borderRadius: 99,
+            background: hasUpdates ? 'rgba(245,158,11,0.08)' : '#F8FAFC',
+            border: `1px solid ${hasUpdates ? 'rgba(245,158,11,0.25)' : 'rgba(226,232,240,0.8)'}`,
+          }}>
+            <GitBranch size={11} color={hasUpdates ? '#d97706' : '#64748B'} />
+            <span style={{ fontSize: 10, fontFamily: MONO, color: hasUpdates ? '#d97706' : '#64748B', fontWeight: 600 }}>
+              {gitMeta.activeBranch || gitMeta.defaultBranch || 'main'}
+            </span>
+            {gitMeta.latestCommitHash && gitMeta.latestCommitHash !== 'unknown' && (
+              <>
+                <span style={{ color: '#CBD5E1', fontSize: 10 }}>·</span>
+                <span style={{ fontSize: 10, fontFamily: MONO, color: '#94A3B8' }}>
+                  {gitMeta.latestCommitHash}
+                </span>
+              </>
+            )}
+            {gitMeta.lastSyncedAt && (
+              <>
+                <span style={{ color: '#CBD5E1', fontSize: 10 }}>·</span>
+                <span style={{ fontSize: 9.5, color: '#94A3B8', fontFamily: INTER }}>
+                  {timeAgo(gitMeta.lastSyncedAt)}
+                </span>
+              </>
+            )}
+            {hasUpdates && (
+              <span style={{
+                fontSize: 8.5, fontWeight: 700, letterSpacing: '0.05em', textTransform: 'uppercase',
+                color: '#d97706', background: 'rgba(245,158,11,0.15)', padding: '1px 5px', borderRadius: 4,
+              }}>
+                ↑ Updates
+              </span>
+            )}
+          </div>
+        )}
+
+        {/* Project Health badge */}
         <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
           <span style={{ fontSize: 11, color: '#94A3B8', fontFamily: INTER, fontWeight: 500 }}>
             Project Health

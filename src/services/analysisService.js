@@ -27,7 +27,10 @@ export const startProjectAnalysis = createAsyncThunk(
       let zipFile = window.projectZipFiles?.[projectId];
 
       if (!dirHandle && !zipFile) {
-        const persisted = await getProjectHandle(projectId);
+        const persisted = await getProjectHandle(projectId).catch((err) => {
+          console.warn('[analysisService] Failed to read project handle from IndexedDB:', err);
+          return null;
+        });
         if (persisted) {
           if (persisted instanceof File) {
             zipFile = persisted;
@@ -64,6 +67,58 @@ export const startProjectAnalysis = createAsyncThunk(
         dispatch(setFiles(kg.files));
         window.projectFiles = kg.rawFiles;
         dispatch(setAnalysisResults(kg.analysis));
+
+        // Auto-snapshot after real analysis
+        if (project?.importMethod === 'git') {
+          const { takeSnapshot } = await import('@/services/snapshotService');
+          await takeSnapshot({
+            projectId,
+            branch:          project.activeBranch || project.defaultBranch || 'main',
+            commitHash:      project.latestCommitHash || 'unknown',
+            knowledgeGraph:  kg,
+            analysisResults: kg.analysis,
+            healthScore:     kg.analysis?.healthScore || null,
+            dispatch,
+          });
+        }
+
+        return { success: true };
+      } else if (window.projectGitFiles?.[projectId]) {
+        // Git-imported project: use pre-fetched files from gitService
+        const gitFiles = window.projectGitFiles[projectId];
+
+        dispatch(setAnalysisPhase('building-graph'));
+        const { buildKnowledgeGraph } = await import('@/engines/graph/buildKnowledgeGraph');
+        const kg = buildKnowledgeGraph(gitFiles, project);
+
+        dispatch(setAnalysisPhase('resolving'));
+        const { layoutGraphNodes } = await import('@/engines/layout/layoutEngine');
+        kg.nodes = layoutGraphNodes(kg.nodes, kg.edges);
+        kg.rawFiles = gitFiles;
+
+        dispatch(setAnalysisPhase('analyzing'));
+        const { runAnalysis } = await import('@/engines/analysis');
+        const analysisResults = runAnalysis(kg);
+        kg.analysis = analysisResults;
+
+        dispatch(setAnalysisPhase('complete'));
+        dispatch(setKnowledgeGraph(kg));
+        dispatch(setFiles(kg.files));
+        window.projectFiles = kg.rawFiles;
+        dispatch(setAnalysisResults(analysisResults));
+
+        // Auto-snapshot for git projects
+        const { takeSnapshot } = await import('@/services/snapshotService');
+        await takeSnapshot({
+          projectId,
+          branch:          project.activeBranch || project.defaultBranch || 'main',
+          commitHash:      project.latestCommitHash || 'unknown',
+          knowledgeGraph:  kg,
+          analysisResults,
+          healthScore:     analysisResults?.healthScore || null,
+          dispatch,
+        });
+
         return { success: true };
       } else {
         // Mock data fallback (no file handle available)

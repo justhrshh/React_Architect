@@ -110,7 +110,7 @@ const hubSlice = createSlice({
      */
     addProject(state, action) {
       const {
-        id             = crypto.randomUUID(), // wizard pre-generates; importer leaves blank
+        id             = crypto.randomUUID(),
         name,
         packageName    = null,
         description    = null,
@@ -131,6 +131,14 @@ const hubSlice = createSlice({
         routing            = null,
         optionalPackages   = [],
         folderStructure    = null,
+        // Git-specific (undefined for non-git projects)
+        gitProvider        = null,
+        repoUrl            = null,
+        defaultBranch      = null,
+        activeBranch       = null,
+        latestCommitHash   = null,
+        lastSyncedAt       = null,
+        remoteAheadBy      = 0,
       } = action.payload;
 
       const project = {
@@ -154,6 +162,14 @@ const hubSlice = createSlice({
         routing,
         optionalPackages,
         folderStructure,
+        // Git metadata
+        gitProvider,
+        repoUrl,
+        defaultBranch,
+        activeBranch,
+        latestCommitHash,
+        lastSyncedAt,
+        remoteAheadBy,
         createdAt:         new Date().toISOString(),
         lastOpenedAt:      new Date().toISOString(),
         architectureScore: null,
@@ -220,6 +236,19 @@ const hubSlice = createSlice({
     },
 
     /**
+     * Update git metadata for a project after sync or remote check.
+     * payload: { id, activeBranch?, latestCommitHash?, lastSyncedAt?, remoteAheadBy?, architectureScore? }
+     */
+    updateGitMeta(state, action) {
+      const { id, ...updates } = action.payload;
+      const project = state.projects.find((p) => p.id === id);
+      if (project) {
+        Object.assign(project, updates);
+        saveToStorage(state.projects);
+      }
+    },
+
+    /**
      * Sets the workspace initialization status for a project.
      * payload: { projectId: string, initialized: boolean }
      */
@@ -241,7 +270,9 @@ export const {
   clearSelectedProject,
   updateLastOpened,
   setProjectInitialized,
+  updateGitMeta,
 } = hubSlice.actions;
+
 
 export default hubSlice.reducer;
 
