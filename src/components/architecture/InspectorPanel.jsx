@@ -4,19 +4,10 @@ import { useSelector } from "react-redux";
 import { useNavigate } from "react-router-dom";
 import {
   Info,
-  CheckCircle,
   AlertTriangle,
-  XCircle,
-  GitBranch,
-  ChevronDown,
   Copy,
   Check,
   Sparkles,
-  FolderOpen,
-  Network,
-  ArrowUpCircle,
-  ArrowDownCircle,
-  Activity,
   FileCode,
   Loader
 } from "lucide-react";
@@ -37,47 +28,7 @@ const RISK_STYLE = {
   high: { text: "#DC2626", bg: "#FEF2F2", border: "#FECACA", label: "High Risk" },
 };
 
-function ImpactGroup({ label, items, tone, onNavigate }) {
-  if (!items || items.length === 0) return null;
-  return (
-    <div>
-      <p style={{ fontSize: 9.5, color: "#9CA3AF", fontFamily: INTER, fontWeight: 650, textTransform: "uppercase", letterSpacing: "0.02em", margin: "0 0 5px" }}>
-        {label}
-      </p>
-      <div style={{ display: "flex", flexWrap: "wrap", gap: 4 }}>
-        {items.slice(0, 6).map(item => (
-          <span
-            key={`${label}-${item.id}`}
-            onClick={() => onNavigate?.(item.id)}
-            title={item.file}
-            style={{
-              fontSize: 10,
-              fontFamily: MONO,
-              color: tone.text,
-              background: tone.bg,
-              padding: "2px 6px",
-              borderRadius: 4,
-              cursor: "pointer",
-              maxWidth: "100%",
-              overflow: "hidden",
-              textOverflow: "ellipsis",
-              whiteSpace: "nowrap",
-              transition: "opacity 0.15s",
-            }}
-            className="hover:opacity-80"
-          >
-            {item.name}
-          </span>
-        ))}
-        {items.length > 6 && (
-          <span style={{ fontSize: 10, fontFamily: MONO, color: "#6B7280", background: "#F3F4F6", padding: "2px 6px", borderRadius: 4 }}>
-            +{items.length - 6} more
-          </span>
-        )}
-      </div>
-    </div>
-  );
-}
+
 
 // Multi-line pill row — flex wrap layout
 function InboxRow({ label, children, noPad }) {

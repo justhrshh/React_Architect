@@ -109,7 +109,7 @@ export function buildKnowledgeGraph(files, project) {
       edges.push(createEdge({ type: "LAZY_LOADS", source: lazyNode.id, target: targetId, metadata: { dynamic: true } }));
     });
 
-  // 5. File-level IMPORTS edges (static + dynamic)
+  // 5. File-level IMPORTS edges (static + dynamic + re-exports)
   fileNodes.forEach((srcFileNode) => {
     const srcFileObj = fileMap.get(srcFileNode.file);
     if (!srcFileObj) return;
@@ -125,6 +125,22 @@ export function buildKnowledgeGraph(files, project) {
             metadata: { line: imp.line, dynamic: !!imp.dynamic },
           })
         );
+      }
+    });
+
+    (srcFileObj.summary.exports || []).forEach((exp) => {
+      if (exp.reExportFrom) {
+        const resolvedPath = resolveModulePath(srcFileNode.file, exp.reExportFrom, fileIndex, aliasMap);
+        if (resolvedPath && fileMap.has(resolvedPath)) {
+          edges.push(
+            createEdge({
+              type: "IMPORTS",
+              source: srcFileNode.id,
+              target: `file:${resolvedPath}`,
+              metadata: { line: exp.line, reExport: true },
+            })
+          );
+        }
       }
     });
   });

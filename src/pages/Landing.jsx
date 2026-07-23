@@ -6,6 +6,10 @@ import LaunchButton from "@/components/landing/LaunchButton";
 import BootSequence from "@/components/BootSequence";
 import { LANDING } from "@/constants/testIds";
 
+function neverCalledFunction() {
+  console.log("I am dead code");
+}
+
 const FootnoteRow = ({ k, label, delay }) => (
   <div 
     className="border-l border-edge-subtle pl-4 scroll-reveal" 

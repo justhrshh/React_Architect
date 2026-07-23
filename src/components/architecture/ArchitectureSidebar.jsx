@@ -9,6 +9,7 @@ const NAV_ITEMS = [
   { id: 'summary',   label: 'Summary',   subtitle: 'Architectural briefing', icon: LayoutGrid },
   { id: 'explore',   label: 'Explore',   subtitle: 'Files & structure',       icon: FolderTree },
   { id: 'flow',      label: 'Flow',      subtitle: 'Dependency graph',        icon: GitBranch  },
+  { id: 'hygiene',   label: 'Hygiene',   subtitle: 'Dead code analysis',      icon: Sparkles   },
   { id: 'settings',  label: 'Settings',  subtitle: 'Workspace',               icon: Settings   },
 ];
 

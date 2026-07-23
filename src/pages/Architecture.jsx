@@ -18,10 +18,12 @@ import AIArchitecturalAdvisorModal from "@/components/architecture/AIArchitectur
 import ArchitectureDnaCard from "@/components/architecture/ArchitectureDnaCard";
 import ArchitectureHealthGauge from "@/components/architecture/ArchitectureHealthGauge";
 import HistoryStudio       from "@/components/architecture/HistoryStudio";
+import CodeHygieneStudio   from "@/components/architecture/CodeHygieneStudio";
 
 import {
   FileCode, AlertTriangle, CheckCircle, ChevronRight, TrendingUp, Layers, Cpu, GitBranch, Sparkles,
 } from "lucide-react";
+import { calculateMaintainability } from "@/engines/analysis/modules/maintainability";
 
 function ArchitectureStudio() {
   const dispatch = useDispatch();
@@ -217,7 +219,7 @@ function ArchitectureStudio() {
     const cycles    = validation.warnings?.filter(w => w.type === "CIRCULAR_REFERENCE") || [];
     const deadComps = analysis?.deadCode?.unusedComponents || [];
 
-    // Dynamic AI Recommendations derived from live analysis & knowledge graph
+    // Dynamic AI Recommendations derived from single-source-of-truth Maintainability Engine
     const recommendations = [];
 
     // 1. Circular dependency loops
@@ -230,32 +232,42 @@ function ArchitectureStudio() {
       });
     }
 
-    // 2. High LOC / Complex Components (scan all components)
-    const largeComponents = reduxNodes.filter(c => (c.metadata?.loc || 0) > 180).sort((a,b) => (b.metadata?.loc||0) - (a.metadata?.loc||0));
-    largeComponents.slice(0, 2).forEach(comp => {
-      const loc = comp.metadata?.loc || 0;
-      recommendations.push({
-        title: `Refactor ${comp.name}`,
-        desc: `${loc} LOC — consider splitting into smaller sub-components or custom hooks.`,
-        level: loc > 300 ? "HIGH" : "MEDIUM",
-        color: loc > 300 ? "#EF4444" : "#F59E0B",
-        bg: loc > 300 ? "#FEE2E2" : "#FEF3C7",
-        iconColor: loc > 300 ? "#DC2626" : "#D97706",
-        targetId: comp.id
-      });
+    // 2. Scan component maintainability recommendations from single source of truth engine
+    const componentRecommendations = [];
+    reduxNodes.forEach(c => {
+      if (c.kind === "component") {
+        const m = calculateMaintainability(c, knowledgeGraph);
+        if (m && m.recommendations) {
+          m.recommendations.forEach(rec => {
+            if (rec.severity === "high" || rec.severity === "medium") {
+              componentRecommendations.push({
+                component: c,
+                rec,
+                maintainability: m
+              });
+            }
+          });
+        }
+      }
     });
 
-    // 3. Components with heavy effect hooks
-    const heavyHooksComps = reduxNodes.filter(c => {
-      const hooks = c.metadata?.hooks || [];
-      return hooks.filter(h => typeof h === "string" && h.includes("Effect")).length >= 2;
+    // Sort by severity (high first) then lower maintainability score
+    componentRecommendations.sort((a, b) => {
+      if (a.rec.severity === "high" && b.rec.severity !== "high") return -1;
+      if (a.rec.severity !== "high" && b.rec.severity === "high") return 1;
+      return (a.maintainability.score - b.maintainability.score);
     });
-    heavyHooksComps.slice(0, 1).forEach(comp => {
+
+    componentRecommendations.slice(0, 3).forEach(({ component, rec }) => {
+      const isHigh = rec.severity === "high";
       recommendations.push({
-        title: `Multiple useEffect in ${comp.name}`,
-        desc: `Contains 2+ side-effect hooks. Separate responsibilities or extract custom hook.`,
-        level: "MEDIUM", color: "#8B5CF6", bg: "#F3E8FF", iconColor: "#7C3AED",
-        targetId: comp.id
+        title: rec.title ? `${rec.title}: ${component.name}` : `Refactor ${component.name}`,
+        desc: rec.whyItMatters || rec.description || String(rec),
+        level: isHigh ? "HIGH" : "MEDIUM",
+        color: isHigh ? "#EF4444" : "#F59E0B",
+        bg: isHigh ? "#FEE2E2" : "#FEF3C7",
+        iconColor: isHigh ? "#DC2626" : "#D97706",
+        targetId: component.id
       });
     });
 
@@ -459,7 +471,7 @@ function ArchitectureStudio() {
                     <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
                       <Sparkles size={14} color="#8B5CF6" />
                       <span style={{ fontSize: 10.5, fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase", color: "#94A3B8", fontFamily: INTER }}>
-                        AI RECOMMENDATIONS
+                        RECOMMENDATIONS
                       </span>
                     </div>
                     <button
@@ -672,6 +684,32 @@ function ArchitectureStudio() {
             overflow: "hidden",
           }}>
             <HistoryStudio />
+          </div>
+        )}
+
+        {/* CODE HYGIENE STUDIO — Dead Code & Cleanup Analysis */}
+        {activeTab === "hygiene" && (
+          <div style={{
+            flex: 1,
+            display: "flex",
+            flexDirection: "column",
+            margin: "12px 16px 12px 16px",
+            background: "#FFFFFF",
+            borderRadius: 16,
+            border: "1px solid rgba(226,232,240,0.9)",
+            boxShadow: "0 2px 16px rgba(15,23,42,0.06)",
+            padding: "24px",
+            overflowY: "auto",
+            boxSizing: "border-box",
+          }}>
+            <CodeHygieneStudio
+              hygieneReport={analysis?.deadCode}
+              knowledgeGraph={knowledgeGraph}
+              onInspectNode={(id) => {
+                dispatch(selectNodeId(id));
+                setShowInspector(true);
+              }}
+            />
           </div>
         )}
 
