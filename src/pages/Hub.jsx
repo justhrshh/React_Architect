@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useCallback } from "react";
+import { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import { useSelector, useDispatch } from "react-redux";
 import { useNavigate } from "react-router-dom";
 import gsap from "gsap";
@@ -286,6 +286,292 @@ function CarouselCard({ project: p, active, style, onMouseDown, onTouchStart, on
           </div>
         )}
       </div>
+    </div>
+  );
+}
+
+// ─── Flying Card Into Folder Animation Overlay ──────────────────────────────
+function FlyingCardToFolder({ project, onComplete }) {
+  const cardRef = useRef(null);
+
+  useEffect(() => {
+    if (!cardRef.current) return;
+    const el = cardRef.current;
+
+    gsap.set(el, {
+      xPercent: -50,
+      yPercent: -50,
+      left: "50%",
+      top: "22%",
+      scale: 0.35,
+      rotationX: 30,
+      rotationZ: -14,
+      opacity: 0,
+    });
+
+    const tl = gsap.timeline({
+      onComplete: () => {
+        if (onComplete) onComplete();
+      },
+    });
+
+    // 1. Float in & expand
+    tl.to(el, {
+      opacity: 1,
+      scale: 1.1,
+      rotationZ: 4,
+      rotationX: 0,
+      top: "35%",
+      duration: 0.45,
+      ease: "back.out(1.7)",
+    })
+    // 2. Fly & dive into the 3D Vault Folder
+    .to(el, {
+      top: "56%",
+      scale: 0.65,
+      rotationX: 45,
+      rotationZ: -4,
+      opacity: 0.9,
+      duration: 0.55,
+      ease: "power3.inOut",
+    })
+    // 3. Drop into folder slot with vanishing squeeze
+    .to(el, {
+      top: "60%",
+      scale: 0.25,
+      opacity: 0,
+      duration: 0.25,
+      ease: "power2.in",
+    });
+
+    return () => tl.kill();
+  }, [onComplete]);
+
+  if (!project) return null;
+
+  return (
+    <div
+      ref={cardRef}
+      className="fixed z-50 pointer-events-none w-[280px] h-[150px] rounded-2xl shadow-2xl p-5 border border-white/30 flex flex-col justify-between"
+      style={{
+        background: "linear-gradient(135deg, #ff5f6d 0%, #ffc371 100%)",
+        boxShadow: "0 25px 50px -12px rgba(255, 95, 109, 0.6), 0 0 35px rgba(255, 195, 113, 0.5)",
+        backfaceVisibility: "hidden",
+      }}
+    >
+      <div className="flex items-center justify-between">
+        <span className="font-mono text-[9px] font-bold text-white/90 uppercase tracking-widest">
+          IMPORTING // {project.framework || 'REACT'}
+        </span>
+        <span className="px-2 py-0.5 rounded-full bg-black/40 backdrop-blur-md text-[8px] font-mono text-white font-bold">
+          98% SCORE
+        </span>
+      </div>
+
+      <div className="my-auto">
+        <h4 className="font-display font-[900] text-white text-xl truncate tracking-tight">
+          {project.name}
+        </h4>
+        <p className="font-mono text-[9px] text-white/80 mt-0.5 truncate">
+          {project.folderName || project.name}
+        </p>
+      </div>
+
+      <div className="flex justify-between items-center text-[8px] font-mono text-white/70 border-t border-white/20 pt-2">
+        <span className="flex items-center gap-1.5">
+          <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-ping" />
+          ADDED TO VAULT
+        </span>
+        <span>JUST NOW</span>
+      </div>
+    </div>
+  );
+}
+
+// ─── 3D Interactive Project Vault Folder Component ───
+function ProjectFolderVault({ projects, onLaunch, onContextMenu, importingProject }) {
+  const [isOpen, setIsOpen] = useState(false);
+  const [isScattered, setIsScattered] = useState(false);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [isBouncing, setIsBouncing] = useState(false);
+
+  // Automatically flip open folder and trigger 3D bounce when a project is imported
+  useEffect(() => {
+    if (importingProject) {
+      setIsOpen(true);
+      const timer1 = setTimeout(() => {
+        setIsBouncing(true);
+      }, 750);
+      const timer2 = setTimeout(() => {
+        setIsBouncing(false);
+      }, 1500);
+      return () => {
+        clearTimeout(timer1);
+        clearTimeout(timer2);
+      };
+    }
+  }, [importingProject]);
+
+  // Sort projects so matching items appear at the front (slot file-1), non-matching items move to the back slots!
+  const { sortedProjects, matchCount } = useMemo(() => {
+    if (!searchQuery.trim()) {
+      return { sortedProjects: projects, matchCount: projects.length };
+    }
+    const q = searchQuery.toLowerCase();
+    const sorted = [...projects].sort((a, b) => {
+      const aMatch =
+        a.name.toLowerCase().includes(q) ||
+        (a.tech && a.tech.toLowerCase().includes(q)) ||
+        (a.framework && a.framework.toLowerCase().includes(q));
+      const bMatch =
+        b.name.toLowerCase().includes(q) ||
+        (b.tech && b.tech.toLowerCase().includes(q)) ||
+        (b.framework && b.framework.toLowerCase().includes(q));
+
+      if (aMatch && !bMatch) return -1;
+      if (!aMatch && bMatch) return 1;
+      return 0;
+    });
+
+    const count = projects.filter(
+      (p) =>
+        p.name.toLowerCase().includes(q) ||
+        (p.tech && p.tech.toLowerCase().includes(q)) ||
+        (p.framework && p.framework.toLowerCase().includes(q))
+    ).length;
+
+    return { sortedProjects: sorted, matchCount: count };
+  }, [projects, searchQuery]);
+
+  const fileGradients = [
+    { bg: "linear-gradient(135deg, #37caf3 0%, #0072ff 100%)", label: "REACT", tag: "VITE" },
+    { bg: "linear-gradient(135deg, #ff2200 0%, #ff8800 100%)", label: "NEXT", tag: "SSR" },
+    { bg: "linear-gradient(135deg, #ab08f6 0%, #e4eeef 100%)", label: "REDUX", tag: "STORE" },
+    { bg: "linear-gradient(135deg, #38ef7d 0%, #6fece1 100%)", label: "TS", tag: "TYPES" },
+    { bg: "linear-gradient(135deg, #fdf102 0%, #e07000 100%)", label: "TAILWIND", tag: "CSS" },
+  ];
+
+  // Cards to render: when scattered render ALL projects; when closed/stacked render top 5
+  const visibleProjects = isScattered ? sortedProjects : sortedProjects.slice(0, 5);
+
+  return (
+    <div className="flex flex-col items-center justify-center py-16 select-none relative w-full" style={{ transform: 'scale(1.85) translate(18px, 25px)', transformOrigin: 'center center' }}>
+      <label className="folder-card" onClick={(e) => e.stopPropagation()}>
+        <input
+          type="checkbox"
+          className="folder-toggle"
+          checked={isOpen || isScattered}
+          onChange={(e) => setIsOpen(e.target.checked)}
+        />
+
+        {/* Floating click hint arrow */}
+        <div className="hint-wrapper">
+          <span className="hint-text">Click to open</span>
+          <svg className="hint-arrow" viewBox="0 0 40 40" fill="none" xmlns="http://www.w3.org/2000/svg" style={{ width: 35, height: 35 }}>
+            <path d="M 35 5 C 35 5, 15 5, 10 25 M 10 25 L 3 18 M 10 25 L 18 22" stroke="#3b8be6" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" />
+          </svg>
+        </div>
+
+        <div className={`folder-container ${isBouncing ? "folder-bounce" : ""}`}>
+          {/* Back folder SVG shape */}
+          <svg className="folder-back" viewBox="0 0 50 40" fill="none" style={{ position: 'absolute', bottom: 0, width: '100%' }}>
+            <path d="M0 4C0 1.79086 1.79086 0 4 0H16.524C17.721 0 18.8415 0.54051 19.574 1.4673L22.426 5.0654C23.1585 5.99219 24.279 6.5327 25.476 6.5327H46C48.2091 6.5327 50 8.32356 50 10.5327V36C50 38.2091 48.2091 40 46 40H4C1.79086 40 0 38.2091 0 36V4Z" fill="#2a2c2dc3" />
+          </svg>
+
+          {/* Search bar inside open folder */}
+          <div className="folder-search" onClick={(e) => e.stopPropagation()}>
+            <svg className="search-icon" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth={3} style={{ width: 12, height: 12, flexShrink: 0 }}>
+              <circle cx={11} cy={11} r={8} />
+              <line x1={21} y1={21} x2="16.65" y2="16.65" />
+            </svg>
+            <input
+              type="text"
+              placeholder="Search files..."
+              className="search-input"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+            />
+          </div>
+
+          {/* Display project cards: when scattered, fly out using basic CSS transform grid offsets */}
+          {visibleProjects.map((p, idx) => {
+            const isSearching = !!searchQuery.trim();
+            const q = searchQuery.toLowerCase();
+            const isMatch = isSearching && (
+              p.name.toLowerCase().includes(q) ||
+              (p.tech && p.tech.toLowerCase().includes(q)) ||
+              (p.framework && p.framework.toLowerCase().includes(q))
+            );
+
+            const cardClass = `file file-${(idx % 5) + 1}`;
+            const grad = fileGradients[idx % fileGradients.length];
+
+            // Compute basic CSS transform scatter grid offsets when isScattered is true
+            const col = idx % 3; // 0 (left), 1 (center), 2 (right)
+            const row = Math.floor(idx / 3);
+            const scatterX = (col - 1) * 165;
+            const scatterY = row * 105 - 130;
+            const scatterRot = ((idx % 5) - 2) * 5;
+
+            const cardStyle = {
+              background: grad.bg,
+              filter: isSearching && !isMatch ? 'brightness(0.4) opacity(0.45)' : isMatch ? 'brightness(1.2)' : 'none',
+              transform: isScattered
+                ? `translate(${scatterX}px, ${scatterY}px) rotate(${scatterRot}deg) scale(1.08)`
+                : isMatch
+                ? 'translateY(-82px) scale(1.06) rotate(-6deg) translateZ(30px)'
+                : undefined,
+              zIndex: isScattered ? (100 + idx) : isMatch ? 60 : (30 - idx),
+              transition: 'all 0.6s cubic-bezier(0.34, 1.56, 0.64, 1)',
+            };
+
+            return (
+              <div
+                key={p.id || idx}
+                className={cardClass}
+                style={cardStyle}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onLaunch(p);
+                }}
+              >
+                <div className="shine" />
+                <svg className="file-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} style={{ width: 14, height: 14, position: 'absolute', top: 10, right: 10 }}>
+                  <rect x={2} y={3} width={20} height={14} rx={2} ry={2} />
+                  <line x1={8} y1={21} x2={16} y2={21} />
+                  <line x1={12} y1={17} x2={12} y2={21} />
+                </svg>
+                <div className="file-text truncate max-w-[85%]">{p.name}</div>
+                <div className="file-tag" style={{ opacity: isMatch ? 1 : undefined }}>
+                  {isMatch ? "MATCHED" : (p.tech ? p.tech : `${grad.label} • ${grad.tag}`)}
+                </div>
+              </div>
+            );
+          })}
+
+          {/* Front folder cover flap */}
+          <div className="folder-front-wrapper">
+            <svg className="folder-front" viewBox="0 0 50 34" fill="none" style={{ width: '100%', display: 'block' }}>
+              <path d="M0 4C0 1.79086 1.79086 0 4 0H46C48.2091 0 50 1.79086 50 4V30C50 32.2091 48.2091 34 46 34H4C1.79086 34 0 32.2091 0 30V4Z" fill="#686a6aae" />
+            </svg>
+            <div className="folder-label" />
+
+            {/* Live project count badge (Click to scatter/restore all projects in-place) */}
+            <div
+              className="counter"
+              onClick={(e) => {
+                e.stopPropagation();
+                setIsScattered((prev) => !prev);
+              }}
+              title={isScattered ? "Click to gather cards into folder" : "Click to scatter all project cards"}
+            >
+              <div className="status-dot" />
+              <span className="counter-label">{isScattered ? "SYSTEMIZE" : searchQuery.trim() ? "MATCHED" : "FILES"}</span>
+              <span className="counter-number">{String(searchQuery.trim() ? matchCount : projects.length).padStart(2, "0")}</span>
+            </div>
+          </div>
+        </div>
+      </label>
     </div>
   );
 }
@@ -658,9 +944,17 @@ const Hub = () => {
 
   // Overlay control states
   const [showImport, setShowImport]   = useState(false);
+  const [importingProject, setImportingProject] = useState(null);
   const [renameTarget, setRenameTarget] = useState(null);
   const [deleteTarget, setDeleteTarget] = useState(null);
   const [ctxMenu, setCtxMenu]         = useState(null);
+
+  const handleModalClose = useCallback((importedProj) => {
+    setShowImport(false);
+    if (importedProj && (importedProj.name || importedProj.id)) {
+      setImportingProject(importedProj);
+    }
+  }, []);
 
   // Clear selected project and ensure appMode is hub on mount
   useEffect(() => {
@@ -799,7 +1093,7 @@ const Hub = () => {
   }, [dispatch, navigate]);
 
   return (
-    <div className="min-h-screen w-full relative overflow-y-auto pointer-events-auto select-none text-slate-100 flex flex-col font-sans" style={{ background: "#06070b" }}>
+    <div className="h-screen w-full relative overflow-hidden pointer-events-auto select-none text-slate-100 flex flex-col font-sans justify-between px-6 md:px-12 py-6" style={{ background: "#06070b" }}>
       
       {/* Canvas particles background */}
       <ParticleBg />
@@ -809,28 +1103,24 @@ const Hub = () => {
         style={{ background: "radial-gradient(ellipse at 50% 0%, rgba(0,229,255,0.04) 0%, transparent 70%)", zIndex: 1 }} 
       />
 
-      {/* Brand watermark / logo — top left */}
-      <div className="fixed top-8 left-12 z-20 flex items-baseline gap-3 select-none">
-        <span className="font-display text-white tracking-tightest text-xl md:text-2xl font-[800]">
-          React<span className="text-accent">/</span>Architect
-        </span>
-        <span className="hidden md:inline font-mono text-[10px] uppercase tracking-widestest text-ink-dim">
-          v1.4
-        </span>
+      {/* ── Top Header Row ── */}
+      <div className="w-full flex items-center justify-between z-20 relative px-2">
+        <div className="flex items-baseline gap-3 select-none">
+          <span className="font-display text-white tracking-tightest text-xl md:text-2xl font-[800]">
+            React<span className="text-accent">/</span>Architect
+          </span>
+          <span className="hidden md:inline font-mono text-[10px] uppercase tracking-widestest text-ink-dim">
+            v1.4
+          </span>
+        </div>
+
+        <div className="flex items-center gap-3">
+          <ImportButton onClick={() => setShowImport(true)} label="Import Project" />
+        </div>
       </div>
 
-      {/* Top Right Action Navigation Links */}
-      <div className="fixed top-8 right-12 z-20 flex flex-col items-end gap-3 select-none pointer-events-auto">
-        <ImportButton onClick={() => setShowImport(true)} label="Import Project" />
-      </div>
-
-      {/* Bottom Right version badge */}
-      <div className="fixed bottom-6 right-7 z-20 select-none">
-        <span className="text-[10px] tracking-widest" style={{ fontFamily: "JetBrains Mono", color: "#2e3347", letterSpacing: "0.12em" }}>HUB — v1.4</span>
-      </div>
-
-      {/* ── Main content scroll wrapper ── */}
-      <div className="relative z-10 max-w-5xl mx-auto px-6 pt-28 pb-48 w-full">
+      {/* ── Main Side-by-Side Content Grid (Compact 100vh) ── */}
+      <div className="relative z-10 w-full max-w-7xl mx-auto grid grid-cols-1 lg:grid-cols-12 gap-6 md:gap-12 items-center my-auto px-2">
         <style>{`
           .btn-17,
           .btn-17 *,
@@ -849,7 +1139,7 @@ const Hub = () => {
             color: #fff;
             cursor: pointer;
             font-family: 'JetBrains Mono', ui-sans-serif, system-ui, -apple-system, sans-serif;
-            font-size: 0.78rem;
+            font-size: 0.75rem;
             font-weight: 900;
             line-height: 1.5;
             margin: 0;
@@ -858,7 +1148,7 @@ const Hub = () => {
             letter-spacing: 0.12em;
             border-radius: 99rem;
             border: 1px solid rgba(255, 255, 255, 0.25);
-            padding: 0.65rem 2rem;
+            padding: 0.55rem 1.6rem;
             z-index: 0;
             overflow: hidden;
             position: relative;
@@ -924,94 +1214,373 @@ const Hub = () => {
             --progress: -102%;
           }
           .scroll-reveal {
-            opacity: 0;
-            transform: translateY(30px);
-            transition: opacity 1200ms cubic-bezier(0.16, 1, 0.3, 1), transform 1200ms cubic-bezier(0.16, 1, 0.3, 1);
-            will-change: transform, opacity;
+            opacity: 1;
+            transform: translateY(0);
+            transition: opacity 800ms cubic-bezier(0.16, 1, 0.3, 1), transform 800ms cubic-bezier(0.16, 1, 0.3, 1);
           }
-          .scroll-reveal.revealed {
+          @keyframes folderBounce {
+            0% { transform: rotateX(10deg) rotateY(-5deg) scale(1); }
+            50% { transform: rotateX(18deg) rotateY(-8deg) scale(1.18); filter: brightness(1.25); }
+            100% { transform: rotateX(10deg) rotateY(-5deg) scale(1); }
+          }
+          .folder-bounce {
+            animation: folderBounce 0.65s cubic-bezier(0.34, 1.56, 0.64, 1);
+          }
+
+          /* ── 3D Interactive Folder Card ── */
+          .folder-card {
+            width: 170px;
+            height: 130px;
+            perspective: 1200px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            position: relative;
+            -webkit-tap-highlight-color: transparent;
+          }
+
+          .folder-toggle {
+            display: none;
+          }
+
+          .hint-wrapper {
+            position: absolute;
+            top: -40px;
+            right: -50px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 2px;
+            transition: opacity 0.3s ease, transform 0.3s ease;
+            pointer-events: none;
+            z-index: 100;
+            animation: floatHint 2.5s ease-in-out infinite;
+          }
+
+          .hint-text {
+            font-family: "Inter", -apple-system, sans-serif;
+            color: #e6f1ff;
+            font-size: 10px;
+            font-weight: 900;
+            text-decoration: underline;
+            letter-spacing: 0.5px;
+            white-space: nowrap;
+            position: relative;
+            right: -25px;
+            top: 10px;
+            transform: rotate(45deg);
+          }
+
+          .hint-arrow {
+            height: 35px;
+            width: 35px;
+          }
+
+          @keyframes floatHint {
+            0%, 100% { transform: translateY(0); }
+            50% { transform: translateY(6px); }
+          }
+
+          .folder-toggle:checked ~ .hint-wrapper {
+            opacity: 0;
+            transform: translateY(-10px);
+          }
+
+          .folder-container {
+            position: relative;
+            width: 100%;
+            height: 100%;
+            transform-style: preserve-3d;
+            transition: transform 0.6s cubic-bezier(0.23, 1, 0.32, 1);
+            backface-visibility: hidden;
+            will-change: transform;
+          }
+
+          .folder-toggle:checked ~ .folder-container {
+            transform: rotateX(10deg) rotateY(-5deg);
+          }
+
+          .folder-back {
+            position: absolute;
+            bottom: 0;
+            width: 100%;
+            filter: drop-shadow(0 10px 20px rgba(0, 0, 0, 0.4));
+          }
+
+          .folder-front-wrapper {
+            position: absolute;
+            bottom: -7px;
+            width: 100%;
+            z-index: 90;
+            transform-origin: bottom;
+            transition: transform 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            border-radius: 12px;
+          }
+
+          .folder-label {
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            width: 30px;
+            height: 4px;
+            background: rgba(255, 255, 255, 0.5);
+            border-radius: 10px;
+          }
+
+          .counter {
+            position: absolute;
+            top: -95px;
+            right: -75px;
+            background-color: #00e6ff;
+            padding: 4px 8px;
+            border-radius: 50px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            box-shadow: 0 10px 20px rgba(0, 0, 0, 0.3), inset 0 1px 1px rgba(255, 255, 255, 0.2);
+            transform: scale(0) translateY(20px);
+            opacity: 0;
+            transition: all 0.5s cubic-bezier(0.34, 1.56, 0.64, 1);
+            z-index: 100;
+            pointer-events: auto;
+          }
+
+          .folder-toggle:checked ~ .folder-container .counter {
+            transform: scale(1) translateY(0);
+            opacity: 1;
+            transition-delay: 0.2s;
+          }
+
+          .status-dot {
+            width: 6px;
+            height: 6px;  
+            background: #e26c1e;
+            border-radius: 50%;
+            position: relative;
+            box-shadow: 0 0 10px #f46c12;
+          }
+
+          .status-dot::after {
+            content: "";
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: #ee4b0b;
+            border-radius: 50%;
+            animation: pulse 2s infinite;
+          }
+
+          @keyframes pulse {
+            0% { transform: scale(1); opacity: 1; }
+            100% { transform: scale(3); opacity: 0; }
+          }
+
+          .counter-label {
+            font-family: "Inter", sans-serif;
+            font-size: 8px;
+            font-weight: 800;
+            color: black;
+            text-transform: capitalize;
+          }
+
+          .counter-number {
+            font-family: "Inter", sans-serif;
+            font-size: 12px;
+            font-weight: 900;
+            color: #ffffff;
+            text-shadow: 0 0 10px rgba(255, 255, 255, 0.5);
+          }
+
+          .counter:hover {
+            background: rgba(255, 255, 255, 0.2);
+            border-color: #60a5fa;
+            transform: scale(1.1) translateY(-5px) !important;
+            cursor: help;
+          }
+
+          .counter:hover .counter-number {
+            color: #60a5fa;
+            transition: color 0.3s ease;
+          }
+
+          .file {
+            position: absolute;
+            bottom: 5px;
+            left: 10%;
+            width: 80%;
+            height: 85px;
+            border-radius: 6px;
+            overflow: hidden;
+            box-shadow: inset 0 1px 1px rgba(255, 255, 255, 0.3), 0 4px 12px rgba(0, 0, 0, 0.3);
+            transition: all 0.6s cubic-bezier(0.68, -0.55, 0.265, 1.55);
+            z-index: 0;
+          }
+
+          .file-1 { background: #ff5f6d; z-index: 25; transition-delay: 0.15s; }
+          .file-2 { background: #ffc371; z-index: 24; transition-delay: 0.1s; }
+          .file-3 { background: #4facfe; z-index: 23; transition-delay: 0.05s; }
+          .file-4 { background: #00f2fe; z-index: 22; transition-delay: 0.02s; }
+          .file-5 { background: #a18cd1; z-index: 21; transition-delay: 0s; }
+
+          .shine {
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 50%;
+            height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.4), transparent);
+            transform: skewX(-20deg);
+            transition: none;
+          }
+
+          .folder-toggle:checked ~ .folder-container .shine {
+            left: 150%;
+            transition: left 0.8s ease-in-out;
+            transition-delay: 0.3s;
+          }
+
+          .file-text {
+            font-family: "Inter", sans-serif;
+            font-size: 9px;
+            color: white;
+            padding: 12px;
+            font-weight: 800;
+            text-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
+            opacity: 0;
+            transform: translateY(5px);
+            transition: all 0.3s ease 0.4s;
+          }
+
+          .folder-toggle:checked ~ .folder-container .file-text {
             opacity: 1;
             transform: translateY(0);
           }
+
+          .folder-toggle:checked ~ .folder-container .folder-front-wrapper {
+            transform: rotateX(-50deg);
+          }
+
+          .folder-toggle:checked ~ .folder-container .file-1 { transform: translateY(-70px) rotate(-10deg) translateX(-15px) translateZ(20px); }
+          .folder-toggle:checked ~ .folder-container .file-2 { transform: translateY(-55px) rotate(8deg) translateX(18px) translateZ(10px); }
+          .folder-toggle:checked ~ .folder-container .file-3 { transform: translateY(-40px) rotate(-15deg) translateX(-8px); }
+          .folder-toggle:checked ~ .folder-container .file-4 { transform: translateY(-25px) rotate(12deg) translateX(12px); }
+          .folder-toggle:checked ~ .folder-container .file-5 { transform: translateY(-10px) rotate(-5deg); }
+
+          .folder-toggle:checked ~ .folder-container .file:hover { cursor: pointer; filter: brightness(1.1); }
+          .folder-toggle:checked ~ .folder-container .file-1:hover { transform: translateY(-80px) rotate(-10deg) translateX(-15px) translateZ(20px); }
+          .folder-toggle:checked ~ .folder-container .file-2:hover { transform: translateY(-65px) rotate(8deg) translateX(18px) translateZ(10px); }
+          .folder-toggle:checked ~ .folder-container .file-3:hover { transform: translateY(-50px) rotate(-15deg) translateX(-8px); }
+          .folder-toggle:checked ~ .folder-container .file-4:hover { transform: translateY(-35px) rotate(12deg) translateX(12px); }
+          .folder-toggle:checked ~ .folder-container .file-5:hover { transform: translateY(-20px) rotate(-5deg); }
+
+          .file-icon {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            width: 14px;
+            height: 14px;
+            color: rgba(255, 255, 255, 0.4);
+            transition: color 0.3s ease;
+          }
+
+          .file-tag {
+            position: absolute;
+            bottom: 10px;
+            right: 10px;
+            background: rgba(0, 0, 0, 0.5);
+            backdrop-filter: blur(4px);
+            -webkit-backdrop-filter: blur(4px);
+            color: rgba(255, 255, 255, 0.9);
+            font-family: "Inter", -apple-system, sans-serif;
+            font-size: 7px;
+            font-weight: 700;
+            padding: 3px 6px;
+            border-radius: 4px;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+            opacity: 0;
+            transform: translateX(10px);
+            transition: all 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+            pointer-events: none;
+          }
+
+          .folder-toggle:checked ~ .folder-container .file:hover .file-icon { color: rgba(255, 255, 255, 0.9); }
+          .folder-toggle:checked ~ .folder-container .file-tag { opacity: 1; }
+
+          .folder-search {
+            position: absolute;
+            top: -40px;
+            left: 10%;
+            width: 30px;
+            height: 25px;
+            background-color: #626363;
+            backdrop-filter: blur(10px);
+            -webkit-backdrop-filter: blur(10px);
+            border-radius: 20px;
+            display: flex;
+            align-items: center;
+            padding: 0 8px;
+            transition: all 0.5s cubic-bezier(0.68, -0.55, 0.265, 1.55);
+            opacity: 0;
+            z-index: 100;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+          }
+
+          .search-icon { width: 12px; height: 12px; flex-shrink: 0; }
+          .search-input {
+            background: transparent;
+            border: none;
+            color: #ffffff;
+            font-family: "Inter", sans-serif;
+            font-size: 9px;
+            margin-left: 8px;
+            outline: none;
+            transition: width 0.4s ease;
+          }
+          .search-input::placeholder { color: #ffffff; }
+
+          .folder-toggle:checked ~ .folder-container .folder-search { opacity: 1; top: -80px; width: 80%; }
+          .folder-toggle:checked ~ .folder-container .folder-search:focus-within { width: 90%; background-color: #eee5e5; }
+          .folder-toggle:checked ~ .folder-container .folder-search:focus-within .search-input { width: 100%; }
         `}</style>
 
-        <div ref={hubCopyRef} className="mb-20 text-left">
+        {/* ── Left Column: Compact Headline, Subtitle & Quick Stats ── */}
+        <div className="lg:col-span-6 flex flex-col text-left justify-center">
+          <div ref={hubCopyRef}>
+            <h1 className="font-display font-[850] tracking-tightest leading-[0.88] text-white text-5xl sm:text-6xl md:text-7xl lg:text-[5.6rem] xl:text-[6.2rem]">
+              <span className="block">{splitText("Every project")}</span>
+              <span className="block">
+                {splitText("has an")}
+                <span className="inline-block w-[0.35em]" />
+                <span className="text-accent">{splitText("architecture.")}</span> 
+              </span>
+            </h1>
 
-          {/* Exact size, spacing, line height and character mask animations from the Landing page */}
-          <h1 className="font-display font-[800] tracking-tightest leading-[0.88] text-balance text-white text-[14vw] md:text-[10.5vw] lg:text-[8.6vw]">
-            <span className="block">{splitText("Every project")}</span>
-            <span className="block">
-              {splitText("has an")}
-              <span className="inline-block w-[0.4em]" />
-              <span className="text-accent">{splitText("architecture.")}</span>
-            </span>
-          </h1>
-
-          <p className="mt-12 max-w-xl text-ink-dim text-base md:text-lg leading-relaxed reveal-subtitle select-none">
-            Choose a project to enter the React Architect Workspace.
-            Select from your active libraries or import a folder build.
-          </p>
+            <p className="mt-6 max-w-lg text-ink-dim text-sm md:text-base leading-relaxed reveal-subtitle select-none">
+              Choose a project to enter the React Architect Workspace. Select from your active libraries or import a folder build.
+            </p>
+          </div>
         </div>
 
-        {/* ── Visual Projects Section: 3D Perspective Drag Carousel ── */}
-        <div className="flex flex-col gap-8 items-center scroll-reveal delay-100 w-full">
-          
-          <div className="w-full flex items-center gap-3">
-            <span className="text-[10px] tracking-widest uppercase" style={{ fontFamily: "JetBrains Mono", color: "#52525B", letterSpacing: "0.14em" }}>
-              Interactive Architecture Console
-            </span>
-            <span className="h-px flex-1 bg-white/5" />
-          </div>
-
-          {/* 3D Perspective Carousel Container */}
-          <div className="w-full flex items-center justify-center py-10" style={{ height: "520px" }}>
-            {enrichedProjects.length > 0 ? (
-              <PerspectiveCarousel 
-                 projects={enrichedProjects}
-                 activeId={activeHubProjectId}
-                 onChangeActive={setActiveHubProjectId}
-                 onLaunch={handleSelectProject}
-                 onContextMenu={handleContextMenu}
-              />
-            ) : (
-              <div className="py-24 w-full flex flex-col items-center justify-center gap-3 border border-dashed border-white/5 rounded-2xl bg-black/20">
-                <Zap size={22} style={{ color: "#2e3347" }} />
-                <span className="text-sm" style={{ fontFamily: "JetBrains Mono", color: "#2e3347" }}>No projects loaded</span>
-              </div>
-            )}
-          </div>
-
-          {/* Add New project button immediately below the carousel */}
-          <div className="mt-2 flex items-center justify-center">
-            <ImportButton onClick={() => setShowImport(true)} label="Import New Project" />
-          </div>
-
-        </div>
-
-        {/* Stats Footer bar + Landing page Magnetic button */}
-        <div className="flex flex-col sm:flex-row items-center justify-between gap-6 mt-24 pt-6 select-none border-t border-edge-subtle scroll-reveal delay-300 w-full">
-          <div className="flex items-center gap-6">
-            {[
-              { label: "Projects", val: projects.length },
-              { label: "Active", val: enrichedProjects.filter(p => p.status === "active").length },
-              { color: "#f59e0b", label: "In Review", val: enrichedProjects.filter(p => p.status === "review").length },
-              { label: "Starred", val: enrichedProjects.filter(p => p.starred).length },
-            ].map(s => (
-              <div key={s.label} className="flex items-center gap-2">
-                <span style={{ fontFamily: "JetBrains Mono", fontSize: "1rem", color: "#00d4ff", fontWeight: 600 }}>{s.val}</span>
-                <span className="text-[10px]" style={{ fontFamily: "JetBrains Mono", color: "#2e3347" }}>{s.label}</span>
-              </div>
-            ))}
-          </div>
-
-          {/* Magnetic Landing Button placed at the very end of the page */}
-          <MagneticButton 
-            onClick={() => navigate("/")} 
-            icon={ArrowUpRight} 
-            label="Landing Page" 
+        {/* ── Right Column: 3D Interactive Folder Vault ── */}
+        <div className="lg:col-span-6 flex items-center justify-end pr-8 pt-8 relative min-h-[420px]">
+          <ProjectFolderVault 
+             projects={enrichedProjects}
+             onLaunch={handleSelectProject}
+             onContextMenu={handleContextMenu}
+             importingProject={importingProject}
           />
         </div>
 
+      </div>
+
+      {/* ── Bottom Footer Row ── */}
+      <div className="w-full flex items-center justify-between z-20 relative px-2 pt-2 border-t border-white/5">
+        <span className="text-[10px] font-mono tracking-widest text-zinc-600 uppercase">
+          HUB — v1.4
+        </span>
       </div>
 
       {/* Right click context menu */}
@@ -1026,9 +1595,15 @@ const Hub = () => {
         />
       )}
 
-      {/* Modals */}
+      {/* Modals & Animated Import Overlay */}
       {showImport && (
-        <ImportProjectModal onClose={() => setShowImport(false)} />
+        <ImportProjectModal onClose={handleModalClose} />
+      )}
+      {importingProject && (
+        <FlyingCardToFolder
+          project={importingProject}
+          onComplete={() => setImportingProject(null)}
+        />
       )}
       {renameTarget && (
         <RenameModal project={renameTarget} onClose={() => setRenameTarget(null)} />

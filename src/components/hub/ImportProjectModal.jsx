@@ -235,7 +235,7 @@ const ImportProjectModal = ({ onClose }) => {
     setView(STATES.IMPORTING);
     setTimeout(() => {
       dispatch(addProject(detected));
-      onClose();
+      onClose(detected);
     }, 1800);
   };
 
@@ -399,7 +399,7 @@ const ImportProjectModal = ({ onClose }) => {
       await new Promise((r) => setTimeout(r, 600));
 
       dispatch(addProject(projectRecord));
-      onClose();
+      onClose(projectRecord);
     } catch (err) {
       setErrorMsg(err);
       setView(STATES.ERROR);
