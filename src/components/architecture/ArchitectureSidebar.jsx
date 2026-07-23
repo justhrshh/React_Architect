@@ -219,6 +219,7 @@ export default function ArchitectureSidebar({
             { key: 'Space', desc: 'Architect AI' },
             { key: 'Ctrl+S', desc: 'Search' },
             { key: 'Tab', desc: 'Toggle Sidebar' },
+            { key: 'F', desc: 'Fullscreen' },
             { key: 'Esc', desc: 'Close / Back' },
           ].map(s => (
             <div key={s.key} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>

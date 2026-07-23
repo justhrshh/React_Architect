@@ -11,6 +11,8 @@ export default function ArchitectureDnaCard({
   const totalFiles = reduxFiles?.length || reduxNodes.length || 0;
   const totalLoc = summaryMetrics.totalLoc || reduxNodes.reduce((acc, n) => acc + (n.metadata?.loc || 0), 0);
   const allNodes = knowledgeGraph?.nodes || reduxNodes;
+  const archEntities = allNodes.filter(n => n.kind && n.kind !== 'file');
+  const totalEntitiesCount = archEntities.length > 0 ? archEntities.length : reduxNodes.length;
 
   // 1. Dynamic Entity Counts from Knowledge Graph, File Paths, and Node Subtypes
   const compCount = allNodes.filter(n => n.kind === 'component' || !n.kind).length || 1;
@@ -139,19 +141,19 @@ export default function ArchitectureDnaCard({
         </button>
       </div>
 
-      {/* ── HEADLINE STAT RANGE ── */}
+      {/* ── HEADLINE STAT ── */}
       <div style={{ marginBottom: 4 }}>
         <span style={{ fontSize: 32, fontWeight: 800, color: '#0F172A', letterSpacing: '-0.03em', fontFamily: INTER }}>
-          {minCount}-{maxCount}
+          {totalFiles}
         </span>
         <span style={{ fontSize: 24, fontWeight: 300, color: '#94A3B8', marginLeft: 6, fontFamily: INTER }}>
-          entities
+          files
         </span>
       </div>
 
-      {/* ── SUBTITLE / DATE-RANGE EQUIVALENT ── */}
+      {/* ── SUBTITLE ── */}
       <div style={{ fontSize: 11, color: '#64748B', fontWeight: 500, marginBottom: 20 }}>
-        {totalFiles} modules &middot; {totalLoc.toLocaleString()} total lines of code
+        {totalLoc.toLocaleString()} total lines of code analyzed
       </div>
 
       {/* ── DYNAMIC BAR CHART VISUALIZER ── */}

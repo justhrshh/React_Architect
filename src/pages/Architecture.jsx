@@ -35,6 +35,7 @@ function ArchitectureStudio() {
   const [activeTab, setActiveTab] = useState(() => location.state?.tab || "summary");
   const [showInspector, setShowInspector] = useState(false);
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
+  const [isFullscreen, setIsFullscreen] = useState(false);
   const [showAIModal, setShowAIModal] = useState(false);
   const flowRef = useRef(null);
 
@@ -132,7 +133,7 @@ function ArchitectureStudio() {
     }
   }, [architectureModel]);
 
-  // Global Keyboard Shortcuts (Tab = Toggle Sidebar, Esc = Close Inspector / Back, Space = Architect AI)
+  // Global Keyboard Shortcuts (Tab = Toggle Sidebar, F = Fullscreen, Esc = Close Inspector / Back, Space = Architect AI)
   useEffect(() => {
     const handleKeyDown = (e) => {
       const tag = document.activeElement?.tagName?.toLowerCase();
@@ -143,9 +144,15 @@ function ArchitectureStudio() {
       if (e.key === "Tab") {
         e.preventDefault();
         setIsSidebarCollapsed(prev => !prev);
+      } else if (e.key === "f" || e.key === "F") {
+        e.preventDefault();
+        setActiveTab("flow");
+        setIsFullscreen(prev => !prev);
       } else if (e.key === "Escape" || e.key === "Esc") {
         e.preventDefault();
-        if (showInspector) {
+        if (isFullscreen) {
+          setIsFullscreen(false);
+        } else if (showInspector) {
           setShowInspector(false);
           setHighlightedIds(new Set());
         } else {
@@ -159,7 +166,7 @@ function ArchitectureStudio() {
 
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [showInspector, handleBack, navigate]);
+  }, [isFullscreen, showInspector, handleBack, navigate]);
 
   const handleOpenArchitectAiConnection = useCallback(() => {
     navigate('/investigation');
@@ -314,8 +321,8 @@ function ArchitectureStudio() {
   }
 
   const healthScore = analysis?.architectureHealth?.score || 100;
-  const leftOffset = (isSidebarCollapsed ? 76 : 260) + 26;
-  const rightOffset = showInspector && selectedNode ? 380 : 16;
+  const leftOffset = isFullscreen ? 0 : (isSidebarCollapsed ? 76 : 260) + 26;
+  const rightOffset = isFullscreen ? 0 : (showInspector && selectedNode ? 380 : 16);
 
   return (
     <div
@@ -326,53 +333,59 @@ function ArchitectureStudio() {
         width: "100vw",
         overflow: "hidden",
         fontFamily: INTER,
-        backgroundColor: "#F6F7FB",
+        backgroundColor: isFullscreen ? "#FFFFFF" : "#F6F7FB",
         position: "relative",
       }}
     >
       {/* ── Ambient Background Glow Blobs ── */}
-      <div style={{ position: "absolute", inset: 0, pointerEvents: "none", overflow: "hidden" }}>
-        <div style={{ position: "absolute", top: -160, left: -80, width: 520, height: 520, borderRadius: 999, background: "rgba(221,214,254,0.45)", filter: "blur(64px)" }} />
-        <div style={{ position: "absolute", top: "50%", right: -160, width: 520, height: 520, borderRadius: 999, background: "rgba(165,243,252,0.35)", filter: "blur(64px)" }} />
-        <div style={{ position: "absolute", bottom: 0, left: "33%", width: 420, height: 420, borderRadius: 999, background: "rgba(fbcfe8,0.25)", filter: "blur(64px)" }} />
-      </div>
+      {!isFullscreen && (
+        <div style={{ position: "absolute", inset: 0, pointerEvents: "none", overflow: "hidden" }}>
+          <div style={{ position: "absolute", top: -160, left: -80, width: 520, height: 520, borderRadius: 999, background: "rgba(221,214,254,0.45)", filter: "blur(64px)" }} />
+          <div style={{ position: "absolute", top: "50%", right: -160, width: 520, height: 520, borderRadius: 999, background: "rgba(165,243,252,0.35)", filter: "blur(64px)" }} />
+          <div style={{ position: "absolute", bottom: 0, left: "33%", width: 420, height: 420, borderRadius: 999, background: "rgba(fbcfe8,0.25)", filter: "blur(64px)" }} />
+        </div>
+      )}
 
       {/* ── 1. Floating Global Header ── */}
-      <TopBar
-        projectName={selectedProject.name}
-        healthScore={healthScore}
-        activeTab={activeTab}
-        handleBack={handleBack}
-        isSidebarCollapsed={isSidebarCollapsed}
-        showInspector={showInspector && !!selectedNode}
-        leftOffset={leftOffset}
-        rightOffset={rightOffset}
-      />
+      {!isFullscreen && (
+        <TopBar
+          projectName={selectedProject.name}
+          healthScore={healthScore}
+          activeTab={activeTab}
+          handleBack={handleBack}
+          isSidebarCollapsed={isSidebarCollapsed}
+          showInspector={showInspector && !!selectedNode}
+          leftOffset={leftOffset}
+          rightOffset={rightOffset}
+        />
+      )}
 
       {/* ── 2. Left Collapsible Sidebar ── */}
-      <ArchitectureSidebar
-        activeTab={activeTab}
-        onTabChange={setActiveTab}
-        isCollapsed={isSidebarCollapsed}
-        onToggleCollapse={() => setIsSidebarCollapsed(prev => !prev)}
-      />
+      {!isFullscreen && (
+        <ArchitectureSidebar
+          activeTab={activeTab}
+          onTabChange={setActiveTab}
+          isCollapsed={isSidebarCollapsed}
+          onToggleCollapse={() => setIsSidebarCollapsed(prev => !prev)}
+        />
+      )}
 
       {/* ── 3. Center Mount Station ── */}
       <main
         style={{
           position: "absolute",
-          top: 86,
+          top: isFullscreen ? 0 : 86,
           left: leftOffset,
           right: rightOffset,
-          bottom: 44,
+          bottom: isFullscreen ? 0 : 44,
           background: "transparent",
           border: "none",
           boxShadow: "none",
           overflow: "hidden",
-          transition: "left 0.3s ease, right 0.3s ease",
+          transition: "all 0.3s ease",
           display: "flex",
           flexDirection: "column",
-          zIndex: 20,
+          zIndex: isFullscreen ? 50 : 20,
         }}
       >
         {/* SUMMARY STUDIO */}
@@ -615,11 +628,11 @@ function ArchitectureStudio() {
             flex: 1,
             display: "flex",
             flexDirection: "column",
-            margin: "12px 16px 12px 16px",
+            margin: isFullscreen ? 0 : "12px 16px 12px 16px",
             background: "#FFFFFF",
-            borderRadius: 16,
-            border: "1px solid rgba(226,232,240,0.9)",
-            boxShadow: "0 2px 16px rgba(15,23,42,0.06)",
+            borderRadius: isFullscreen ? 0 : 16,
+            border: isFullscreen ? "none" : "1px solid rgba(226,232,240,0.9)",
+            boxShadow: isFullscreen ? "none" : "0 2px 16px rgba(15,23,42,0.06)",
             overflow: "hidden",
           }}>
             <FlowDiagram
@@ -636,7 +649,7 @@ function ArchitectureStudio() {
       </main>
 
       {/* ── 4. Floating Right Inspector ── */}
-      {showInspector && selectedNode && (
+      {!isFullscreen && showInspector && selectedNode && (
         <InspectorPanel
           node={selectedNode}
           onNavigate={handleSelectNode}
@@ -646,11 +659,14 @@ function ArchitectureStudio() {
       )}
 
       {/* ── 5. Floating Bottom Command Dock ── */}
-      <div style={{ position: "absolute", bottom: 12, left: "50%", transform: "translateX(-50%)", zIndex: 35 }}>
+      <div style={{ position: "absolute", bottom: isFullscreen ? 16 : 12, left: "50%", transform: "translateX(-50%)", zIndex: isFullscreen ? 60 : 35 }}>
         <CommandDock
-          activeItem={activeTab === 'flow' ? 'graph' : 'search'}
-          onGraph={() => setActiveTab('flow')}
-          onFocus={() => setActiveTab('flow')}
+          activeItem={isFullscreen ? 'focus' : (activeTab === 'flow' ? 'graph' : 'search')}
+          onGraph={() => { if (isFullscreen) setIsFullscreen(false); setActiveTab('flow'); }}
+          onFocus={() => {
+            setActiveTab('flow');
+            setIsFullscreen(prev => !prev);
+          }}
           onAIExplain={() => setShowAIModal(true)}
           onOpenAIStudio={() => navigate('/investigation')}
           onExport={() => flowRef.current?.exportModel('SVG')}
