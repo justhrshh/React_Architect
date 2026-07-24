@@ -73,10 +73,27 @@ export default function CodeHygieneStudio({ hygieneReport, knowledgeGraph, onIns
     setTimeout(() => setCopiedId(null), 2000);
   };
 
-  const handleInspect = (nodeId) => {
-    if (nodeId) {
-      dispatch(selectNodeId(nodeId));
-      if (onInspectNode) onInspectNode(nodeId);
+  const handleInspect = (item) => {
+    if (!item) return;
+
+    let targetNodeId = item.nodeId;
+    if (knowledgeGraph && knowledgeGraph.nodes) {
+      const match = knowledgeGraph.nodes.find(n => n.id === item.nodeId) ||
+        knowledgeGraph.nodes.find(n => n.file === item.file);
+      if (match) {
+        targetNodeId = match.id;
+      }
+    }
+
+    if (!targetNodeId && item.file) {
+      targetNodeId = `file:${item.file}`;
+    }
+
+    if (targetNodeId) {
+      dispatch(selectNodeId(targetNodeId));
+      if (onInspectNode) {
+        onInspectNode(targetNodeId, item.line || 1, item.file, item.name);
+      }
     }
   };
 
@@ -409,9 +426,9 @@ export default function CodeHygieneStudio({ hygieneReport, knowledgeGraph, onIns
                       {copiedId === item.id ? <Check size={13} color="#10B981" /> : <Copy size={13} />}
                     </button>
 
-                    {item.nodeId && (
+                    {(item.nodeId || item.file) && (
                       <button
-                        onClick={() => handleInspect(item.nodeId)}
+                        onClick={() => handleInspect(item)}
                         style={{
                           background: "#2563EB",
                           color: "#FFFFFF",

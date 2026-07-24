@@ -126,23 +126,48 @@ export function buildArchitectureModel(knowledgeGraph) {
     const componentTargets = [];
     const providerTargets = [];
     const stateTargets = [];
+    const stateMutations = [];
+    const dataTargets = [];
     const apiTargets = [];
 
     const childIds = rendersAdjacency.get(nodeId) || [];
     childIds.sort((a, b) => (componentMap.get(a)?.name || "").localeCompare(componentMap.get(b)?.name || ""));
+
+    const isRouterComp = compNode.name === "Router" || compNode.subtype === "router";
 
     childIds.forEach(cId => {
       const childComp = componentMap.get(cId);
       if (!childComp) return;
       if (childComp.subtype === "layout") layoutTargets.push(cId);
       else if (childComp.subtype === "provider" || childComp.subtype === "context") providerTargets.push(cId);
-      else componentTargets.push(cId);
+      else {
+        // When traversing a Router component, pages mapped to routes are displayed under
+        // their respective Route Endpoints in the route tree, avoiding redundant duplicate renders
+        // under the generic "Components" category.
+        if (isRouterComp && (childComp.subtype === "page" || childComp.name.endsWith("Flow") || childComp.name.endsWith("Studio"))) {
+          return;
+        }
+        componentTargets.push(cId);
+      }
     });
 
     edges.forEach(e => {
       if (e.type === "STATE_CONSUMER" && e.target === nodeId) {
         const stateNode = nodes.find(n => n.id === e.source && n.kind === "state");
         if (stateNode && !stateTargets.some(t => t.id === stateNode.id)) stateTargets.push(stateNode);
+      }
+      if (e.type === "DISPATCHES_ACTION" && e.source === nodeId) {
+        const stateNode = nodes.find(n => n.id === e.target && n.kind === "state");
+        if (stateNode && !stateMutations.some(t => t.id === stateNode.id)) {
+          stateMutations.push({
+            ...stateNode,
+            metadata: { ...stateNode.metadata, actionName: e.metadata?.actionName, isMutation: true }
+          });
+        }
+      }
+      if (e.type === "USES_DATA" && e.source === nodeId) {
+        const dataNode = nodes.find(n => n.id === e.target && n.kind === "data");
+        if (dataNode && !dataTargets.some(t => t.id === dataNode.id)) dataTargets.push(dataNode);
       }
       if (e.type === "USES_API" && e.source === nodeId) {
         const apiNode = nodes.find(n => n.id === e.target && n.kind === "api");
@@ -151,12 +176,14 @@ export function buildArchitectureModel(knowledgeGraph) {
     });
 
     stateTargets.sort((a, b) => a.name.localeCompare(b.name));
+    stateMutations.sort((a, b) => a.name.localeCompare(b.name));
+    dataTargets.sort((a, b) => a.name.localeCompare(b.name));
     apiTargets.sort((a, b) => a.name.localeCompare(b.name));
 
     const addCategory = (categoryName, items, mapFn) => {
       if (items.length > 0) {
         categoryChildren.push({
-          id: `${nodeId}-category-${categoryName.toLowerCase()}`,
+          id: `${nodeId}-category-${categoryName.toLowerCase().replace(/\s+/g, '-')}`,
           name: categoryName,
           kind: "category",
           children: items.map(mapFn).filter(Boolean)
@@ -168,8 +195,16 @@ export function buildArchitectureModel(knowledgeGraph) {
     addCategory("Components", componentTargets, (cId) => buildSubtree(cId, newVisited));
     addCategory("Providers", providerTargets, (cId) => buildSubtree(cId, newVisited));
     
-    addCategory("State", stateTargets, (stateNode) => ({
+    addCategory("State Reads", stateTargets, (stateNode) => ({
       ...stateNode, children: []
+    }));
+
+    addCategory("State Writes", stateMutations, (stateNode) => ({
+      ...stateNode, children: []
+    }));
+
+    addCategory("Data", dataTargets, (dataNode) => ({
+      ...dataNode, children: []
     }));
     
     addCategory("Services", apiTargets, (apiNode) => ({
@@ -177,7 +212,7 @@ export function buildArchitectureModel(knowledgeGraph) {
     }));
 
     // If this component is the Router component, append the route hierarchy under it!
-    if (compNode.name === "Router" || compNode.id.includes("Router")) {
+    if (isRouterComp) {
       const routers = routeNodes.filter(r => r.subtype === "router");
       routers.forEach(router => {
         const routerSubtree = buildRouteSubtree(router.id, newVisited, router.name);
@@ -246,16 +281,7 @@ export function buildArchitectureModel(knowledgeGraph) {
   // 2. Roots Detection
   const forest = [];
 
-  // Add all router nodes as primary roots ONLY if they haven't been nested inside components (like Router component)
-  const routers = routeNodes.filter(r => r.subtype === "router" && !allTouchedInTree.has(r.id));
-  routers.sort((a, b) => a.name.localeCompare(b.name));
-  
-  routers.forEach(router => {
-    const routerSubtree = buildRouteSubtree(router.id, new Set(), router.name);
-    if (routerSubtree) forest.push(routerSubtree);
-  });
-
-  // Next, find component roots that were NOT reached by routing and are not lazy placeholders
+  // First, find component roots (like App) that are entry points
   let compRoots = componentNodes.filter(c => c.subtype !== "lazy" && inDegree[c.id] === 0 && !allTouchedInTree.has(c.id));
 
   // If no isolated unreached roots are found but we still have untouched components, 
@@ -296,6 +322,15 @@ export function buildArchitectureModel(knowledgeGraph) {
       const subtree = buildSubtree(c.id);
       if (subtree) forest.push(subtree);
     }
+  });
+
+  // Next, add router nodes as primary roots ONLY if they haven't been nested inside components (like Router component in App)
+  const routers = routeNodes.filter(r => r.subtype === "router" && !allTouchedInTree.has(r.id));
+  routers.sort((a, b) => a.name.localeCompare(b.name));
+  
+  routers.forEach(router => {
+    const routerSubtree = buildRouteSubtree(router.id, new Set(), router.name);
+    if (routerSubtree) forest.push(routerSubtree);
   });
 
   // Finally, catch any remaining isolated components (excluding lazy placeholders)

@@ -1,5 +1,6 @@
 import { walk } from "../walk.js";
 import { getCalleeName, guessNameFromFilePath } from "../astUtils.js";
+import { parseUseSelectorCallback, parseDispatchCall } from "./reduxExtractor.js";
 
 // React built-ins and React Router components that are frequently used as JSX
 // tags but are not user-authored components. Treating them as "children" would
@@ -103,11 +104,51 @@ function unwrapFunction(initNode) {
   return { fn: null, isLazy: false, lazyImportSource: null };
 }
 
+// Helper to extract file-level imports
+function getFileImports(ast) {
+  const fileImports = [];
+  if (!ast || !ast.program || !Array.isArray(ast.program.body)) return fileImports;
+
+  ast.program.body.forEach((node) => {
+    if (node.type === "ImportDeclaration" && node.source && node.source.type === "StringLiteral") {
+      const source = node.source.value;
+      (node.specifiers || []).forEach((spec) => {
+        if (spec.type === "ImportSpecifier") {
+          fileImports.push({
+            name: spec.local.name,
+            importedName: spec.imported ? (spec.imported.name || spec.imported.value) : spec.local.name,
+            source,
+            kind: "named",
+          });
+        } else if (spec.type === "ImportDefaultSpecifier") {
+          fileImports.push({
+            name: spec.local.name,
+            importedName: "default",
+            source,
+            kind: "default",
+          });
+        } else if (spec.type === "ImportNamespaceSpecifier") {
+          fileImports.push({
+            name: spec.local.name,
+            importedName: "*",
+            source,
+            kind: "namespace",
+          });
+        }
+      });
+    }
+  });
+
+  return fileImports;
+}
+
 // Helper to analyze component function/method body
-function analyzeComponentBody(bodyNode) {
+function analyzeComponentBody(bodyNode, fileImports = []) {
   const hooks = new Set();
   const contexts = new Set();
   const apiCalls = new Set();
+  const reduxSlices = new Set();
+  const dispatchedActions = [];
   const children = new Set();
   let hasJSX = false;
 
@@ -121,11 +162,12 @@ function analyzeComponentBody(bodyNode) {
       }
 
       if (name) {
-        // Real hook names follow the "use" + Capital/Digit convention
-        // (useState, useMemo, useFoo123). This avoids false positives like
-        // "user" or "userId" that merely start with the substring "use".
         if (/^use[A-Z0-9]/.test(name)) {
           hooks.add(name);
+        }
+        if (name === "useSelector") {
+          const matched = parseUseSelectorCallback(node, fileImports);
+          matched.forEach(res => reduxSlices.add(res.sliceName || res));
         }
         if (name === "useContext" && node.arguments && node.arguments[0]) {
           const ctxArg = node.arguments[0];
@@ -134,6 +176,15 @@ function analyzeComponentBody(bodyNode) {
         if (name.toLowerCase().includes("fetch") || name.toLowerCase().includes("api") || name === "axios") {
           apiCalls.add(name);
         }
+      }
+
+      const dispatches = parseDispatchCall(node, fileImports);
+      if (dispatches.length > 0) {
+        dispatches.forEach((d) => {
+          if (!dispatchedActions.some((x) => x.sliceName === d.sliceName && x.actionName === d.actionName)) {
+            dispatchedActions.push(d);
+          }
+        });
       }
     }
 
@@ -146,9 +197,6 @@ function analyzeComponentBody(bodyNode) {
           children.add(name);
         }
       } else if (node.name.type === "JSXMemberExpression") {
-        // <Foo.Bar /> - distinguish Context Provider/Consumer usage (which is
-        // a state-management relationship, not a "renders child" relationship)
-        // from other namespaced components like <Menu.Item /> or <Motion.div />.
         const objectName = node.name.object && node.name.object.name;
         const propertyName = node.name.property && node.name.property.name;
 
@@ -169,6 +217,8 @@ function analyzeComponentBody(bodyNode) {
     hooks: [...hooks],
     contexts: [...contexts],
     apiCalls: [...apiCalls],
+    reduxSlices: [...reduxSlices],
+    dispatchedActions,
     children: [...children],
     hasJSX,
   };
@@ -240,6 +290,7 @@ function isReactClassComponent(node) {
 export function extractComponents(ast, filePath = "") {
   const components = [];
   const defaultExportedNames = getDefaultExportedLocalNames(ast);
+  const fileImports = getFileImports(ast);
   let anonymousDefaultUsed = false;
 
   walk(ast.program, (node) => {
@@ -247,7 +298,7 @@ export function extractComponents(ast, filePath = "") {
     if (node.type === "FunctionDeclaration") {
       const name = node.id && node.id.name;
       if (name && /^[A-Z]/.test(name)) {
-        const bodyAnalysis = analyzeComponentBody(node.body);
+        const bodyAnalysis = analyzeComponentBody(node.body, fileImports);
         if (bodyAnalysis.hasJSX) {
           components.push(buildComponentEntry(name, node, getPropsFromParams(node.params), bodyAnalysis, defaultExportedNames));
         }
@@ -275,7 +326,7 @@ export function extractComponents(ast, filePath = "") {
             isDefaultExport: defaultExportedNames.has(name),
           });
         } else if (unwrapped.fn) {
-          const bodyAnalysis = analyzeComponentBody(unwrapped.fn.body);
+          const bodyAnalysis = analyzeComponentBody(unwrapped.fn.body, fileImports);
           if (bodyAnalysis.hasJSX) {
             components.push(
               buildComponentEntry(name, node, getPropsFromParams(unwrapped.fn.params), bodyAnalysis, defaultExportedNames)
@@ -317,7 +368,7 @@ export function extractComponents(ast, filePath = "") {
         !decl.id;
 
       if (isAnonymousFn) {
-        const bodyAnalysis = analyzeComponentBody(decl.body);
+        const bodyAnalysis = analyzeComponentBody(decl.body, fileImports);
         if (bodyAnalysis.hasJSX && filePath) {
           const derivedName = guessNameFromFilePath(filePath);
           anonymousDefaultUsed = true;
@@ -348,6 +399,8 @@ function buildComponentEntry(name, node, props, bodyAnalysis, defaultExportedNam
     hooks: bodyAnalysis.hooks,
     contexts: bodyAnalysis.contexts,
     apiCalls: bodyAnalysis.apiCalls,
+    reduxSlices: bodyAnalysis.reduxSlices || [],
+    dispatchedActions: bodyAnalysis.dispatchedActions || [],
     children: bodyAnalysis.children,
     loc: node.loc ? node.loc.end.line - node.loc.start.line + 1 : null,
     line: node.loc ? node.loc.start.line : null,

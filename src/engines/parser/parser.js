@@ -7,6 +7,8 @@ import { extractContexts } from "./extractors/contextExtractor.js";
 import { extractRedux } from "./extractors/reduxExtractor.js";
 import { extractRoutes } from "./extractors/routeExtractor.js";
 import { extractApi } from "./extractors/apiExtractor.js";
+import { extractFunctions } from "./extractors/functionExtractor.js";
+import { extractVariables } from "./extractors/variableExtractor.js";
 
 /**
  * Parses source code contents and orchestrates the extraction process.
@@ -32,6 +34,8 @@ export function parseFile(code, filePath) {
   const summary = {
     filePath: cleanPath,
     components: [],
+    functions: [],
+    variables: [],
     imports: [],
     exports: [],
     hooks: [],
@@ -85,6 +89,8 @@ export function parseFile(code, filePath) {
     ["imports", () => extractImports(ast)],
     ["exports", () => extractExports(ast)],
     ["components", () => extractComponents(ast, cleanPath)],
+    ["functions", () => extractFunctions(ast)],
+    ["variables", () => extractVariables(ast)],
     ["hooks", () => extractHooks(ast)],
     ["contexts", () => extractContexts(ast)],
     ["redux", () => extractRedux(ast)],

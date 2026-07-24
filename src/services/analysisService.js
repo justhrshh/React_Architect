@@ -88,20 +88,24 @@ export const startProjectAnalysis = createAsyncThunk(
         const gitFiles = window.projectGitFiles[projectId];
 
         dispatch(setAnalysisPhase('building-graph'));
+        await new Promise(r => setTimeout(r, 30));
         const { buildKnowledgeGraph } = await import('@/engines/graph/buildKnowledgeGraph');
         const kg = buildKnowledgeGraph(gitFiles, project);
 
         dispatch(setAnalysisPhase('resolving'));
+        await new Promise(r => setTimeout(r, 30));
         const { layoutGraphNodes } = await import('@/engines/layout/layoutEngine');
         kg.nodes = layoutGraphNodes(kg.nodes, kg.edges);
         kg.rawFiles = gitFiles;
 
         dispatch(setAnalysisPhase('analyzing'));
+        await new Promise(r => setTimeout(r, 30));
         const { runAnalysis } = await import('@/engines/analysis');
         const analysisResults = runAnalysis(kg);
         kg.analysis = analysisResults;
 
         dispatch(setAnalysisPhase('complete'));
+        await new Promise(r => setTimeout(r, 30));
         dispatch(setKnowledgeGraph(kg));
         dispatch(setFiles(kg.files));
         window.projectFiles = kg.rawFiles;
@@ -123,10 +127,12 @@ export const startProjectAnalysis = createAsyncThunk(
       } else {
         // Mock data fallback (no file handle available)
         dispatch(setAnalysisPhase('scanning'));
+        await new Promise(r => setTimeout(r, 30));
         const { getGraphDataForProject } = await import('@/lib/analysis/mockDataGenerator');
         const { files } = getGraphDataForProject(project);
 
         dispatch(setAnalysisPhase('building-graph'));
+        await new Promise(r => setTimeout(r, 30));
         const { buildKnowledgeGraph } = await import('@/engines/graph/buildKnowledgeGraph');
 
         const mockFiles = files.map(f => ({
@@ -136,16 +142,19 @@ export const startProjectAnalysis = createAsyncThunk(
         const kg = buildKnowledgeGraph(mockFiles, project);
 
         dispatch(setAnalysisPhase('resolving'));
+        await new Promise(r => setTimeout(r, 30));
         const { layoutGraphNodes } = await import('@/engines/layout/layoutEngine');
         kg.nodes = layoutGraphNodes(kg.nodes, kg.edges);
         kg.rawFiles = mockFiles;
 
         dispatch(setAnalysisPhase('analyzing'));
+        await new Promise(r => setTimeout(r, 30));
         const { runAnalysis } = await import('@/engines/analysis');
         const analysisResults = runAnalysis(kg);
         kg.analysis = analysisResults;
 
         dispatch(setAnalysisPhase('complete'));
+        await new Promise(r => setTimeout(r, 30));
         dispatch(setKnowledgeGraph(kg));
         dispatch(setFiles(kg.files));
         window.projectFiles = kg.rawFiles;

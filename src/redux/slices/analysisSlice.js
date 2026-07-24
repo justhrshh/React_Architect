@@ -4,6 +4,7 @@ const initialState = {
   status: 'idle', // idle | analyzing | ready | error
   phase: null,    // scanning | building-graph | resolving | analyzing | complete
   needsPermission: false,
+  lastAnalyzedAt: null,
   projectDNA: null,
   architectureHealth: null,
   dependencyHeatmap: null,
@@ -35,6 +36,7 @@ const analysisSlice = createSlice({
       state.complexity = complexity;
       state.status = 'ready';
       state.phase = 'complete';
+      state.lastAnalyzedAt = Date.now();
     },
     setAnalysisError(state, action) {
       state.error = action.payload;

@@ -25,7 +25,11 @@ const TYPE_CFG = {
   provider:  { color: "#F59E0B", label: "Provider",  abbr: "PR" },
   context:   { color: "#EC4899", label: "Context",   abbr: "CX" },
   slice:     { color: "#F97316", label: "Slice",     abbr: "SL" },
+  state:     { color: "#8B5CF6", label: "State",     abbr: "ST" },
+  data:      { color: "#EC4899", label: "Data",      abbr: "DT" },
+  module:    { color: "#EC4899", label: "Data",      abbr: "DT" },
   gateway:   { color: "#F97316", label: "Service",   abbr: "SV" },
+  api:       { color: "#10B981", label: "Service",   abbr: "SV" },
   hook:      { color: "#8B5CF6", label: "Hook",      abbr: "HK" },
   category:  { color: "#94A3B8", label: "",          abbr: "—"  },
 };
@@ -101,7 +105,12 @@ function filterNodes(nodes) {
   if (!nodes) return [];
   return nodes
     .map(n => ({ ...n, children: filterNodes(n.children) }))
-    .filter(n => n.kind !== "state" && n.kind !== "api");
+    .filter(n => {
+      if (n.kind === "category") {
+        return Boolean(n.children && n.children.length > 0);
+      }
+      return true;
+    });
 }
 
 // ─── Node Card ───────────────────────────────────────────────────────────────

@@ -75,9 +75,11 @@ function ArchitectureStudio() {
 
   const selectedId = useSelector((state) => state.graph.selectedNodeId);
   const [highlightedIds, setHighlightedIds] = useState(new Set());
+  const [targetHighlightLine, setTargetHighlightLine] = useState(null);
 
-  const handleSelectNode = useCallback((id) => {
+  const handleSelectNode = useCallback((id, line = null) => {
     dispatch(selectNodeId(id));
+    setTargetHighlightLine(line);
     setHighlightedIds(new Set());
     setShowInspector(true);
   }, [dispatch]);
@@ -705,8 +707,9 @@ function ArchitectureStudio() {
             <CodeHygieneStudio
               hygieneReport={analysis?.deadCode}
               knowledgeGraph={knowledgeGraph}
-              onInspectNode={(id) => {
+              onInspectNode={(id, line) => {
                 dispatch(selectNodeId(id));
+                setTargetHighlightLine(line || null);
                 setShowInspector(true);
               }}
             />
@@ -721,6 +724,7 @@ function ArchitectureStudio() {
           node={selectedNode}
           onNavigate={handleSelectNode}
           knowledgeGraph={knowledgeGraph}
+          targetLine={targetHighlightLine}
           onClose={() => setShowInspector(false)}
         />
       )}

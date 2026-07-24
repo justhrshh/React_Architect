@@ -145,14 +145,54 @@ export function buildKnowledgeGraph(files, project) {
     });
   });
 
+  // 5b. Function call graph resolution (CALLS edges)
+  const fnNodesByName = new Map();
+  nodes.filter((n) => n.kind === "function").forEach((fnNode) => {
+    if (!fnNodesByName.has(fnNode.name)) fnNodesByName.set(fnNode.name, []);
+    fnNodesByName.get(fnNode.name).push(fnNode);
+  });
+
+  fileNodes.forEach((srcFileNode) => {
+    const srcFileObj = fileMap.get(srcFileNode.file);
+    if (!srcFileObj) return;
+
+    (srcFileObj.summary.functions || []).forEach((fn) => {
+      const callerId = `function:${srcFileNode.file}:${fn.name}`;
+      (fn.calledIdentifiers || []).forEach((calleeName) => {
+        const targets = fnNodesByName.get(calleeName);
+        if (targets && targets.length > 0) {
+          const sameFileTarget = targets.find((t) => t.file === srcFileNode.file);
+          const target = sameFileTarget || targets[0];
+          edges.push(
+            createEdge({
+              type: "CALLS",
+              source: callerId,
+              target: target.id,
+            })
+          );
+        }
+      });
+    });
+  });
+
   // 6. Route hierarchy (JSX / object-based, including nested `children`) + Next.js file-based routing
   buildRouteGraph(parsedFiles, graphFiles, nodes, edges, project, { fileMap, fileIndex, aliasMap, componentMap });
 
   // 7. Fallback seeding for empty projects or seed templates
   seedFallbackGraphIfEmpty(nodes, edges);
 
+  // Deduplicate edges to guarantee clean, 100% unique graph relationships
+  const uniqueEdgesMap = new Map();
+  edges.forEach((e) => {
+    const key = `${e.type}:${e.source}:${e.target}`;
+    if (!uniqueEdgesMap.has(key)) {
+      uniqueEdgesMap.set(key, e);
+    }
+  });
+  const uniqueEdges = Array.from(uniqueEdgesMap.values());
+
   // 8. Run graph validation checks (parser/graph-build diagnostics are folded in as warnings)
-  const validation = validateGraph(nodes, edges, diagnostics);
+  const validation = validateGraph(nodes, uniqueEdges, diagnostics);
 
   return {
     version: "1.1.0",
@@ -170,7 +210,7 @@ export function buildKnowledgeGraph(files, project) {
       reactVersion: "19.0.0",
     },
     nodes,
-    edges,
+    edges: uniqueEdges,
     validation,
     files: files.map((f) => f.path),
     rawFiles: files,
@@ -216,6 +256,8 @@ function buildNodesForFile(file, nodes, edges) {
           hooks: comp.hooks,
           contexts: comp.contexts,
           apiCalls: comp.apiCalls,
+          reduxSlices: comp.reduxSlices || [],
+          dispatchedActions: comp.dispatchedActions || [],
           children: comp.children,
           loc: comp.loc,
           line: comp.line,
@@ -231,6 +273,61 @@ function buildNodesForFile(file, nodes, edges) {
       createEdge({
         type: "DEPENDENCY",
         source: `component:${file.path}:${comp.name}`,
+        target: `file:${file.path}`,
+        metadata: { reason: "declared_in" },
+      })
+    );
+  });
+
+  (summary.functions || []).forEach((fn) => {
+    const fnId = `function:${file.path}:${fn.name}`;
+    nodes.push(
+      createNode({
+        id: fnId,
+        kind: "function",
+        name: fn.name,
+        file: file.path,
+        metadata: {
+          line: fn.line,
+          loc: fn.loc,
+          isExported: !!fn.isExported,
+          isReferencedInFile: !!fn.isReferencedInFile,
+          calledIdentifiers: fn.calledIdentifiers || [],
+        },
+      })
+    );
+
+    edges.push(
+      createEdge({
+        type: "DEPENDENCY",
+        source: fnId,
+        target: `file:${file.path}`,
+        metadata: { reason: "declared_in" },
+      })
+    );
+  });
+
+  (summary.variables || []).forEach((v) => {
+    const vId = `variable:${file.path}:${v.name}`;
+    nodes.push(
+      createNode({
+        id: vId,
+        kind: "variable",
+        name: v.name,
+        file: file.path,
+        metadata: {
+          line: v.line,
+          loc: v.loc,
+          isExported: !!v.isExported,
+          isReferencedInFile: !!v.isReferencedInFile,
+        },
+      })
+    );
+
+    edges.push(
+      createEdge({
+        type: "DEPENDENCY",
+        source: vId,
         target: `file:${file.path}`,
         metadata: { reason: "declared_in" },
       })
@@ -284,6 +381,34 @@ function buildNodesForFile(file, nodes, edges) {
       );
     }
   });
+
+  const isDataFile =
+    /(constants?|data|configs?|mockData|schemas?|fixtures?)\.[jt]sx?$/i.test(file.path) ||
+    /(^|\/)(constants?|data|configs?|mockData|schemas?|fixtures?)\//i.test(file.path);
+  if (isDataFile) {
+    const dataId = `data:${file.path}`;
+    nodes.push(
+      createNode({
+        id: dataId,
+        kind: "data",
+        subtype: "module",
+        name: file.name.replace(/\.[jt]sx?$/i, ""),
+        file: file.path,
+        metadata: {
+          path: file.path,
+        },
+      })
+    );
+
+    edges.push(
+      createEdge({
+        type: "DEPENDENCY",
+        source: dataId,
+        target: `file:${file.path}`,
+        metadata: { reason: "declared_in" },
+      })
+    );
+  }
 }
 
 function deriveComponentSubtype(filePath, comp) {
@@ -324,13 +449,31 @@ function resolveComponentEdges(parentCompNode, ctx) {
 
   const isAuth = /login|signup|auth/.test(parentCompNode.name.toLowerCase());
 
-  const usesRedux = parentCompNode.metadata.hooks.some((h) => h.includes("Selector") || h.includes("dispatch") || h.includes("Dispatch"));
-  if (usesRedux) {
+  const explicitSlices = parentCompNode.metadata.reduxSlices || [];
+  if (explicitSlices.length > 0) {
     const matchedSlices = nodes.filter((n) => n.kind === "state" && n.subtype === "slice");
-    matchedSlices.forEach((sl) => {
-      const isAuthSlice = sl.name.toLowerCase().includes("auth");
-      if ((isAuth && isAuthSlice) || (!isAuth && !isAuthSlice)) {
-        edges.push(createEdge({ type: "STATE_CONSUMER", source: sl.id, target: parentCompNode.id }));
+    explicitSlices.forEach((sliceName) => {
+      const targetSlice = matchedSlices.find((sl) => sl.name.toLowerCase().includes(sliceName.toLowerCase()));
+      if (targetSlice) {
+        edges.push(createEdge({ type: "STATE_CONSUMER", source: targetSlice.id, target: parentCompNode.id, metadata: { confidence: 1.0, method: "ast_selector" } }));
+      }
+    });
+  }
+
+  const dispatchedActions = parentCompNode.metadata.dispatchedActions || [];
+  if (dispatchedActions.length > 0) {
+    const matchedSlices = nodes.filter((n) => n.kind === "state" && n.subtype === "slice");
+    dispatchedActions.forEach((item) => {
+      const targetSlice = matchedSlices.find((sl) => sl.name.toLowerCase().includes(item.sliceName.toLowerCase()));
+      if (targetSlice) {
+        edges.push(
+          createEdge({
+            type: "DISPATCHES_ACTION",
+            source: parentCompNode.id,
+            target: targetSlice.id,
+            metadata: { confidence: 1.0, method: "dispatch_action", actionName: item.actionName },
+          })
+        );
       }
     });
   }
@@ -347,6 +490,36 @@ function resolveComponentEdges(parentCompNode, ctx) {
       }
     });
   }
+
+  // Resolve USES_DATA relationships for imported project-owned data modules
+  const fileImports = parentFileObj.summary.imports || [];
+  fileImports.forEach((imp) => {
+    if (!imp || !imp.source) return;
+    const source = imp.source;
+    if (!source.startsWith(".") && !source.startsWith("@/") && !source.startsWith("/")) return;
+
+    const resolvedFile = resolveModulePath(parentCompNode.file, source, ctx.fileIndex, ctx.aliasMap);
+    if (resolvedFile) {
+      const isDataTarget =
+        /(constants?|data|configs?|mockData|schemas?|fixtures?)\.[jt]sx?$/i.test(resolvedFile) ||
+        /(^|\/)(constants?|data|configs?|mockData|schemas?|fixtures?)\//i.test(resolvedFile);
+
+      if (isDataTarget) {
+        const dataNodeId = `data:${resolvedFile}`;
+        const targetDataNode = nodes.find((n) => n.id === dataNodeId);
+        if (targetDataNode) {
+          edges.push(
+            createEdge({
+              type: "USES_DATA",
+              source: parentCompNode.id,
+              target: targetDataNode.id,
+              metadata: { confidence: 1.0, method: "module_import" },
+            })
+          );
+        }
+      }
+    }
+  });
 }
 
 function resolveChildComponent(childName, parentCompNode, parentFileObj, fileMap, fileIndex, aliasMap, nodes) {

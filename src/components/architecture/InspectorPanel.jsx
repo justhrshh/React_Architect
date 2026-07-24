@@ -107,11 +107,32 @@ export default function InspectorPanel({
   onHighlightDependencies,
   onHighlightParents,
   onHighlightChildren,
-  onClose
+  onClose,
+  targetLine = null,
 }) {
   const [toast, setToast] = useState(null);
   const [copied, setCopied] = useState(false);
   const [isAIModalOpen, setIsAIModalOpen] = useState(false);
+
+  const fileContent = useMemo(() => {
+    if (!knowledgeGraph || !node || !node.file) return null;
+    const rawFiles = knowledgeGraph.rawFiles || [];
+    const match = rawFiles.find(rf => rf.path === node.file || rf.name === node.file || rf.path?.endsWith(node.file));
+    return match ? match.content : null;
+  }, [knowledgeGraph, node]);
+
+  const activeHighlightLine = targetLine || node?.metadata?.line || 1;
+  const sourceCodeRef = useRef(null);
+  const highlightedLineRef = useRef(null);
+
+  useEffect(() => {
+    if (activeHighlightLine && highlightedLineRef.current) {
+      const timer = setTimeout(() => {
+        highlightedLineRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
+      }, 180);
+      return () => clearTimeout(timer);
+    }
+  }, [activeHighlightLine, node?.id, fileContent]);
 
   const navigate = useNavigate();
   const COLORS = {
@@ -494,7 +515,7 @@ Explain the architecture like a senior engineer during onboarding.`;
     );
   }
 
-  const cfg = TYPE_CFG[node.subtype] || TYPE_CFG.component;
+  const cfg = TYPE_CFG[node.kind] || TYPE_CFG[node.subtype] || TYPE_CFG.component;
   const propsList = node.metadata?.props || [];
   const hooksList = node.metadata?.hooks || [];
   const importsList = node.metadata?.imports || [];
@@ -640,6 +661,73 @@ Explain the architecture like a senior engineer during onboarding.`;
             {node.subtype === "endpoint" && node.metadata?.componentName && (
               <InfoRow label="Component" value={node.metadata.componentName} />
             )}
+          </>
+        )}
+
+        {/* SOURCE CODE VIEWER WITH LINE HIGHLIGHTING */}
+        {fileContent && (
+          <>
+            <SectionHeader title="Source Code Definition" />
+            <div style={{ padding: "8px 20px 16px", borderBottom: "1px solid #F1F5F9" }}>
+              <div
+                ref={sourceCodeRef}
+                style={{
+                  background: "#0F172A",
+                  borderRadius: 12,
+                  padding: "10px 0",
+                  maxHeight: 260,
+                  overflowY: "auto",
+                  fontFamily: MONO,
+                  fontSize: 11,
+                  lineHeight: 1.6,
+                  color: "#E2E8F0",
+                  border: "1px solid #1E293B",
+                  boxShadow: "inset 0 2px 6px rgba(0,0,0,0.3)",
+                  scrollbarWidth: "thin",
+                }}
+              >
+                {fileContent.split("\n").map((lineText, idx) => {
+                  const lineNum = idx + 1;
+                  const isHighlighted = lineNum === activeHighlightLine;
+                  return (
+                    <div
+                      key={lineNum}
+                      ref={isHighlighted ? highlightedLineRef : null}
+                      style={{
+                        display: "flex",
+                        padding: "2px 14px",
+                        background: isHighlighted ? "rgba(99, 102, 241, 0.25)" : "transparent",
+                        borderLeft: isHighlighted ? "4px solid #6366F1" : "4px solid transparent",
+                        transition: "all 0.2s ease",
+                      }}
+                    >
+                      <span style={{
+                        width: 32,
+                        flexShrink: 0,
+                        color: isHighlighted ? "#818CF8" : "#475569",
+                        fontWeight: isHighlighted ? 700 : 400,
+                        userSelect: "none",
+                      }}>
+                        {lineNum}
+                      </span>
+                      <span style={{
+                        color: isHighlighted ? "#FFFFFF" : "#CBD5E1",
+                        fontWeight: isHighlighted ? 600 : 400,
+                        whiteSpace: "pre-wrap",
+                        wordBreak: "break-all",
+                      }}>
+                        {lineText || " "}
+                      </span>
+                    </div>
+                  );
+                })}
+              </div>
+              {activeHighlightLine > 0 && (
+                <div style={{ display: "flex", alignItems: "center", gap: 6, marginTop: 8, fontSize: 10.5, color: "#6366F1", fontWeight: 600, fontFamily: INTER }}>
+                  <span>📍 Highlighted at Line {activeHighlightLine} in {node.file?.split("/").pop()}</span>
+                </div>
+              )}
+            </div>
           </>
         )}
         {propsList.length > 0 && (

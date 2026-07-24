@@ -1,6 +1,10 @@
+import { useState, useCallback, useMemo } from 'react';
+import { useSelector, useDispatch } from 'react-redux';
 import { motion } from 'framer-motion';
-import { ChevronRight, Folder, GitBranch, RefreshCw } from 'lucide-react';
+import { ChevronRight, Folder, GitBranch, RefreshCw, Check } from 'lucide-react';
 import { INTER } from './constants';
+import { selectSelectedProject } from '@/redux/slices/hubSlice';
+import { startProjectAnalysis } from '@/services/analysisService';
 
 const MONO = "'JetBrains Mono', 'Fira Code', monospace";
 
@@ -15,6 +19,52 @@ export default function TopBar({
   rightOffset = 350,
   gitMeta = null,
 }) {
+  const dispatch = useDispatch();
+  const selectedProject = useSelector(selectSelectedProject);
+  const analysisStatus  = useSelector((state) => state.analysis.status);
+  const lastAnalyzedAt  = useSelector((state) => state.analysis.lastAnalyzedAt);
+
+  const [isReanalyzing, setIsReanalyzing] = useState(false);
+  const [justCompleted, setJustCompleted] = useState(false);
+
+  const isAnalyzing = isReanalyzing || analysisStatus === 'analyzing';
+
+  const handleReanalyze = useCallback(async () => {
+    if (isAnalyzing || !selectedProject) return;
+
+    setIsReanalyzing(true);
+    setJustCompleted(false);
+
+    // Yield to main thread so React can paint the 'Analyzing...' button state immediately
+    await new Promise((resolve) => setTimeout(resolve, 50));
+
+    try {
+      await dispatch(
+        startProjectAnalysis({
+          projectId: selectedProject.id,
+          project: selectedProject,
+        })
+      ).unwrap();
+
+      setIsReanalyzing(false);
+      setJustCompleted(true);
+      setTimeout(() => {
+        setJustCompleted(false);
+      }, 2500);
+    } catch (err) {
+      console.error('Reanalysis failed:', err);
+      setIsReanalyzing(false);
+    }
+  }, [isAnalyzing, selectedProject, dispatch]);
+
+  const formattedTime = useMemo(() => {
+    const timestamp = lastAnalyzedAt || Date.now();
+    return new Date(timestamp).toLocaleTimeString([], {
+      hour: '2-digit',
+      minute: '2-digit',
+    });
+  }, [lastAnalyzedAt]);
+
   const getHealthStatus = (score) => {
     if (score >= 85) return { text: 'Excellent', color: '#10B981', bg: '#ECFDF5' };
     if (score >= 70) return { text: 'Good', color: '#3B82F6', bg: '#EFF6FF' };
@@ -94,8 +144,8 @@ export default function TopBar({
         </span>
       </div>
 
-      {/* ── Right: Git chip + Health ── */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+      {/* ── Right: Git chip + Reanalyze + Health ── */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
 
         {/* Git status chip — only for git projects */}
         {isGitProject && (
@@ -135,6 +185,59 @@ export default function TopBar({
             )}
           </div>
         )}
+
+        {/* Timestamp */}
+        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', lineHeight: 1.15 }}>
+          <span style={{ fontSize: 8.5, color: '#94A3B8', fontFamily: INTER, fontWeight: 600, letterSpacing: '0.04em', textTransform: 'uppercase' }}>
+            Last Analysis
+          </span>
+          <span style={{ fontSize: 10, color: '#475569', fontFamily: MONO, fontWeight: 600 }}>
+            {formattedTime}
+          </span>
+        </div>
+
+        {/* Reanalyze Button */}
+        <button
+          onClick={handleReanalyze}
+          disabled={isAnalyzing}
+          title="Re-scan source files and rebuild Knowledge Graph"
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: 5,
+            padding: '5px 11px',
+            borderRadius: 99,
+            border: `1px solid ${justCompleted ? '#A7F3D0' : isAnalyzing ? '#C7D2FE' : 'rgba(226,232,240,0.9)'}`,
+            background: justCompleted ? '#ECFDF5' : isAnalyzing ? '#EEF2FF' : '#FFFFFF',
+            color: justCompleted ? '#059669' : isAnalyzing ? '#4338CA' : '#334155',
+            fontSize: 10.5,
+            fontWeight: 600,
+            fontFamily: INTER,
+            cursor: isAnalyzing ? 'not-allowed' : 'pointer',
+            boxShadow: '0 1px 3px rgba(15,23,42,0.04)',
+            transition: 'all 0.2s ease',
+          }}
+        >
+          {justCompleted ? (
+            <>
+              <Check size={11} color="#059669" />
+              <span>Updated just now</span>
+            </>
+          ) : isAnalyzing ? (
+            <>
+              <RefreshCw size={11} className="animate-spin" color="#4338CA" />
+              <span>Analyzing...</span>
+            </>
+          ) : (
+            <>
+              <RefreshCw size={11} color="#64748B" />
+              <span>Reanalyze</span>
+            </>
+          )}
+        </button>
+
+        {/* Vertical Separator */}
+        <div style={{ width: 1, height: 16, background: '#E2E8F0', margin: '0 2px' }} />
 
         {/* Project Health badge */}
         <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>

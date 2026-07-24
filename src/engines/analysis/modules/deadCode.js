@@ -17,10 +17,17 @@
 
 const CONFIG = {
   builtInHooks: new Set([
+    // React Core
     "useState", "useEffect", "useLayoutEffect", "useRef", "useMemo",
     "useCallback", "useContext", "useReducer", "useImperativeHandle",
     "useDebugValue", "useId", "useTransition", "useDeferredValue",
     "useSyncExternalStore", "useInsertionEffect",
+    // Framer Motion / Animation / 3D Libraries
+    "useSpring", "useFrame", "useTransform", "useScroll", "useInView",
+    "useAnimation", "useMotionValue", "useTime", "useVelocity",
+    // React Router / Redux / Query / Form Libraries
+    "useNavigate", "useLocation", "useParams", "useSearchParams", "useMatch", "useRoutes",
+    "useDispatch", "useSelector", "useStore", "useQuery", "useMutation", "useForm"
   ]),
 
   entryFilePattern: /(^|\/)(main|index|App|_app|_document)\.[jt]sx?$/i,
@@ -420,58 +427,64 @@ function analyzeComponents(ctx) {
 function analyzeHooks(ctx) {
   const findings = [];
 
-  const hookDeclaredIn = new Map();
-  const hookReferenceCount = new Map();
-  const hookReferencingFiles = new Map();
+  // Find all explicitly declared custom hook function nodes in the project
+  const declaredHookNodes = ctx.nodes.filter(n =>
+    (n.kind === "hook" || (n.kind === "function" && /^use[A-Z0-9]/.test(n.name))) &&
+    !CONFIG.builtInHooks.has(n.name)
+  );
 
+  const hookReferencingFiles = new Map();
   for (const c of ctx.components) {
     const hooks = c.metadata?.hooks || [];
     for (const hook of hooks) {
-      if (typeof hook !== "string") continue;
-      hookReferenceCount.set(hook, (hookReferenceCount.get(hook) || 0) + 1);
+      if (typeof hook !== "string" || CONFIG.builtInHooks.has(hook)) continue;
       if (!hookReferencingFiles.has(hook)) hookReferencingFiles.set(hook, new Set());
       hookReferencingFiles.get(hook).add(c.file);
-      if (!hookDeclaredIn.has(hook) && c.metadata?.declaresHook === hook) {
-        hookDeclaredIn.set(hook, c.file);
-      }
-      if (!hookDeclaredIn.has(hook)) hookDeclaredIn.set(hook, c.file);
     }
   }
 
-  for (const [hook, totalCount] of hookReferenceCount.entries()) {
-    if (CONFIG.builtInHooks.has(hook) || !/^use[A-Z]/.test(hook)) continue;
+  for (const hookNode of declaredHookNodes) {
+    const hook = hookNode.name;
+    const declaringFile = hookNode.file;
+
+    if (CONFIG.builtInHooks.has(hook)) continue;
 
     const referencingFiles = hookReferencingFiles.get(hook) || new Set();
-    const usedOutsideDeclaringFile = referencingFiles.size > 1;
+    const usedOutsideDeclaringFile = Array.from(referencingFiles).some(f => f !== declaringFile);
 
-    const declaringFile = hookDeclaredIn.get(hook) || "src/hooks";
-    const pseudoNode = { id: `hook::${hook}`, name: hook, file: declaringFile, subtype: "hook" };
-    const input = {
-      reachable: usedOutsideDeclaringFile,
-      dynamicRisk: false,
-      directIncoming: usedOutsideDeclaringFile ? referencingFiles.size - 1 : 0,
-      hookOrRenderIncoming: usedOutsideDeclaringFile ? referencingFiles.size - 1 : 0,
-      reExportedByBarrel: classifyFilePath(declaringFile).isBarrel,
-      nameHasDynamicRisk: hasDynamicNameRisk(hook),
-      nameAppearsAsStringLiteral: ctx.stringLiteralSet.has(hook),
-      onlyConsumedByTestsOrStories: false,
-      isRootLike: false,
-    };
+    const incomingCalls = countIncoming(ctx.reverseByType.CALLS, hookNode.id);
+    const incomingImports = countIncoming(ctx.reverseByType.IMPORTS, hookNode.id);
+    const meta = hookNode.metadata || {};
+    const isUsed = usedOutsideDeclaringFile || incomingCalls > 0 || incomingImports > 0 || meta.isExported;
 
-    const evidence = evaluateEvidence(input);
-    const classification = classifyFromScore(evidence);
-    if (classification.safety === "safe" || classification.safety === "review") {
-      findings.push(buildFinding({
-        id: `hook-${hook}`,
-        name: `${hook}()`,
-        category: "unusedHooks",
-        categoryLabel: "Unused Custom Hook",
-        file: declaringFile,
-        line: 1,
-        references: input.directIncoming,
-        recommendation: "No external component or hook consumes this outside its own declaration. Confirm it isn't exported for public/library use before removing.",
-        nodeId: pseudoNode.id,
-      }, evidence, classification));
+    if (!isUsed) {
+      const input = {
+        reachable: false,
+        dynamicRisk: false,
+        directIncoming: 0,
+        hookOrRenderIncoming: 0,
+        reExportedByBarrel: classifyFilePath(declaringFile).isBarrel,
+        nameHasDynamicRisk: hasDynamicNameRisk(hook),
+        nameAppearsAsStringLiteral: ctx.stringLiteralSet.has(hook),
+        onlyConsumedByTestsOrStories: false,
+        isRootLike: false,
+      };
+
+      const evidence = evaluateEvidence(input);
+      const classification = classifyFromScore(evidence);
+      if (classification.safety === "safe" || classification.safety === "review") {
+        findings.push(buildFinding({
+          id: `hook-${hookNode.id}`,
+          name: `${hook}()`,
+          category: "unusedHooks",
+          categoryLabel: "Unused Custom Hook",
+          file: declaringFile,
+          line: meta.line || 1,
+          references: 0,
+          recommendation: "Custom hook is declared in project source files but never invoked by any component or exported for external use.",
+          nodeId: hookNode.id,
+        }, evidence, classification));
+      }
     }
   }
 
@@ -480,6 +493,45 @@ function analyzeHooks(ctx) {
 
 function analyzeFunctionsAndExports(ctx) {
   const findings = [];
+  const processedFnIds = new Set();
+
+  const fnNodes = ctx.nodes.filter(n => n.kind === "function");
+  for (const fnNode of fnNodes) {
+    const meta = fnNode.metadata || {};
+    const fnName = fnNode.name;
+    processedFnIds.add(fnNode.id);
+
+    const incomingCalls = countIncoming(ctx.reverseByType.CALLS, fnNode.id);
+    const isReferenced = meta.isReferencedInFile || incomingCalls > 0 || meta.isExported;
+
+    if (!isReferenced) {
+      const input = {
+        reachable: false,
+        dynamicRisk: false,
+        directIncoming: 0,
+        hookOrRenderIncoming: 0,
+        reExportedByBarrel: false,
+        nameHasDynamicRisk: hasDynamicNameRisk(fnName),
+        nameAppearsAsStringLiteral: false,
+        onlyConsumedByTestsOrStories: false,
+        isRootLike: false,
+      };
+
+      const evidence = evaluateEvidence(input);
+      const classification = classifyFromScore(evidence);
+      findings.push(buildFinding({
+        id: `fn-${fnNode.id}`,
+        name: `${fnName}()`,
+        category: "unusedFunctions",
+        categoryLabel: "Unused Function",
+        file: fnNode.file,
+        line: meta.line || 1,
+        references: 0,
+        recommendation: "Function is declared but never referenced, called, or exported anywhere in the project.",
+        nodeId: fnNode.id,
+      }, evidence, classification));
+    }
+  }
 
   for (const c of ctx.components) {
     const meta = c.metadata || {};
@@ -590,8 +642,14 @@ function analyzeFiles(ctx) {
 
     const isDocFile = f.file?.endsWith(".md") || pathInfo.isMarkdown;
 
-    const classification = classifyFromScore(evidence);
-    if (classification.safety === "safe" || classification.safety === "review") {
+    const classification = isDocFile ? {
+      classification: "Documentation Artifact",
+      safety: "neutral",
+      safetyBadge: "📄 Project Document",
+      confidence: 100,
+    } : classifyFromScore(evidence);
+
+    if (isDocFile || classification.safety === "safe" || classification.safety === "review") {
       findings.push(buildFinding({
         id: `file-${f.id}`,
         name: f.file?.split("/").pop() || f.name,
@@ -601,7 +659,7 @@ function analyzeFiles(ctx) {
         line: 1,
         references: input.directIncoming,
         recommendation: isDocFile
-          ? "Documentation Markdown file (.md) — kept for project reference. Review if obsolete before removing."
+          ? "Documentation Markdown file (.md) — kept for project reference. Does not affect code hygiene score."
           : classification.classification === "Safe to Remove"
           ? "File is unreachable from every known entry point, route, and provider tree, and carries no dynamic-loading markers."
           : "File appears disconnected from the import graph but carries some risk signal — review before deleting.",
@@ -691,6 +749,41 @@ function analyzeOrphanModules(ctx) {
 
 function analyzeVariablesAndImports(ctx) {
   const findings = [];
+
+  const varNodes = ctx.nodes.filter(n => n.kind === "variable");
+  for (const vNode of varNodes) {
+    const meta = vNode.metadata || {};
+    const varName = vNode.name;
+    const isReferenced = meta.isReferencedInFile || meta.isExported;
+
+    if (!isReferenced) {
+      const input = {
+        reachable: false,
+        dynamicRisk: false,
+        directIncoming: 0,
+        hookOrRenderIncoming: 0,
+        reExportedByBarrel: false,
+        nameHasDynamicRisk: hasDynamicNameRisk(varName),
+        nameAppearsAsStringLiteral: false,
+        onlyConsumedByTestsOrStories: false,
+        isRootLike: false,
+      };
+
+      const evidence = evaluateEvidence(input);
+      const classification = classifyFromScore(evidence);
+      findings.push(buildFinding({
+        id: `var-${vNode.id}`,
+        name: varName,
+        category: "unusedVariables",
+        categoryLabel: "Unused Variable",
+        file: vNode.file,
+        line: meta.line || 1,
+        references: 0,
+        recommendation: "Variable is declared but never read, passed, or exported anywhere in the project.",
+        nodeId: vNode.id,
+      }, evidence, classification));
+    }
+  }
 
   for (const c of ctx.components) {
     const meta = c.metadata || {};
@@ -829,9 +922,9 @@ export function analyze(graph) {
     ...analyzeDuplicateUtilities(ctx),
   ];
 
-  const safeToRemoveCount = findings.filter(f => f.safety === "safe").length;
-  const reviewRequiredCount = findings.filter(f => f.safety === "review").length;
-  const uncertainCount = findings.filter(f => f.safety === "uncertain" || f.safety === "runtime-managed").length;
+  const safeToRemoveCount = findings.filter(f => f.category !== "documentationFiles" && f.safety === "safe").length;
+  const reviewRequiredCount = findings.filter(f => f.category !== "documentationFiles" && f.safety === "review").length;
+  const uncertainCount = findings.filter(f => f.category !== "documentationFiles" && (f.safety === "uncertain" || f.safety === "runtime-managed")).length;
 
   const hygieneScore = Math.max(
     0,
