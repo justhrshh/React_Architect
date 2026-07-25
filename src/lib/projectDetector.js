@@ -194,7 +194,47 @@ export function detectFromPackageJson(pkg) {
 // Internal helpers
 // ---------------------------------------------------------------------------
 
+/**
+ * Derives project metadata from a flat array of { path, content } file objects.
+ * Used by the Git import pipeline — no File System Access API or JSZip needed.
+ *
+ * Strategy for monorepos (e.g. cafe_website with frontend/ + backend/):
+ *   1. Prefer frontend/package.json (or any path containing /frontend/)
+ *   2. Then prefer the shallowest package.json by path depth
+ *   3. Fall back to the repo name if nothing useful is found
+ *
+ * @param {Array<{path: string, content: string}>} files
+ * @param {string} [repoName] - fallback display name
+ * @returns {DetectedProject}
+ */
+export function detectFromFiles(files, repoName = 'Unknown Project') {
+  const pkgFiles = files.filter(f => f.path.replace(/\\/g, '/').endsWith('package.json'));
+
+  if (pkgFiles.length === 0) {
+    return fallback(repoName);
+  }
+
+  // Prefer frontend package.json for monorepos (contains React, Vite, Tailwind etc.)
+  const frontendPkg = pkgFiles.find(f => {
+    const norm = f.path.replace(/\\/g, '/').toLowerCase();
+    return norm.includes('/frontend/') || norm.startsWith('frontend/');
+  });
+
+  // Otherwise take the shallowest package.json (fewest path segments)
+  const shallowest = pkgFiles.reduce((a, b) =>
+    a.path.split('/').length <= b.path.split('/').length ? a : b
+  );
+
+  const chosen = frontendPkg || shallowest;
+
+  let pkg = {};
+  try { pkg = JSON.parse(chosen.content || '{}'); } catch { /* malformed JSON — use empty */ }
+
+  return detectFromPackageJson(pkg);
+}
+
 /** Minimal metadata object when no package.json is available */
+
 function fallback(rawName) {
   return {
     name:           formatName(rawName) || "Unnamed Project",

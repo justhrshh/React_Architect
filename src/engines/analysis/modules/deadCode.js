@@ -30,7 +30,7 @@ const CONFIG = {
     "useDispatch", "useSelector", "useStore", "useQuery", "useMutation", "useForm"
   ]),
 
-  entryFilePattern: /(^|\/)(main|index|App|_app|_document)\.[jt]sx?$/i,
+  entryFilePattern: /(^|\/)(main|index|App|_app|_document|server|app|seed)\.[jt]sx?$/i,
   barrelFilePattern: /(^|\/)index\.[jt]sx?$/i,
   testFilePattern: /\.(test|spec)\.[jt]sx?$/i,
   storyFilePattern: /\.stories\.[jt]sx?$/i,
@@ -40,7 +40,7 @@ const CONFIG = {
 
   dynamicNameHintPattern: /(lazy|dynamic|register|registry|factory|loader|loadable|plugin|provider)/i,
 
-  rootLikeSubtypes: new Set(["page", "layout", "provider", "context", "root", "entry", "route"]),
+  rootLikeSubtypes: new Set(["page", "layout", "provider", "context", "root", "entry", "route", "controller", "service", "model", "database", "middleware"]),
 
   structuralEdgeTypes: [
     "IMPORTS", "RENDERS", "USES_HOOK", "USES_CONTEXT", "STATE_CONSUMER",

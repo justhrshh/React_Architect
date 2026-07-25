@@ -15,6 +15,7 @@ import {
   inferCommitType,
 } from '@/services/gitService';
 import { getSnapshots } from '@/lib/analysis/snapshotStore';
+import { saveGitSourceFiles } from '@/lib/analysis/projectStore';
 import { computeArchDiff } from '@/engines/diff/archDiffEngine';
 
 // ── Fonts ──────────────────────────────────────────────────────────────────
@@ -297,6 +298,12 @@ export default function HistoryStudio() {
       if (!window.projectGitFiles) window.projectGitFiles = {};
       window.projectGitFiles[project.id] = files;
 
+      // Persist checked-out files to IndexedDB so this commit state
+      // survives page refresh without a re-fetch from GitHub.
+      await saveGitSourceFiles(project.id, files).catch((err) =>
+        console.warn('[HistoryStudio] Failed to persist commit files to IndexedDB:', err)
+      );
+
       // Build KG & run analysis
       const { buildKnowledgeGraph } = await import('@/engines/graph/buildKnowledgeGraph');
       const { layoutGraphNodes }   = await import('@/engines/layout/layoutEngine');
@@ -316,7 +323,7 @@ export default function HistoryStudio() {
         commitHash:      shortHash,
         knowledgeGraph:  kg,
         analysisResults: analysisResults,
-        healthScore:     analysisResults?.healthScore || 85,
+        healthScore:     analysisResults?.architectureHealth?.score ?? 85,
         dispatch,
       });
 

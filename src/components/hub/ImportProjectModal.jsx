@@ -5,7 +5,7 @@ import {
   detectFromDirectoryHandle,
   detectFromZip,
 } from "@/lib/projectDetector";
-import { saveProjectHandle } from "@/lib/analysis/projectStore";
+import { saveProjectHandle, saveGitSourceFiles } from "@/lib/analysis/projectStore";
 import {
   detectProvider,
   parseRepoUrl,
@@ -335,7 +335,7 @@ const ImportProjectModal = ({ onClose }) => {
       const { detectFromFiles } = await import("@/lib/projectDetector");
       let projectMeta;
       try {
-        projectMeta = await detectFromFiles(files);
+        projectMeta = await detectFromFiles(files, repo);
       } catch {
         // Fallback detection from file list
         const hasTs    = files.some(f => f.path.endsWith('.tsx') || f.path.endsWith('.ts'));
@@ -365,9 +365,15 @@ const ImportProjectModal = ({ onClose }) => {
       // 4. Build project record
       const projectId = crypto.randomUUID();
 
-      // Cache files in-memory for analysisService to pick up
+      // Cache files in-memory for same-session access (hot path)
       if (!window.projectGitFiles) window.projectGitFiles = {};
       window.projectGitFiles[projectId] = files;
+
+      // Persist files to IndexedDB so they survive page refresh.
+      // Lock files are already excluded by isSourceFile() before this point.
+      await saveGitSourceFiles(projectId, files).catch((err) =>
+        console.warn('[ImportProjectModal] Failed to persist git files to IndexedDB:', err)
+      );
 
       const projectRecord = {
         id:              projectId,

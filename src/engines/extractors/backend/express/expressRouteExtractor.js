@@ -59,24 +59,35 @@ export function extractExpressRoutes(ast, context = {}) {
         });
       }
 
-      // 3. Router mounting: app.use('/api/v1', userRouter) or app.use(userRouter)
+      // 3. Router mounting: app.use('/api/v1', userRouter) or app.use('/api', router)
       if (propName === "use") {
         const firstArg = node.arguments[0];
         const secondArg = node.arguments[1];
 
         const mountPath = extractStringOrTemplate(firstArg);
-        const routerArg = secondArg || firstArg;
-        const routerName = routerArg ? (routerArg.name || (routerArg.id && routerArg.id.name) || null) : null;
-
-        if (routerName && /router|api|routes/i.test(routerName)) {
+        if (mountPath && secondArg) {
+          const routerName = secondArg.name || (secondArg.id && secondArg.id.name) || (secondArg.callee ? (secondArg.callee.name || "router") : "router");
           routes.push({
             entityType: "mount",
-            prefix: mountPath || "/",
+            prefix: mountPath,
             routerName,
             line,
             owner: objectName,
             file: context.filePath,
           });
+        } else if (!mountPath && firstArg) {
+          // Mount without prefix: app.use(userRouter)
+          const routerName = firstArg.name || (firstArg.id && firstArg.id.name) || null;
+          if (routerName && /router|routes/i.test(routerName)) {
+            routes.push({
+              entityType: "mount",
+              prefix: "/",
+              routerName,
+              line,
+              owner: objectName,
+              file: context.filePath,
+            });
+          }
         }
       }
     }

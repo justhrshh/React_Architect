@@ -62,7 +62,10 @@ export function buildKnowledgeGraph(files, project) {
 
   buildRouteGraph(parsedFiles, graphFiles, nodes, edges, project, { fileMap, fileIndex, aliasMap, componentMap });
 
-  seedFallbackGraphIfEmpty(nodes, edges);
+  // seedFallbackGraphIfEmpty() was removed here.
+  // Synthetic fallback nodes are now produced exclusively by DemoSourceProvider
+  // in sourceProviders.js, making them unreachable for real imported projects.
+
 
   const uniqueEdgesMap = new Map();
   edges.forEach((e) => {

@@ -9,7 +9,8 @@
 const DB_NAME = "ReactArchitectDB";
 const STORE_NAME = "project_handles";
 const SNAPSHOTS_STORE = "architecture_snapshots";
-const DB_VERSION = 2;
+const GIT_FILES_STORE = "git_source_files";
+const DB_VERSION = 3;
 
 /**
  * Initializes the IndexedDB database.
@@ -29,6 +30,9 @@ function getDB() {
         store.createIndex('by_project', 'projectId', { unique: false });
         store.createIndex('by_branch',  'branch',    { unique: false });
         store.createIndex('by_project_branch', ['projectId', 'branch'], { unique: false });
+      }
+      if (!db.objectStoreNames.contains(GIT_FILES_STORE)) {
+        db.createObjectStore(GIT_FILES_STORE);
       }
     };
 
@@ -96,3 +100,67 @@ export async function deleteProjectHandle(projectId) {
     request.onerror = () => reject(request.error);
   });
 }
+
+/**
+ * Persists downloaded Git source files ({path, content}[]) to IndexedDB.
+ * This makes Git-imported projects survive page refresh without a re-fetch.
+ *
+ * Lock files (package-lock.json, yarn.lock, etc.) are already excluded before
+ * this call by isSourceFile() in gitConfig.js.
+ *
+ * @param {string} projectId
+ * @param {Array<{path: string, content: string}>} files
+ * @returns {Promise<void>}
+ */
+export async function saveGitSourceFiles(projectId, files) {
+  const db = await getDB();
+  return new Promise((resolve, reject) => {
+    const transaction = db.transaction(GIT_FILES_STORE, "readwrite");
+    const store = transaction.objectStore(GIT_FILES_STORE);
+    // Serialise as JSON string to ensure structured-clone compatibility
+    const request = store.put(JSON.stringify(files), projectId);
+    request.onsuccess = () => resolve();
+    request.onerror = () => reject(request.error);
+  });
+}
+
+/**
+ * Retrieves persisted Git source files for a project.
+ *
+ * @param {string} projectId
+ * @returns {Promise<Array<{path: string, content: string}>|null>}
+ */
+export async function getGitSourceFiles(projectId) {
+  const db = await getDB();
+  return new Promise((resolve, reject) => {
+    const transaction = db.transaction(GIT_FILES_STORE, "readonly");
+    const store = transaction.objectStore(GIT_FILES_STORE);
+    const request = store.get(projectId);
+    request.onsuccess = () => {
+      try {
+        resolve(request.result ? JSON.parse(request.result) : null);
+      } catch {
+        resolve(null);
+      }
+    };
+    request.onerror = () => reject(request.error);
+  });
+}
+
+/**
+ * Deletes persisted Git source files for a project (called during cascade delete).
+ *
+ * @param {string} projectId
+ * @returns {Promise<void>}
+ */
+export async function deleteGitSourceFiles(projectId) {
+  const db = await getDB();
+  return new Promise((resolve, reject) => {
+    const transaction = db.transaction(GIT_FILES_STORE, "readwrite");
+    const store = transaction.objectStore(GIT_FILES_STORE);
+    const request = store.delete(projectId);
+    request.onsuccess = () => resolve();
+    request.onerror = () => reject(request.error);
+  });
+}
+

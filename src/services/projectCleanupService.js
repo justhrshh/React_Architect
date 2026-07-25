@@ -5,7 +5,7 @@ import { resetProject } from '@/redux/slices/projectSlice';
 import { resetGitState } from '@/redux/slices/gitSlice';
 import { setAppMode } from '@/redux/slices/uiSlice';
 
-import { deleteProjectHandle } from '@/lib/analysis/projectStore';
+import { deleteProjectHandle, deleteGitSourceFiles } from '@/lib/analysis/projectStore';
 import { deleteAllSnapshots } from '@/lib/analysis/snapshotStore';
 
 /**
@@ -36,23 +36,22 @@ export async function purgeProjectData({ projectId, dispatch, navigate = null, c
       console.warn('[projectCleanup] Failed to delete IDB project handle:', err)
     );
 
-    // 3. Delete All Architecture Snapshots from IndexedDB
+    // 3. Delete persisted Git source files from IndexedDB
+    await deleteGitSourceFiles(projectId).catch((err) =>
+      console.warn('[projectCleanup] Failed to delete IDB git source files:', err)
+    );
+
+    // 4. Delete All Architecture Snapshots from IndexedDB
     await deleteAllSnapshots(projectId).catch((err) =>
       console.warn('[projectCleanup] Failed to delete IDB snapshots:', err)
     );
 
-    // 4. Clear In-Memory Caches (window object)
-    if (window.projectHandles?.[projectId]) {
-      delete window.projectHandles[projectId];
-    }
-    if (window.projectZipFiles?.[projectId]) {
-      delete window.projectZipFiles[projectId];
-    }
-    if (window.projectGitFiles?.[projectId]) {
-      delete window.projectGitFiles[projectId];
-    }
+    // 5. Clear In-Memory Session Caches (window object)
+    if (window.projectHandles?.[projectId])  delete window.projectHandles[projectId];
+    if (window.projectZipFiles?.[projectId]) delete window.projectZipFiles[projectId];
+    if (window.projectGitFiles?.[projectId]) delete window.projectGitFiles[projectId]; // session cache
 
-    // 5. If the deleted project was currently active, reset Redux states & redirect safely
+    // 6. If the deleted project was currently active, reset Redux states & redirect safely
     const isActiveProject = currentSelectedId === projectId;
 
     if (isActiveProject) {

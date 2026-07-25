@@ -26,9 +26,10 @@
  */
 
 const DB_NAME    = 'ReactArchitectDB';
-const DB_VERSION = 2; // bumped from 1 to add snapshots store
+const DB_VERSION = 3; // bumped to 3 to add git_source_files store
 const STORE_NAME = 'architecture_snapshots';
 const HANDLES_STORE = 'project_handles'; // existing store from projectStore.js
+const GIT_FILES_STORE = 'git_source_files'; // added in version 3
 const MAX_SNAPSHOTS_PER_BRANCH = 20;
 
 // ── DB init ───────────────────────────────────────────────────────────────────
@@ -55,6 +56,11 @@ function openSnapshotDB() {
         store.createIndex('by_project', 'projectId', { unique: false });
         store.createIndex('by_branch',  'branch',    { unique: false });
         store.createIndex('by_project_branch', ['projectId', 'branch'], { unique: false });
+      }
+
+      // Create git_source_files store if it doesn't exist (added in version 3)
+      if (!db.objectStoreNames.contains(GIT_FILES_STORE)) {
+        db.createObjectStore(GIT_FILES_STORE);
       }
     };
 

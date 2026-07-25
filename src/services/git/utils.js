@@ -3,16 +3,19 @@
  * Pure utility functions for file path inspection, UTF-8 base64 decoding, and commit type inference.
  */
 
-import { SUPPORTED_SOURCE_EXTENSIONS, IGNORED_DIRECTORIES } from './gitConfig';
+import { SUPPORTED_SOURCE_EXTENSIONS, IGNORED_DIRECTORIES, LOCK_FILES } from './gitConfig';
 
 export function isSourceFile(path) {
   if (!path) return false;
   const p = path.toLowerCase();
 
-  const isSupportedExt = SUPPORTED_SOURCE_EXTENSIONS.some(ext => p.endsWith(ext));
-  const isIgnoredDir  = IGNORED_DIRECTORIES.some(dir => p.includes(dir));
+  const basename = p.split('/').pop();
 
-  return isSupportedExt && !isIgnoredDir;
+  const isSupportedExt  = SUPPORTED_SOURCE_EXTENSIONS.some(ext => p.endsWith(ext));
+  const isIgnoredDir    = IGNORED_DIRECTORIES.some(dir => p.includes(dir));
+  const isLockFile      = LOCK_FILES.has(basename);
+
+  return isSupportedExt && !isIgnoredDir && !isLockFile;
 }
 
 export function decodeBase64Utf8(str) {

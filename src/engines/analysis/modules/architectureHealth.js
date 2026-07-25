@@ -85,7 +85,7 @@ const poorMaintainabilityRule = {
     });
 
     return {
-      deduction: offenders.length * 3,
+      deduction: Math.min(offenders.length * 3, 20),
       findings: offenders.map(({ component, maintainability }) => ({
         severity: "warning",
         message: `Component "${component.name}" has poor maintainability (Score: ${maintainability.score}/100) due to: ${maintainability.drivers.filter(d => d.type === "warning").map(d => d.text).join(", ")}.`,
@@ -102,7 +102,7 @@ const circularDependenciesRule = {
     const cycles = findCycles(graph.nodes, graph.edges, "RENDERS");
     const nodeMap = new Map(graph.nodes.map(n => [n.id, n]));
     return {
-      deduction: cycles.length * 5,
+      deduction: Math.min(cycles.length * 5, 25),
       findings: cycles.map(c => ({
         severity: "warning",
         message: `Circular rendering loop: "${nodeMap.get(c.source)?.name || c.source}" <-> "${nodeMap.get(c.target)?.name || c.target}".`,
@@ -118,7 +118,7 @@ const deadRoutesRule = {
   evaluate(graph, context) {
     const unusedRoutes = context.deadCode?.unusedRoutes ?? [];
     return {
-      deduction: unusedRoutes.length * 3,
+      deduction: Math.min(unusedRoutes.length * 2, 20),
       findings: unusedRoutes.map(r => ({
         severity: "warning",
         message: `Route "${r.name}" has no resolvable target component.`,
@@ -153,7 +153,7 @@ const duplicateHooksRule = {
     const duplicates = Array.from(byName.values()).filter(group => group.length > 1);
 
     return {
-      deduction: duplicates.length * 3,
+      deduction: Math.min(duplicates.length * 3, 15),
       findings: duplicates.map(group => ({
         severity: "warning",
         message: `Hook "${group[0].name}" is declared in ${group.length} different files.`,
@@ -177,7 +177,7 @@ const orphanComponentsRule = {
       return !hasRenderParent;
     });
     return {
-      deduction: Math.min(offenders.length, 10) * 1, // cap so one messy import doesn't tank the whole score
+      deduction: Math.min(offenders.length, 10), // cap so one messy import doesn't tank the whole score
       findings: offenders.map(c => ({
         severity: "suggestion",
         message: `Component "${c.name}" is not rendered by any other component in the graph.`,
@@ -193,7 +193,7 @@ const unusedComponentsRule = {
   evaluate(graph, context) {
     const unused = context.deadCode?.unusedComponents ?? [];
     return {
-      deduction: Math.min(unused.length, 15) * 1,
+      deduction: Math.min(unused.length, 15),
       findings: unused.map(c => ({
         severity: "suggestion",
         message: `Component "${c.name}" appears unused — consider removing it.`,
@@ -210,7 +210,7 @@ const excessiveNestingRule = {
     const components = getNodesByKind(graph.nodes, "component");
     const offenders = components.filter(c => (c.metadata?.children || []).length > 12);
     return {
-      deduction: offenders.length * 2,
+      deduction: Math.min(offenders.length * 2, 15),
       findings: offenders.map(c => ({
         severity: "warning",
         message: `Component "${c.name}" renders ${c.metadata.children.length} children directly — consider decomposing.`,
@@ -226,7 +226,7 @@ const brokenImportsRule = {
   evaluate(graph, context) {
     const missingTargets = (context.validation?.errors ?? []).filter(e => e.type === "MISSING_TARGET");
     return {
-      deduction: missingTargets.length * 4,
+      deduction: Math.min(missingTargets.length * 4, 25),
       findings: missingTargets.map(e => ({
         severity: "error",
         message: e.message,
@@ -254,7 +254,7 @@ const missingProvidersRule = {
       });
     });
     return {
-      deduction: offenders.length * 3,
+      deduction: Math.min(offenders.length * 3, 15),
       findings: offenders.map(({ component, ctxName }) => ({
         severity: "error",
         message: `Component "${component.name}" consumes context "${ctxName}" but no matching provider was found in the graph.`,

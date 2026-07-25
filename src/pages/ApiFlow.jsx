@@ -33,16 +33,29 @@ const MONO = "'JetBrains Mono', 'SF Mono', monospace";
 const SERIF = "'Fraunces', Georgia, serif";
 
 const TYPE_CFG = {
-  service:  { label: "API Service", color: "#111827", bg: "#F3F4F6", text: "#374151" },
-  endpoint: { label: "Endpoint",    color: "#059669", bg: "#ECFDF5", text: "#047857" },
-  consumer: { label: "Consumer",    color: "#3B82F6", bg: "#EFF6FF", text: "#1D4ED8" },
+  consumer:       { label: "Consumer UI",  color: "#3B82F6", bg: "#EFF6FF", text: "#1D4ED8" },
+  service:        { label: "API Gateway",  color: "#111827", bg: "#F3F4F6", text: "#374151" },
+  endpoint:       { label: "API Endpoint", color: "#059669", bg: "#ECFDF5", text: "#047857" },
+  route:          { label: "Express Route", color: "#D97706", bg: "#FEF3C7", text: "#B45309" },
+  middleware:     { label: "Middleware",   color: "#0284C7", bg: "#E0F2FE", text: "#0369A1" },
+  controller:     { label: "Controller",   color: "#7C3AED", bg: "#F5F3FF", text: "#6D28D9" },
+  backendService: { label: "Backend Service", color: "#DB2777", bg: "#FCE7F3", text: "#BE185D" },
+  model:          { label: "Data Model",   color: "#EA580C", bg: "#FFEDD5", text: "#C2410C" },
+  database:       { label: "Database Store", color: "#10B981", bg: "#D1FAE5", text: "#047857" },
 };
 
 // ─── Custom Node Component ────────────────────────────────────────────────────
 
 function CustomApiNode({ data }) {
   const { node, isSelected, isConnected } = data;
-  const typeKey = node.kind === "component" ? "consumer" : (node.subtype === "gateway" ? "service" : "endpoint");
+  const typeKey = node.kind === "component" ? "consumer" :
+    (node.kind === "route" ? "route" :
+    (node.kind === "controller" ? "controller" :
+    (node.kind === "middleware" ? "middleware" :
+    (node.kind === "service" ? "backendService" :
+    (node.kind === "model" ? "model" :
+    (node.kind === "database" ? "database" :
+    (node.subtype === "gateway" ? "service" : "endpoint")))))));
   const cfg = TYPE_CFG[typeKey] || TYPE_CFG.endpoint;
 
   const shadow = isSelected
@@ -469,22 +482,30 @@ function ApiFlowInner() {
     dispatch(selectNodeId(id));
   }, [dispatch]);
 
-  // Dynamically build the API connectors map from project consumers
+  // Dynamically build the full-stack API execution map
   const { apiNodes, apiEdges } = useMemo(() => {
     if (!knowledgeGraph) return { apiNodes: [], apiEdges: [] };
 
-    const apiElements = knowledgeGraph.nodes.filter(n => n.kind === "api") || [];
-    const consumerIds = new Set(
-      knowledgeGraph.edges
-        .filter(e => e.type === "USES_API")
-        .map(e => e.source)
-    );
-    const compConsumers = (knowledgeGraph.nodes || []).filter(n => consumerIds.has(n.id));
-    const nodesList = [...apiElements, ...compConsumers];
+    const FULLSTACK_EDGE_TYPES = new Set([
+      "USES_API", "TARGETS_ROUTE", "HANDLED_BY", "AUTHORIZES", "VALIDATES",
+      "USES", "CALLS_SERVICE", "USES_MODEL", "ACCESSES_DB"
+    ]);
 
-    const edgesList = knowledgeGraph.edges.filter(
-      e => e.type === "USES_API" || (e.type === "DEPENDENCY" && e.source.includes("gateway") && e.target.includes("endpoints"))
-    ) || [];
+    const edgesList = (knowledgeGraph.edges || []).filter(
+      e => FULLSTACK_EDGE_TYPES.has(e.type) || (e.type === "DEPENDENCY" && e.source.includes("gateway") && e.target.includes("endpoint"))
+    );
+
+    const fullStackNodeKinds = new Set(["api", "route", "controller", "middleware", "service", "model", "database"]);
+    const connectedNodeIds = new Set();
+
+    edgesList.forEach(e => {
+      connectedNodeIds.add(e.source);
+      connectedNodeIds.add(e.target);
+    });
+
+    const nodesList = (knowledgeGraph.nodes || []).filter(
+      n => fullStackNodeKinds.has(n.kind) || connectedNodeIds.has(n.id)
+    );
 
     return { apiNodes: nodesList, apiEdges: edgesList };
   }, [knowledgeGraph]);
@@ -496,7 +517,7 @@ function ApiFlowInner() {
     }
   }, [apiNodes, selectedId, setSelectedId]);
 
-  // Map to React Flow
+  // Map to React Flow with multi-tier full-stack layout positioning
   const { rfNodes, rfEdges } = useMemo(() => {
     const connectedKeys = new Set();
     if (selectedId) {
@@ -509,12 +530,33 @@ function ApiFlowInner() {
       });
     }
 
+    // Tier mapping for full-stack horizontal column placement
+    const getTierX = (node) => {
+      if (node.kind === "component") return 40;
+      if (node.kind === "api") return 320;
+      if (node.kind === "route") return 600;
+      if (node.kind === "middleware") return 880;
+      if (node.kind === "controller") return 1160;
+      if (node.kind === "service") return 1440;
+      if (node.kind === "model") return 1720;
+      if (node.kind === "database") return 2000;
+      return 100;
+    };
+
+    const tierCounters = {};
+
     const n = apiNodes.map(node => {
       const isSelected = selectedId === node.id;
       const isConnected = connectedKeys.has(node.id);
       
-      const x = node.metadata.x !== undefined ? node.metadata.x : 100;
-      const y = node.metadata.y !== undefined ? node.metadata.y : 100;
+      const tierX = getTierX(node);
+      const tierIndex = tierCounters[tierX] || 0;
+      tierCounters[tierX] = tierIndex + 1;
+
+      const defaultY = 60 + tierIndex * 135;
+
+      const x = node.metadata?.x !== undefined ? node.metadata.x : tierX;
+      const y = node.metadata?.y !== undefined ? node.metadata.y : defaultY;
 
       return {
         id: node.id,

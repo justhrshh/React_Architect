@@ -1,7 +1,7 @@
-import { useState, useEffect, useRef, useCallback, useMemo } from "react";
+import { useState, useEffect, useRef, useMemo, useCallback } from "react";
 import { useSelector, useDispatch } from "react-redux";
 import { useNavigate } from "react-router-dom";
-import gsap from "gsap";
+import { gsap } from "gsap";
 import { setAppMode, setActiveRoom } from "@/redux/slices/uiSlice";
 import {
   selectAllProjects,
@@ -11,6 +11,7 @@ import {
 } from "@/redux/slices/hubSlice";
 import { setProject } from "@/redux/slices/projectSlice";
 import { startProjectAnalysis } from "@/services/analysisService";
+import { purgeProjectData } from "@/services/projectCleanupService";
 
 // Components
 import ImportProjectModal from "@/components/hub/ImportProjectModal";
@@ -18,7 +19,7 @@ import ProjectLoadTransition from "@/components/hub/ProjectLoadTransition";
 import RenameModal from "@/components/hub/RenameModal";
 import DeleteConfirmModal from "@/components/hub/DeleteConfirmModal";
 
-import { Upload } from "lucide-react";
+import { Upload, Trash2, Check } from "lucide-react";
 
 // ── Human-readable time ago helper ───────────────────────────────────────────
 const timeAgo = (dateString) => {
@@ -43,8 +44,8 @@ const ContextMenu = ({ x, y, project, onRename, onDelete, onClose }) => (
     <div
       className="absolute rounded-xl border border-edge-subtle shadow-2xl overflow-hidden w-36"
       style={{
-        top:        y,
-        left:       x,
+        top: y,
+        left: x,
         background: "rgba(10,12,20,0.95)",
         backdropFilter: "blur(20px)",
       }}
@@ -52,13 +53,19 @@ const ContextMenu = ({ x, y, project, onRename, onDelete, onClose }) => (
     >
       <button
         className="w-full text-left px-4 py-2.5 font-mono text-[9px] uppercase tracking-widestest text-ink-dim hover:text-white hover:bg-white/5 transition-colors"
-        onClick={() => { onRename(project); onClose(); }}
+        onClick={() => {
+          onRename(project);
+          onClose();
+        }}
       >
         Rename
       </button>
       <button
         className="w-full text-left px-4 py-2.5 font-mono text-[9px] uppercase tracking-widestest text-red-400 hover:bg-red-500/10 transition-colors"
-        onClick={() => { onDelete(project); onClose(); }}
+        onClick={() => {
+          onDelete(project);
+          onClose();
+        }}
       >
         Delete
       </button>
@@ -66,63 +73,66 @@ const ContextMenu = ({ x, y, project, onRename, onDelete, onClose }) => (
   </div>
 );
 
-// ─── Particle background ────────────────────────────────----------------──────
+// ─── Particle background ──────────────────────────────────────────────────────
 function ParticleBg() {
   const ref = useRef(null);
   useEffect(() => {
-    const c = ref.current; 
+    const c = ref.current;
     if (!c) return;
     const ctx = c.getContext("2d");
     let raf;
     const pts = Array.from({ length: 70 }, () => ({
-      x: Math.random(), 
+      x: Math.random(),
       y: Math.random(),
-      vx: (Math.random() - 0.5) * 0.00035, 
+      vx: (Math.random() - 0.5) * 0.00035,
       vy: (Math.random() - 0.5) * 0.00035,
       r: Math.random() * 1.6 + 0.8,
     }));
-    const resize = () => { 
-      c.width = window.innerWidth; 
-      c.height = window.innerHeight; 
+    const resize = () => {
+      c.width = window.innerWidth;
+      c.height = window.innerHeight;
     };
-    resize(); 
+    resize();
     window.addEventListener("resize", resize);
     const tick = () => {
       ctx.clearRect(0, 0, c.width, c.height);
-      pts.forEach(p => {
-        p.x += p.vx; 
+      pts.forEach((p) => {
+        p.x += p.vx;
         p.y += p.vy;
         if (p.x < 0 || p.x > 1) p.vx *= -1;
         if (p.y < 0 || p.y > 1) p.vy *= -1;
         ctx.beginPath();
         ctx.arc(p.x * c.width, p.y * c.height, p.r, 0, Math.PI * 2);
-        ctx.fillStyle = "rgba(0,229,255,0.65)"; 
+        ctx.fillStyle = "rgba(0,229,255,0.65)";
         ctx.fill();
       });
-      pts.forEach((a, i) => pts.slice(i + 1).forEach(b => {
-        const dx = (a.x - b.x) * c.width, dy = (a.y - b.y) * c.height;
-        const d = Math.hypot(dx, dy);
-        if (d < 190) {
-          ctx.beginPath();
-          ctx.moveTo(a.x * c.width, a.y * c.height);
-          ctx.lineTo(b.x * c.width, b.y * c.height);
-          ctx.strokeStyle = `rgba(0,229,255,${0.35 * (1 - d / 190)})`;
-          ctx.lineWidth = 0.65; 
-          ctx.stroke();
-        }
-      }));
+      pts.forEach((a, i) =>
+        pts.slice(i + 1).forEach((b) => {
+          const dx = (a.x - b.x) * c.width,
+            dy = (a.y - b.y) * c.height;
+          const d = Math.hypot(dx, dy);
+          if (d < 190) {
+            ctx.beginPath();
+            ctx.moveTo(a.x * c.width, a.y * c.height);
+            ctx.lineTo(b.x * c.width, b.y * c.height);
+            ctx.strokeStyle = `rgba(0,229,255,${0.35 * (1 - d / 190)})`;
+            ctx.lineWidth = 0.65;
+            ctx.stroke();
+          }
+        })
+      );
       raf = requestAnimationFrame(tick);
     };
     tick();
-    return () => { 
-      cancelAnimationFrame(raf); 
-      window.removeEventListener("resize", resize); 
+    return () => {
+      cancelAnimationFrame(raf);
+      window.removeEventListener("resize", resize);
     };
   }, []);
   return <canvas ref={ref} className="fixed inset-0 w-full h-full pointer-events-none" style={{ zIndex: 0 }} />;
 }
 
-// ─── Reusable Magnetic pill Button (Inherits system CSS styles from components.css) ───
+// ─── Reusable Magnetic pill Button ───
 function MagneticButton({ onClick, icon: Icon, label }) {
   const btnRef = useRef(null);
 
@@ -146,7 +156,8 @@ function MagneticButton({ onClick, icon: Icon, label }) {
         onClick={onClick}
         className="pill group transition-transform cursor-pointer"
         style={{
-          transition: "transform 350ms cubic-bezier(0.2,0.7,0.1,1), background-color 500ms ease, color 500ms ease, box-shadow 500ms ease",
+          transition:
+            "transform 350ms cubic-bezier(0.2,0.7,0.1,1), background-color 500ms ease, color 500ms ease, box-shadow 500ms ease",
         }}
       >
         <span className="pill-dot" />
@@ -165,7 +176,6 @@ const ImportButton = ({ onClick, label = "Import Project" }) => (
   </button>
 );
 
-// Splits text into characters wrapped in overflow masks for GSAP rise transition
 const splitText = (text) => {
   const words = text.split(" ");
   return words.map((word, wi) => (
@@ -179,8 +189,6 @@ const splitText = (text) => {
     </span>
   ));
 };
-
-
 
 // ─── Flying Card Into Folder Animation Overlay ──────────────────────────────
 function FlyingCardToFolder({ project, onComplete }) {
@@ -207,7 +215,6 @@ function FlyingCardToFolder({ project, onComplete }) {
       },
     });
 
-    // 1. Float in & expand
     tl.to(el, {
       opacity: 1,
       scale: 1.1,
@@ -217,24 +224,22 @@ function FlyingCardToFolder({ project, onComplete }) {
       duration: 0.45,
       ease: "back.out(1.7)",
     })
-    // 2. Fly & dive into the 3D Vault Folder
-    .to(el, {
-      top: "56%",
-      scale: 0.65,
-      rotationX: 45,
-      rotationZ: -4,
-      opacity: 0.9,
-      duration: 0.55,
-      ease: "power3.inOut",
-    })
-    // 3. Drop into folder slot with vanishing squeeze
-    .to(el, {
-      top: "60%",
-      scale: 0.25,
-      opacity: 0,
-      duration: 0.25,
-      ease: "power2.in",
-    });
+      .to(el, {
+        top: "56%",
+        scale: 0.65,
+        rotationX: 45,
+        rotationZ: -4,
+        opacity: 0.9,
+        duration: 0.55,
+        ease: "power3.inOut",
+      })
+      .to(el, {
+        top: "60%",
+        scale: 0.25,
+        opacity: 0,
+        duration: 0.25,
+        ease: "power2.in",
+      });
 
     return () => tl.kill();
   }, [onComplete]);
@@ -253,7 +258,7 @@ function FlyingCardToFolder({ project, onComplete }) {
     >
       <div className="flex items-center justify-between">
         <span className="font-mono text-[9px] font-bold text-white/90 uppercase tracking-widest">
-          IMPORTING // {project.framework || 'REACT'}
+          IMPORTING // {project.framework || "REACT"}
         </span>
         <span className="px-2 py-0.5 rounded-full bg-black/40 backdrop-blur-md text-[8px] font-mono text-white font-bold">
           98% SCORE
@@ -261,12 +266,8 @@ function FlyingCardToFolder({ project, onComplete }) {
       </div>
 
       <div className="my-auto">
-        <h4 className="font-display font-[900] text-white text-xl truncate tracking-tight">
-          {project.name}
-        </h4>
-        <p className="font-mono text-[9px] text-white/80 mt-0.5 truncate">
-          {project.folderName || project.name}
-        </p>
+        <h4 className="font-display font-[900] text-white text-xl truncate tracking-tight">{project.name}</h4>
+        <p className="font-mono text-[9px] text-white/80 mt-0.5 truncate">{project.folderName || project.name}</p>
       </div>
 
       <div className="flex justify-between items-center text-[8px] font-mono text-white/70 border-t border-white/20 pt-2">
@@ -281,11 +282,13 @@ function FlyingCardToFolder({ project, onComplete }) {
 }
 
 // ─── 3D Interactive Project Vault Folder Component ───
-function ProjectFolderVault({ projects, onLaunch, onContextMenu, importingProject }) {
+function ProjectFolderVault({ projects, onLaunch, onContextMenu, onBatchDelete, importingProject }) {
   const [isOpen, setIsOpen] = useState(false);
   const [isScattered, setIsScattered] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [isBouncing, setIsBouncing] = useState(false);
+  const [isDeleteMode, setIsDeleteMode] = useState(false);
+  const [selectedDeleteIds, setSelectedDeleteIds] = useState(new Set());
 
   // Automatically flip open folder and trigger 3D bounce when a project is imported
   useEffect(() => {
@@ -304,7 +307,6 @@ function ProjectFolderVault({ projects, onLaunch, onContextMenu, importingProjec
     }
   }, [importingProject]);
 
-  // Sort projects so matching items appear at the front (slot file-1), non-matching items move to the back slots!
   const { sortedProjects, matchCount } = useMemo(() => {
     if (!searchQuery.trim()) {
       return { sortedProjects: projects, matchCount: projects.length };
@@ -343,11 +345,34 @@ function ProjectFolderVault({ projects, onLaunch, onContextMenu, importingProjec
     { bg: "linear-gradient(135deg, #fdf102 0%, #e07000 100%)", label: "TAILWIND", tag: "CSS" },
   ];
 
-  // Cards to render: when scattered render ALL projects; when closed/stacked render top 5
   const visibleProjects = isScattered ? sortedProjects : sortedProjects.slice(0, 5);
 
+  const handleDustbinClick = (e) => {
+    e.stopPropagation();
+    if (!isDeleteMode) {
+      setIsDeleteMode(true);
+      setIsOpen(true);
+      setIsScattered(true); // Scatter projects into grid layout like FILES button!
+    } else {
+      if (selectedDeleteIds.size > 0) {
+        if (onBatchDelete) {
+          onBatchDelete(Array.from(selectedDeleteIds));
+        }
+        setSelectedDeleteIds(new Set());
+        setIsDeleteMode(false);
+        setIsScattered(false); // Gather/systemize remaining projects back into folder!
+      } else {
+        setIsDeleteMode(false);
+        setIsScattered(false); // Gather/systemize back into folder!
+      }
+    }
+  };
+
   return (
-    <div className="flex flex-col items-center justify-center py-16 select-none relative w-full" style={{ transform: 'scale(1.85) translate(18px, 25px)', transformOrigin: 'center center' }}>
+    <div
+      className="flex flex-col items-center justify-center py-16 select-none relative w-full"
+      style={{ transform: "scale(1.85) translate(18px, 25px)", transformOrigin: "center center" }}
+    >
       <label className="folder-card" onClick={(e) => e.stopPropagation()}>
         <input
           type="checkbox"
@@ -360,19 +385,35 @@ function ProjectFolderVault({ projects, onLaunch, onContextMenu, importingProjec
         <div className="hint-wrapper">
           <span className="hint-text">Click to open</span>
           <svg className="hint-arrow" viewBox="0 0 40 40" fill="none" xmlns="http://www.w3.org/2000/svg" style={{ width: 35, height: 35 }}>
-            <path d="M 35 5 C 35 5, 15 5, 10 25 M 10 25 L 3 18 M 10 25 L 18 22" stroke="#3b8be6" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" />
+            <path
+              d="M 35 5 C 35 5, 15 5, 10 25 M 10 25 L 3 18 M 10 25 L 18 22"
+              stroke="#3b8be6"
+              strokeWidth={2}
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            />
           </svg>
         </div>
 
         <div className={`folder-container ${isBouncing ? "folder-bounce" : ""}`}>
           {/* Back folder SVG shape */}
-          <svg className="folder-back" viewBox="0 0 50 40" fill="none" style={{ position: 'absolute', bottom: 0, width: '100%' }}>
-            <path d="M0 4C0 1.79086 1.79086 0 4 0H16.524C17.721 0 18.8415 0.54051 19.574 1.4673L22.426 5.0654C23.1585 5.99219 24.279 6.5327 25.476 6.5327H46C48.2091 6.5327 50 8.32356 50 10.5327V36C50 38.2091 48.2091 40 46 40H4C1.79086 40 0 38.2091 0 36V4Z" fill="#2a2c2dc3" />
+          <svg className="folder-back" viewBox="0 0 50 40" fill="none" style={{ position: "absolute", bottom: 0, width: "100%" }}>
+            <path
+              d="M0 4C0 1.79086 1.79086 0 4 0H16.524C17.721 0 18.8415 0.54051 19.574 1.4673L22.426 5.0654C23.1585 5.99219 24.279 6.5327 25.476 6.5327H46C48.2091 6.5327 50 8.32356 50 10.5327V36C50 38.2091 48.2091 40 46 40H4C1.79086 40 0 38.2091 0 36V4Z"
+              fill="#2a2c2dc3"
+            />
           </svg>
 
           {/* Search bar inside open folder */}
           <div className="folder-search" onClick={(e) => e.stopPropagation()}>
-            <svg className="search-icon" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth={3} style={{ width: 12, height: 12, flexShrink: 0 }}>
+            <svg
+              className="search-icon"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="white"
+              strokeWidth={3}
+              style={{ width: 12, height: 12, flexShrink: 0 }}
+            >
               <circle cx={11} cy={11} r={8} />
               <line x1={21} y1={21} x2="16.65" y2="16.65" />
             </svg>
@@ -385,57 +426,96 @@ function ProjectFolderVault({ projects, onLaunch, onContextMenu, importingProjec
             />
           </div>
 
-          {/* Display project cards: when scattered, fly out using basic CSS transform grid offsets */}
+          {/* Display project cards */}
           {visibleProjects.map((p, idx) => {
             const isSearching = !!searchQuery.trim();
             const q = searchQuery.toLowerCase();
-            const isMatch = isSearching && (
-              p.name.toLowerCase().includes(q) ||
-              (p.tech && p.tech.toLowerCase().includes(q)) ||
-              (p.framework && p.framework.toLowerCase().includes(q))
-            );
+            const isMatch =
+              isSearching &&
+              (p.name.toLowerCase().includes(q) ||
+                (p.tech && p.tech.toLowerCase().includes(q)) ||
+                (p.framework && p.framework.toLowerCase().includes(q)));
 
             const cardClass = `file file-${(idx % 5) + 1}`;
             const grad = fileGradients[idx % fileGradients.length];
 
-            // Compute basic CSS transform scatter grid offsets when isScattered is true
-            const col = idx % 3; // 0 (left), 1 (center), 2 (right)
+            const col = idx % 3;
             const row = Math.floor(idx / 3);
             const scatterX = (col - 1) * 165;
             const scatterY = row * 105 - 130;
             const scatterRot = ((idx % 5) - 2) * 5;
 
+            const isSelectedForDelete = selectedDeleteIds.has(p.id);
+
             const cardStyle = {
               background: grad.bg,
-              filter: isSearching && !isMatch ? 'brightness(0.4) opacity(0.45)' : isMatch ? 'brightness(1.2)' : 'none',
+              filter: isSearching && !isMatch ? "brightness(0.4) opacity(0.45)" : isMatch ? "brightness(1.2)" : "none",
               transform: isScattered
                 ? `translate(${scatterX}px, ${scatterY}px) rotate(${scatterRot}deg) scale(1.08)`
                 : isMatch
-                ? 'translateY(-82px) scale(1.06) rotate(-6deg) translateZ(30px)'
+                ? "translateY(-82px) scale(1.06) rotate(-6deg) translateZ(30px)"
                 : undefined,
-              zIndex: isScattered ? (100 + idx) : isMatch ? 60 : (30 - idx),
-              transition: 'all 0.6s cubic-bezier(0.34, 1.56, 0.64, 1)',
+              zIndex: isScattered ? 100 + idx : isMatch ? 60 : 30 - idx,
+              transition: "all 0.6s cubic-bezier(0.34, 1.56, 0.64, 1)",
+              boxShadow: isSelectedForDelete
+                ? "0 0 14px rgba(239, 68, 68, 0.9), inset 0 0 0 2px #EF4444"
+                : undefined,
+            };
+
+            const handleCardClick = (e) => {
+              e.stopPropagation();
+              if (isDeleteMode) {
+                setSelectedDeleteIds((prev) => {
+                  const next = new Set(prev);
+                  if (next.has(p.id)) next.delete(p.id);
+                  else next.add(p.id);
+                  return next;
+                });
+              } else {
+                onLaunch(p);
+              }
             };
 
             return (
-              <div
-                key={p.id || idx}
-                className={cardClass}
-                style={cardStyle}
-                onClick={(e) => {
-                  e.stopPropagation();
-                  onLaunch(p);
-                }}
-              >
+              <div key={p.id || idx} className={cardClass} style={cardStyle} onClick={handleCardClick}>
+                {/* Deletion Checkbox */}
+                {isDeleteMode && (
+                  <div
+                    style={{
+                      position: "absolute",
+                      top: 6,
+                      left: 6,
+                      width: 16,
+                      height: 16,
+                      borderRadius: 4,
+                      border: isSelectedForDelete ? "2px solid #EF4444" : "2px solid rgba(255,255,255,0.8)",
+                      background: isSelectedForDelete ? "#EF4444" : "rgba(0,0,0,0.6)",
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      zIndex: 50,
+                    }}
+                  >
+                    {isSelectedForDelete && <Check size={11} color="#FFFFFF" strokeWidth={3} />}
+                  </div>
+                )}
+
                 <div className="shine" />
-                <svg className="file-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} style={{ width: 14, height: 14, position: 'absolute', top: 10, right: 10 }}>
+                <svg
+                  className="file-icon"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth={2}
+                  style={{ width: 14, height: 14, position: "absolute", top: 10, right: 10 }}
+                >
                   <rect x={2} y={3} width={20} height={14} rx={2} ry={2} />
                   <line x1={8} y1={21} x2={16} y2={21} />
                   <line x1={12} y1={17} x2={12} y2={21} />
                 </svg>
                 <div className="file-text truncate max-w-[85%]">{p.name}</div>
                 <div className="file-tag" style={{ opacity: isMatch ? 1 : undefined }}>
-                  {isMatch ? "MATCHED" : (p.tech ? p.tech : `${grad.label} • ${grad.tag}`)}
+                  {isMatch ? "MATCHED" : p.tech ? p.tech : `${grad.label} • ${grad.tag}`}
                 </div>
               </div>
             );
@@ -443,23 +523,72 @@ function ProjectFolderVault({ projects, onLaunch, onContextMenu, importingProjec
 
           {/* Front folder cover flap */}
           <div className="folder-front-wrapper">
-            <svg className="folder-front" viewBox="0 0 50 34" fill="none" style={{ width: '100%', display: 'block' }}>
-              <path d="M0 4C0 1.79086 1.79086 0 4 0H46C48.2091 0 50 1.79086 50 4V30C50 32.2091 48.2091 34 46 34H4C1.79086 34 0 32.2091 0 30V4Z" fill="#686a6aae" />
+            <svg className="folder-front" viewBox="0 0 50 34" fill="none" style={{ width: "100%", display: "block" }}>
+              <path
+                d="M0 4C0 1.79086 1.79086 0 4 0H46C48.2091 0 50 1.79086 50 4V30C50 32.2091 48.2091 34 46 34H4C1.79086 34 0 32.2091 0 30V4Z"
+                fill="#686a6aae"
+              />
             </svg>
             <div className="folder-label" />
 
-            {/* Live project count badge (Click to scatter/restore all projects in-place) */}
+            {/* Live project count badge (Files / Systemize button) */}
             <div
               className="counter"
               onClick={(e) => {
                 e.stopPropagation();
                 setIsScattered((prev) => !prev);
+                if (isDeleteMode) {
+                  setIsDeleteMode(false);
+                  setSelectedDeleteIds(new Set());
+                }
               }}
               title={isScattered ? "Click to gather cards into folder" : "Click to scatter all project cards"}
             >
               <div className="status-dot" />
               <span className="counter-label">{isScattered ? "SYSTEMIZE" : searchQuery.trim() ? "MATCHED" : "FILES"}</span>
-              <span className="counter-number">{String(searchQuery.trim() ? matchCount : projects.length).padStart(2, "0")}</span>
+              <span className="counter-number">
+                {String(searchQuery.trim() ? matchCount : projects.length).padStart(2, "0")}
+              </span>
+            </div>
+
+            {/* Dustbin Icon Button (Appears below files button when folder expands) */}
+            <div
+              className="trash-btn"
+              onClick={handleDustbinClick}
+              title={
+                isDeleteMode
+                  ? selectedDeleteIds.size > 0
+                    ? `Click to delete ${selectedDeleteIds.size} selected project(s)`
+                    : "Cancel Delete Mode & Systemize"
+                  : "Click to enter delete mode & scatter projects"
+              }
+              style={{
+                position: "absolute",
+                top: "-52px",
+                right: "-75px",
+                backgroundColor: isDeleteMode ? (selectedDeleteIds.size > 0 ? "#EF4444" : "#DC2626") : "#1E293B",
+                padding: "4px 8px",
+                borderRadius: "50px",
+                display: "flex",
+                alignItems: "center",
+                gap: "6px",
+                boxShadow: "0 10px 20px rgba(0, 0, 0, 0.4), inset 0 1px 1px rgba(255, 255, 255, 0.2)",
+                transform: isOpen || isScattered ? "scale(1) translateY(0)" : "scale(0) translateY(20px)",
+                opacity: isOpen || isScattered ? 1 : 0,
+                transition: "all 0.4s cubic-bezier(0.34, 1.56, 0.64, 1)",
+                zIndex: 100,
+                cursor: "pointer",
+                border: isDeleteMode ? "1px solid #F87171" : "1px solid rgba(255, 255, 255, 0.15)",
+              }}
+            >
+              <Trash2 size={11} color={isDeleteMode ? "#FFFFFF" : "#EF4444"} />
+              <span style={{ fontFamily: "Inter, sans-serif", fontSize: 8, fontWeight: 800, color: "#FFFFFF" }}>
+                {isDeleteMode
+                  ? selectedDeleteIds.size > 0
+                    ? `DELETE (${selectedDeleteIds.size})`
+                    : "SELECTING"
+                  : "TRASH"}
+              </span>
             </div>
           </div>
         </div>
@@ -467,8 +596,6 @@ function ProjectFolderVault({ projects, onLaunch, onContextMenu, importingProjec
     </div>
   );
 }
-
-
 
 // ── Main Hub Component ────────────────────────────────────────────────────────
 const Hub = () => {
@@ -480,11 +607,11 @@ const Hub = () => {
   const [loadingProject, setLoading] = useState(null);
 
   // Overlay control states
-  const [showImport, setShowImport]   = useState(false);
+  const [showImport, setShowImport] = useState(false);
   const [importingProject, setImportingProject] = useState(null);
   const [renameTarget, setRenameTarget] = useState(null);
   const [deleteTarget, setDeleteTarget] = useState(null);
-  const [ctxMenu, setCtxMenu]         = useState(null);
+  const [ctxMenu, setCtxMenu] = useState(null);
 
   const handleModalClose = useCallback((importedProj) => {
     setShowImport(false);
@@ -523,8 +650,6 @@ const Hub = () => {
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [showImport, renameTarget, deleteTarget, ctxMenu, navigate]);
-
-
 
   // GSAP text reveal
   const hubCopyRef = useRef(null);
@@ -573,7 +698,6 @@ const Hub = () => {
     };
   }, []);
 
-  // Enrich actual projects with mock metadata details
   const enrichedProjects = projects.map((p, idx) => {
     const colors = ["#00d4ff", "#7c6bff", "#5a6178", "#00d4ff"];
     const statuses = ["active", "active", "review", "archived"];
@@ -594,7 +718,6 @@ const Hub = () => {
     };
   });
 
-  // Default to the middle project on mount
   useEffect(() => {
     if (enrichedProjects.length > 0 && !activeHubProjectId) {
       const midIndex = Math.floor(enrichedProjects.length / 2);
@@ -605,23 +728,36 @@ const Hub = () => {
     }
   }, [enrichedProjects, activeHubProjectId]);
 
-  // Context menu right click
   const handleContextMenu = useCallback((e, project) => {
     e.preventDefault();
     setCtxMenu({ x: e.clientX ?? 0, y: e.clientY ?? 0, project });
   }, []);
 
-  // Select project and trigger transition
-  const handleSelectProject = useCallback((project) => {
-    dispatch(selectProject(project.id));
-    dispatch(updateLastOpened(project.id));
-    dispatch(setProject({ name: project.name, path: null }));
-    dispatch(startProjectAnalysis({ projectId: project.id, project }));
-    setLoading(project);
-  }, [dispatch]);
+  const handleSelectProject = useCallback(
+    (project) => {
+      dispatch(selectProject(project.id));
+      dispatch(updateLastOpened(project.id));
+      dispatch(setProject({ name: project.name, path: null }));
+      dispatch(startProjectAnalysis({ projectId: project.id, project }));
+      setLoading(project);
+    },
+    [dispatch]
+  );
 
+  const handleBatchDelete = useCallback(
+    async (projectIds = []) => {
+      for (const id of projectIds) {
+        await purgeProjectData({
+          projectId: id,
+          dispatch,
+          navigate,
+          currentSelectedId: null,
+        });
+      }
+    },
+    [dispatch, navigate]
+  );
 
-  // Load Transition complete → navigate to Workspace Page
   const handleLoadComplete = useCallback(() => {
     setLoading(null);
     dispatch(setAppMode("workspace"));
@@ -630,17 +766,17 @@ const Hub = () => {
   }, [dispatch, navigate]);
 
   return (
-    <div className="h-screen w-full relative overflow-hidden pointer-events-auto select-none text-slate-100 flex flex-col font-sans justify-between px-6 md:px-12 py-6" style={{ background: "#06070b" }}>
-      
-      {/* Canvas particles background */}
+    <div
+      className="h-screen w-full relative overflow-hidden pointer-events-auto select-none text-slate-100 flex flex-col font-sans justify-between px-6 md:px-12 py-6"
+      style={{ background: "#06070b" }}
+    >
       <ParticleBg />
 
-      {/* Ambient top glow */}
-      <div className="fixed top-0 left-1/2 -translate-x-1/2 w-[800px] h-[300px] pointer-events-none"
-        style={{ background: "radial-gradient(ellipse at 50% 0%, rgba(0,229,255,0.04) 0%, transparent 70%)", zIndex: 1 }} 
+      <div
+        className="fixed top-0 left-1/2 -translate-x-1/2 w-[800px] h-[300px] pointer-events-none"
+        style={{ background: "radial-gradient(ellipse at 50% 0%, rgba(0,229,255,0.04) 0%, transparent 70%)", zIndex: 1 }}
       />
 
-      {/* ── Top Header Row ── */}
       <div className="w-full flex items-center justify-between z-20 relative px-2">
         <div className="flex items-baseline gap-3 select-none">
           <span className="font-display text-white tracking-tightest text-xl md:text-2xl font-[800]">
@@ -656,7 +792,6 @@ const Hub = () => {
         </div>
       </div>
 
-      {/* ── Main Side-by-Side Content Grid (Compact 100vh) ── */}
       <div className="relative z-10 w-full max-w-7xl mx-auto grid grid-cols-1 lg:grid-cols-12 gap-6 md:gap-12 items-center my-auto px-2">
         <style>{`
           .btn-17,
@@ -764,7 +899,6 @@ const Hub = () => {
             animation: folderBounce 0.65s cubic-bezier(0.34, 1.56, 0.64, 1);
           }
 
-          /* ── 3D Interactive Folder Card ── */
           .folder-card {
             width: 170px;
             height: 130px;
@@ -875,7 +1009,7 @@ const Hub = () => {
             display: flex;
             align-items: center;
             gap: 8px;
-            box-shadow: 0 10px 20px rgba(0, 0, 0, 0.3), inset 0 1px 1px rgba(255, 255, 255, 0.2);
+            boxShadow: 0 10px 20px rgba(0, 0, 0, 0.3), inset 0 1px 1px rgba(255, 255, 255, 0.2);
             transform: scale(0) translateY(20px);
             opacity: 0;
             transition: all 0.5s cubic-bezier(0.34, 1.56, 0.64, 1);
@@ -1083,7 +1217,7 @@ const Hub = () => {
           .folder-toggle:checked ~ .folder-container .folder-search:focus-within .search-input { width: 100%; }
         `}</style>
 
-        {/* ── Left Column: Compact Headline, Subtitle & Quick Stats ── */}
+        {/* Left Column */}
         <div className="lg:col-span-6 flex flex-col text-left justify-center">
           <div ref={hubCopyRef}>
             <h1 className="font-display font-[850] tracking-tightest leading-[0.88] text-white text-5xl sm:text-6xl md:text-7xl lg:text-[5.6rem] xl:text-[6.2rem]">
@@ -1091,7 +1225,7 @@ const Hub = () => {
               <span className="block">
                 {splitText("has an")}
                 <span className="inline-block w-[0.35em]" />
-                <span className="text-accent">{splitText("architecture.")}</span> 
+                <span className="text-accent">{splitText("architecture.")}</span>
               </span>
             </h1>
 
@@ -1101,26 +1235,24 @@ const Hub = () => {
           </div>
         </div>
 
-        {/* ── Right Column: 3D Interactive Folder Vault ── */}
+        {/* Right Column: 3D Interactive Folder Vault */}
         <div className="lg:col-span-6 flex items-center justify-end pr-8 pt-8 relative min-h-[420px]">
-          <ProjectFolderVault 
-             projects={enrichedProjects}
-             onLaunch={handleSelectProject}
-             onContextMenu={handleContextMenu}
-             importingProject={importingProject}
+          <ProjectFolderVault
+            projects={enrichedProjects}
+            onLaunch={handleSelectProject}
+            onContextMenu={handleContextMenu}
+            onBatchDelete={handleBatchDelete}
+            importingProject={importingProject}
           />
         </div>
-
       </div>
 
-      {/* ── Bottom Footer Row ── */}
+      {/* Bottom Footer Row */}
       <div className="w-full flex items-center justify-between z-20 relative px-2 pt-2 border-t border-white/5">
-        <span className="text-[10px] font-mono tracking-widest text-zinc-600 uppercase">
-          HUB — v1.4
-        </span>
+        <span className="text-[10px] font-mono tracking-widest text-zinc-600 uppercase">HUB — v1.4</span>
       </div>
 
-      {/* Right click context menu */}
+      {/* Context Menu */}
       {ctxMenu && (
         <ContextMenu
           x={ctxMenu.x}
@@ -1132,31 +1264,14 @@ const Hub = () => {
         />
       )}
 
-      {/* Modals & Animated Import Overlay */}
-      {showImport && (
-        <ImportProjectModal onClose={handleModalClose} />
-      )}
-      {importingProject && (
-        <FlyingCardToFolder
-          project={importingProject}
-          onComplete={() => setImportingProject(null)}
-        />
-      )}
-      {renameTarget && (
-        <RenameModal project={renameTarget} onClose={() => setRenameTarget(null)} />
-      )}
-      {deleteTarget && (
-        <DeleteConfirmModal project={deleteTarget} onClose={() => setDeleteTarget(null)} />
-      )}
+      {/* Modals */}
+      {showImport && <ImportProjectModal onClose={handleModalClose} />}
+      {importingProject && <FlyingCardToFolder project={importingProject} onComplete={() => setImportingProject(null)} />}
+      {renameTarget && <RenameModal project={renameTarget} onClose={() => setRenameTarget(null)} />}
+      {deleteTarget && <DeleteConfirmModal project={deleteTarget} onClose={() => setDeleteTarget(null)} />}
 
-      {/* Cinematic load transition */}
-      {loadingProject && (
-        <ProjectLoadTransition
-          projectName={loadingProject.name}
-          onComplete={handleLoadComplete}
-        />
-      )}
-
+      {/* Load Transition */}
+      {loadingProject && <ProjectLoadTransition projectName={loadingProject.name} onComplete={handleLoadComplete} />}
     </div>
   );
 };
