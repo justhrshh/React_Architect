@@ -5,6 +5,8 @@ import { parseFile } from "../src/engines/parser/parser.js";
 import { buildFileIndex, resolveModulePath } from "../src/engines/graph/importResolver.js";
 import { buildKnowledgeGraph } from "../src/engines/graph/buildKnowledgeGraph.js";
 import { runAnalysis, analyzeImpact } from "../src/engines/analysis/index.js";
+import { runAnalysisPipeline, getEngineVersion } from "../src/engines/index.js";
+import { buildFileManifest, computeFileDiff, getAffectedSubGraph } from "../src/engines/graph/incrementalTracker.js";
 
 test("parseFile extracts components, hooks, routes, redux, and API endpoints", () => {
   const code = `
@@ -57,7 +59,7 @@ test("resolveModulePath handles relative, extensionless, and directory imports",
   );
 });
 
-test("buildKnowledgeGraph creates core nodes and relationships", () => {
+test("buildKnowledgeGraph creates core nodes and relationships with deterministic IDs", () => {
   const files = [
     {
       name: "App.jsx",
@@ -80,18 +82,23 @@ test("buildKnowledgeGraph creates core nodes and relationships", () => {
     },
   ];
 
-  const graph = buildKnowledgeGraph(files, { id: "test", name: "Test App", hasRouter: false, hasRedux: false });
+  const graph1 = buildKnowledgeGraph(files, { id: "test", name: "Test App", hasRouter: false, hasRedux: false });
+  const graph2 = buildKnowledgeGraph(files, { id: "test", name: "Test App", hasRouter: false, hasRedux: false });
 
-  assert.equal(graph.nodes.some(node => node.id === "component:src/App.jsx:App"), true);
-  assert.equal(graph.nodes.some(node => node.id === "component:src/pages/Dashboard.jsx:Dashboard"), true);
+  assert.equal(graph1.nodes.some(node => node.id === "component:src/App.jsx:App"), true);
+  assert.equal(graph1.nodes.some(node => node.id === "component:src/pages/Dashboard.jsx:Dashboard"), true);
   assert.equal(
-    graph.edges.some(edge =>
+    graph1.edges.some(edge =>
       edge.type === "RENDERS" &&
       edge.source === "component:src/App.jsx:App" &&
       edge.target === "component:src/pages/Dashboard.jsx:Dashboard"
     ),
     true
   );
+
+  // Verify 100% deterministic IDs between consecutive runs
+  assert.deepEqual(graph1.nodes.map(n => n.id), graph2.nodes.map(n => n.id));
+  assert.deepEqual(graph1.edges.map(e => e.id), graph2.edges.map(e => e.id));
 });
 
 test("analysis engine returns project metrics and on-demand impact", () => {
@@ -125,4 +132,50 @@ test("analysis engine returns project metrics and on-demand impact", () => {
   assert.equal(impact.target.name, "Dashboard");
   assert.equal(impact.direct.usedBy.some(node => node.name === "App"), true);
   assert.equal(["low", "medium", "high"].includes(impact.riskLevel), true);
+});
+
+test("Public Engine API and Pipeline Diagnostics work cleanly", async () => {
+  assert.equal(getEngineVersion(), "2.0.0");
+
+  const files = [
+    {
+      name: "App.jsx",
+      path: "src/App.jsx",
+      content: `export default function App() { return <div>App</div>; }`,
+    },
+  ];
+
+  const result = await runAnalysisPipeline(files, { name: "Test Pipeline" });
+
+  assert.equal(Boolean(result.knowledgeGraph), true);
+  assert.equal(Boolean(result.analysis), true);
+  assert.equal(Boolean(result.diagnostics), true);
+  assert.equal(typeof result.diagnostics.timings.totalMs, "number");
+  assert.equal(result.diagnostics.summary.filesScanned, 1);
+});
+
+test("Incremental Analysis Tracker correctly hashes, diffs, and finds affected subgraphs", () => {
+  const prevFiles = [
+    { name: "App.jsx", path: "src/App.jsx", content: "export default function App() {}" },
+    { name: "Button.jsx", path: "src/Button.jsx", content: "export function Button() {}" },
+  ];
+  const nextFiles = [
+    { name: "App.jsx", path: "src/App.jsx", content: "export default function App() { return <Button/>; }" },
+    { name: "Button.jsx", path: "src/Button.jsx", content: "export function Button() {}" },
+    { name: "Header.jsx", path: "src/Header.jsx", content: "export function Header() {}" },
+  ];
+
+  const prevManifest = buildFileManifest(prevFiles);
+  const currentManifest = buildFileManifest(nextFiles);
+
+  const diff = computeFileDiff(prevManifest, currentManifest);
+
+  assert.deepEqual(diff.added, ["src/Header.jsx"]);
+  assert.deepEqual(diff.modified, ["src/App.jsx"]);
+  assert.deepEqual(diff.unchanged, ["src/Button.jsx"]);
+
+  const graph = buildKnowledgeGraph(nextFiles, { name: "Test" });
+  const affected = getAffectedSubGraph(["src/App.jsx"], graph);
+
+  assert.equal(affected.directlyAffectedNodes.includes("component:src/App.jsx:App"), true);
 });

@@ -1,23 +1,45 @@
 /**
  * Factory for creating generic, framework-agnostic Knowledge Graph nodes.
  *
- * @param {object} params
- * @param {string} params.id - stable identifier, e.g. "component:src/components/Card.jsx:Card"
- * @param {string} params.kind - "component" | "api" | "state" | "route" | "file"
- * @param {string} params.subtype - e.g. "page", "provider", "endpoint", "slice", "router"
- * @param {string} params.name - display name
- * @param {string} params.file - file path relative to project root
- * @param {object} [params.metadata] - node-specific properties
- * @param {Array<string>} [params.relationships] - list of connected node IDs
- * @returns {object} node
+ * Enforces deterministic ID generation across all entity types:
+ * - component: `component:<file>:<name>`
+ * - function: `function:<file>:<name>`
+ * - variable: `variable:<file>:<name>`
+ * - hook: `hook:<file>:<name>`
+ * - context: `context:<file>:<name>`
+ * - state slice: `slice:<file>:<name>`
+ * - state store: `store:<file>:<name>`
+ * - route: `route:<file>:<path>`
+ * - api endpoint: `api:<file>:<method>:<path>`
+ * - api gateway: `api:<file>:gateway:<name>`
+ * - data module: `data:<file>`
+ * - file: `file:<file>`
+ * - controller (future): `controller:<file>:<name>`
+ * - service (future): `service:<file>:<name>`
  */
+
+export function createNodeId(kind, file, name, subtype = "") {
+  const cleanFile = (file || "").replace(/\\/g, "/");
+  if (kind === "file") return `file:${cleanFile}`;
+  if (kind === "data") return `data:${cleanFile}`;
+  if (kind === "route") return `route:${cleanFile}:${name}`;
+  if (kind === "api" && subtype === "endpoint") return `api:${cleanFile}:${name}`;
+  if (kind === "api" && subtype === "gateway") return `api:${cleanFile}:gateway:${name}`;
+  if (kind === "state" && (subtype === "slice" || subtype === "store" || subtype === "thunk")) {
+    return `${subtype}:${cleanFile}:${name}`;
+  }
+  return `${kind}:${cleanFile}:${name}`;
+}
+
 export function createNode({ id, kind, subtype = "default", name, file, metadata = {}, relationships = [] }) {
-  const cleanFile = file.replace(/\\/g, "/");
+  const cleanFile = (file || "").replace(/\\/g, "/");
   const parts = cleanFile.split("/");
   const directory = parts.length > 1 ? parts.slice(0, -1).join("/") : ".";
 
+  const deterministicId = id || createNodeId(kind, cleanFile, name, subtype);
+
   return {
-    id,
+    id: deterministicId,
     kind,
     subtype,
     name,

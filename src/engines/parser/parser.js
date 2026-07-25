@@ -1,35 +1,15 @@
 import { parse } from "@babel/parser";
-import { extractImports } from "./extractors/importExtractor.js";
-import { extractExports } from "./extractors/exportExtractor.js";
-import { extractComponents } from "./extractors/componentExtractor.js";
-import { extractHooks } from "./extractors/hookExtractor.js";
-import { extractContexts } from "./extractors/contextExtractor.js";
-import { extractRedux } from "./extractors/reduxExtractor.js";
-import { extractRoutes } from "./extractors/routeExtractor.js";
-import { extractApi } from "./extractors/apiExtractor.js";
-import { extractFunctions } from "./extractors/functionExtractor.js";
-import { extractVariables } from "./extractors/variableExtractor.js";
+import { defaultExtractorRegistry } from "../extractors/registry.js";
 
 /**
- * Parses source code contents and orchestrates the extraction process.
- *
- * Error handling philosophy: a single malformed file, or a single extractor
- * throwing on an unusual AST shape, must never abort analysis of the rest of
- * the project. Every extractor call is now individually wrapped, so (for
- * example) a route-parsing edge case doesn't also silently wipe out the
- * hooks/contexts/api data that were already extracted for that file (the
- * previous implementation ran all extractors inside a single try/catch,
- * where one throw skipped everything after it in the block).
- *
- * Any failures are collected into `summary.parseErrors` rather than only
- * logged, so the graph builder / UI can surface them as validation warnings
- * instead of failing silently.
+ * Parses source code contents into Babel AST and runs all registered extractors via ExtractorRegistry.
  *
  * @param {string} code
  * @param {string} filePath
+ * @param {ExtractorRegistry} [registry=defaultExtractorRegistry]
  * @returns {object} fileSummary
  */
-export function parseFile(code, filePath) {
+export function parseFile(code, filePath, registry = defaultExtractorRegistry) {
   const cleanPath = filePath.replace(/\\/g, "/");
   const summary = {
     filePath: cleanPath,
@@ -43,12 +23,12 @@ export function parseFile(code, filePath) {
     redux: [],
     routes: [],
     api: [],
+    express: { routes: [], middleware: [], controllers: [], services: [] },
     parseErrors: [],
   };
 
   const ext = cleanPath.split(".").pop().toLowerCase();
   if (ext === "md" || ext === "json") {
-    // Markdown and JSON/config files are indexed but not AST-parsed as code.
     return summary;
   }
 
@@ -76,38 +56,21 @@ export function parseFile(code, filePath) {
     return summary;
   }
 
-  // Babel's errorRecovery mode can produce a partial AST alongside recorded
-  // errors instead of throwing - surface those too, without discarding the
-  // (still useful) partial tree.
   if (ast.errors && ast.errors.length > 0) {
     ast.errors.forEach((err) => {
       summary.parseErrors.push({ stage: "ast-parse-recovered", message: err.message || String(err) });
     });
   }
 
-  const extractors = [
-    ["imports", () => extractImports(ast)],
-    ["exports", () => extractExports(ast)],
-    ["components", () => extractComponents(ast, cleanPath)],
-    ["functions", () => extractFunctions(ast)],
-    ["variables", () => extractVariables(ast)],
-    ["hooks", () => extractHooks(ast)],
-    ["contexts", () => extractContexts(ast)],
-    ["redux", () => extractRedux(ast)],
-    ["routes", () => extractRoutes(ast, code, cleanPath)],
-    ["api", () => extractApi(ast, code)],
-  ];
+  const context = { code, filePath: cleanPath };
+  const extractedMap = registry.runAll(ast, context);
 
-  extractors.forEach(([key, run]) => {
-    try {
-      summary[key] = run();
-    } catch (err) {
-      summary.parseErrors.push({ stage: `extract-${key}`, message: err.message });
-      console.warn(`Extraction error (${key}) for ${cleanPath}:`, err);
-      // summary[key] keeps its default empty-array value - the rest of the
-      // extractors still run normally.
+  for (const [key, res] of extractedMap.entries()) {
+    summary[key] = res.data !== undefined ? res.data : [];
+    if (res.errors && res.errors.length > 0) {
+      summary.parseErrors.push(...res.errors);
     }
-  });
+  }
 
   return summary;
 }

@@ -1,16 +1,15 @@
 /**
  * Factory for creating standardized Knowledge Graph relationship edges.
  *
- * @param {object} params
- * @param {string} [params.id] - unique identifier, generated if omitted
- * @param {string} params.type - relationship type, e.g. "IMPORTS", "RENDERS", "USES_HOOK", "USES_CONTEXT", "USES_API", "ROUTE_PARENT", "STATE_CONSUMER", "DEPENDENCY"
- * @param {string} params.source - source node ID
- * @param {string} params.target - target node ID
- * @param {object} [params.metadata] - edge-specific properties
- * @returns {object} edge
+ * Enforces deterministic ID generation: `edge:<type>:<source>-><target>`
  */
+
+export function createEdgeId(type, source, target) {
+  return `edge:${type}:${source}->${target}`;
+}
+
 export function createEdge({ id, type, source, target, metadata = {} }) {
-  const edgeId = id || `${type}:${source}->${target}`;
+  const edgeId = id || createEdgeId(type, source, target);
   return {
     id: edgeId,
     type,
