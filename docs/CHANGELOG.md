@@ -1,3 +1,34 @@
+# v9.0 — Analysis Engine Accuracy & Semantic Refinements
+
+## Added
+
+### Redux & Data Flow Analysis
+* **Imported Selector Resolution**: Enhanced `reduxExtractor.js` to resolve imported selector functions (e.g. `useSelector(selectSelectedProject)`) to their originating slice files via import declarations, generating deterministic `STATE_CONSUMER` edges (`confidence: 1.0`, `method: "imported_selector"`).
+* **Action Dispatch Relationship Tracking**: Added `parseDispatchCall()` in `reduxExtractor.js` and `DISPATCHES_ACTION` edge creation in `buildKnowledgeGraph.js` to track component action mutations (`dispatch(setActiveRoom(...))`).
+* **State Reads & State Writes Separation**: Separated Redux dependencies in `architectureAdapter.js` and `InspectorPanel.jsx` into **State Reads** (`STATE_CONSUMER`) and **State Writes** (`DISPATCHES_ACTION`).
+
+### Application Data Modules (`USES_DATA`)
+* **Data Module Node Recognition**: Extended `buildKnowledgeGraph.js` to recognize static data modules, constants, and config files (`constants.js`, `testIds.js`, `gitConfig.js`) as first-class architectural nodes (`kind: "data"`, `subtype: "module"`).
+* **`USES_DATA` Edge Generation**: Connected component imports to project-owned data modules, excluding external third-party npm packages.
+* **Data Category & Badge**: Integrated a dedicated **Data** category tree in `architectureAdapter.js` and a pink **Data Module (`DT`)** badge (`color: "#EC4899"`) in `FlowDiagram.jsx`.
+
+### Architecture Adapter Traversal Optimization
+* **Surgical Duplicate Traversal Fix**: Refactored `architectureAdapter.js` to eliminate redundant fallback route traversals while preserving canonical Knowledge Graph identity and multi-parent representation.
+* **Exact Router Identifier**: Replaced substring matching (`compNode.id.includes("Router")`) with exact router checks (`compNode.name === "Router" || compNode.subtype === "router"`), preventing non-router components in `Router.jsx` (`RouteFallback`) from appending duplicate route subtrees.
+* **Route-Mapped Page Placement**: Attached page components directly under their respective Route Endpoints (`/architecture`, `/workspace`, `/hub`, `/state`) in the route tree, excluding them from generic child `Components` directly under `Router`.
+
+### Architecture DNA Semantic Classification
+* **Single-Pass Module Accounting**: Refactored `ArchitectureDnaCard.jsx` to perform single-pass file-level classification into 7 universal architectural categories (`Comp`, `Hook`, `Api`, `State`, `Page`, `Route`, `Util`), where every file contributes **once** to its primary category.
+* **Eliminated Misleading AST Node Counts**: Replaced raw AST function/variable node counting with file-based module classification. Classified internal analysis/parser engines under `Utilities`, eliminating the misleading 290 API count on project analysis.
+
+### Inspector Panel & Workspace UI Contrast Enhancements
+* **Dark & Bold Heading Labels**: Updated `InspectorPanel.jsx` heading labels (`HOOKS`, `STATE`, `CHILDREN`, `PARENTS`, `APIs`, `IMPORTS`, `RELATED FILES`, `OVERVIEW`) to bold, crisp dark slate text (`color: "#334155"`, `fontWeight: 800`).
+* **Hooks Color Legend & Tooltips**: Added a `React Core` vs `Custom / State` legend hint and interactive tooltips in the `HOOKS` section.
+* **Richer Pill Colors**: Darkened and enriched pill colors for custom hooks (`#D1FAE5`/`#047857`), state slices (`#E0E7FF`/`#3730A3`), APIs (`#FEF3C7`/`#92400E`), and related files (`#DBEAFE`/`#1E40AF`).
+* **Orbit Accent Key Hints**: Enhanced Workspace Keyboard hints in `InvestigationBrief.jsx` to dynamically glow with the selected orbit's accent color (`displayColor`).
+
+---
+
 # v8.5 — AI Workspace Redesign & Refinements (Sprint 12.5)
 
 ## Added

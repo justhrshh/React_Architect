@@ -484,13 +484,25 @@ Core AI Integrations & Persistent Workspace Sessions
 
 ---
 
+### ✅ Sprint 14 Complete
+
+Analysis Engine Accuracy & Semantic Refinements
+
+*   **Redux Selector & Action Tracing**: Enhanced `reduxExtractor.js` to resolve imported selector functions (`useSelector(selectProject)`) and action dispatches (`dispatch(setActiveRoom)`), generating deterministic `STATE_CONSUMER` and `DISPATCHES_ACTION` edges.
+*   **Application Data Module Recognition (`USES_DATA`)**: Extended Knowledge Graph to map static data modules and constants (`constants.js`, `testIds.js`) as first-class `kind: "data"` nodes with pink `DT` badges in Flow Studio.
+*   **Architecture Adapter Traversal Optimization**: Fixed fallback route duplicate traversals in `architectureAdapter.js`, ensuring route-mapped pages appear exactly once under their intentional route endpoints.
+*   **Architecture DNA Universal 7-Category Classification**: Refactored `ArchitectureDnaCard.jsx` to perform single-pass file-level classification into 7 universal categories (`Comp`, `Hook`, `Api`, `State`, `Page`, `Route`, `Util`), eliminating misleading AST node counts.
+*   **Inspector Panel & Workspace Contrast**: Enhanced `InspectorPanel.jsx` heading contrast (`#334155` bold text) and added color legends for React Core vs Custom/State hooks.
+
+---
+
 ## Current Version
-React Architect v9.0 — Persistent Workspace Sessions
+React Architect v9.0 — Analysis Engine Accuracy & Semantic Refinements
 
 ---
 
 ## Current Milestone
-Sprint 13.4 Complete
+Sprint 14 Complete
 
 
 

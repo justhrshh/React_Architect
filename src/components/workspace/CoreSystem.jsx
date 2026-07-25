@@ -502,6 +502,9 @@ export default function CoreSystem({
   analysis,
   coreMetric,
   intelKey,
+  active,
+  recommendedDomainId,
+  startSignatureTransition,
 }) {
 
   return (

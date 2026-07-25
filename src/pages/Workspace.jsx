@@ -757,6 +757,9 @@ const Workspace = () => {
           coreMetric={coreMetric}
           intelKey={intelKey}
           extraRotation={extraRotation}
+          active={active}
+          recommendedDomainId={recommendedDomainId}
+          startSignatureTransition={startSignatureTransition}
         />
 
         {/* -- Header HUD -- */}

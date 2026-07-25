@@ -25,6 +25,10 @@ import {
 } from "lucide-react";
 import { calculateMaintainability } from "@/engines/analysis/modules/maintainability";
 
+function nevercall() {
+  console.log("This function should never be called. It is a placeholder for future functionality.");
+}
+
 function ArchitectureStudio() {
   const dispatch = useDispatch();
   const navigate = useNavigate();

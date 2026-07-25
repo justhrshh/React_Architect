@@ -35,7 +35,7 @@ function InboxRow({ label, children, noPad }) {
   return (
     <div style={{ borderBottom: "1px solid #F1F5F9", padding: noPad ? "12px 20px" : "12px 20px" }}>
       {label && (
-        <span style={{ fontSize: 9, fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase", color: "#94A3B8", fontFamily: INTER, display: "block", marginBottom: 8 }}>
+        <span style={{ fontSize: 9.5, fontWeight: 800, letterSpacing: "0.08em", textTransform: "uppercase", color: "#334155", fontFamily: INTER, display: "block", marginBottom: 8 }}>
           {label}
         </span>
       )}
@@ -85,7 +85,7 @@ function Pill({ children, color = "#4B5563", bg = "#F1F5F9", onClick, title }) {
 function InfoRow({ label, value }) {
   return (
     <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "9px 20px", borderBottom: "1px solid #F8FAFC" }}>
-      <span style={{ fontSize: 11, fontWeight: 500, color: "#94A3B8", fontFamily: INTER, flexShrink: 0 }}>{label}</span>
+      <span style={{ fontSize: 11, fontWeight: 600, color: "#64748B", fontFamily: INTER, flexShrink: 0 }}>{label}</span>
       <span style={{ fontSize: 11, fontFamily: INTER, color: "#334155", fontWeight: 500, maxWidth: 180, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", textAlign: "right" }} title={typeof value === "string" ? value : undefined}>{value}</span>
     </div>
   );
@@ -94,7 +94,7 @@ function InfoRow({ label, value }) {
 function SectionHeader({ title }) {
   return (
     <div style={{ padding: "16px 20px 6px" }}>
-      <span style={{ fontSize: 9, fontWeight: 700, letterSpacing: "0.1em", textTransform: "uppercase", color: "#CBD5E1", fontFamily: INTER }}>{title}</span>
+      <span style={{ fontSize: 9.5, fontWeight: 800, letterSpacing: "0.1em", textTransform: "uppercase", color: "#475569", fontFamily: INTER }}>{title}</span>
     </div>
   );
 }
@@ -904,10 +904,23 @@ Explain the architecture like a senior engineer during onboarding.`;
         {/* 5. HOOKS */}
         {hooksList.length > 0 && (
           <InboxRow label="Hooks">
+            <div style={{ width: "100%", display: "flex", alignItems: "center", gap: 12, marginBottom: 4, fontSize: 9.5, fontFamily: INTER, color: "#94A3B8" }}>
+              <span style={{ display: "inline-flex", alignItems: "center", gap: 4 }}>
+                <span style={{ width: 6, height: 6, borderRadius: "50%", background: "#94A3B8" }} /> React Core
+              </span>
+              <span style={{ display: "inline-flex", alignItems: "center", gap: 4, color: "#047857", fontWeight: 700 }}>
+                <span style={{ width: 6, height: 6, borderRadius: "50%", background: "#059669" }} /> Custom / State
+              </span>
+            </div>
             {hooksList.map(hook => {
               const builtin = BUILTIN_HOOKS.has(hook);
               return (
-                <Pill key={hook} bg={builtin ? "#F8FAFC" : "#ECFDF5"} color={builtin ? "#64748B" : "#059669"}>
+                <Pill
+                  key={hook}
+                  bg={builtin ? "#F8FAFC" : "#D1FAE5"}
+                  color={builtin ? "#64748B" : "#047857"}
+                  title={builtin ? "Standard React / Router Hook" : "Custom / Redux State Hook"}
+                >
                   {hook}
                 </Pill>
               );
@@ -919,7 +932,7 @@ Explain the architecture like a senior engineer during onboarding.`;
         {consumedStates.length > 0 && (
           <InboxRow label="State">
             {consumedStates.map(s => (
-              <Pill key={s.id} bg="#EEF2FF" color="#4F46E5">{s.name}</Pill>
+              <Pill key={s.id} bg="#E0E7FF" color="#3730A3">{s.name}</Pill>
             ))}
           </InboxRow>
         )}
@@ -928,7 +941,7 @@ Explain the architecture like a senior engineer during onboarding.`;
         {apiCalls.length > 0 && (
           <InboxRow label="APIs">
             {apiCalls.map(api => (
-              <Pill key={api.id} bg="#FFFBEB" color="#B45309">{api.name}</Pill>
+              <Pill key={api.id} bg="#FEF3C7" color="#92400E">{api.name}</Pill>
             ))}
           </InboxRow>
         )}
@@ -948,8 +961,8 @@ Explain the architecture like a senior engineer during onboarding.`;
             {relatedFiles.map(rf => (
               <Pill
                 key={rf.path}
-                bg={rf.nodeId ? "#EFF6FF" : "#F8FAFC"}
-                color={rf.nodeId ? "#2563EB" : "#64748B"}
+                bg={rf.nodeId ? "#DBEAFE" : "#F8FAFC"}
+                color={rf.nodeId ? "#1E40AF" : "#475569"}
                 onClick={rf.nodeId ? () => onNavigate(rf.nodeId) : undefined}
                 title={rf.path}
               >

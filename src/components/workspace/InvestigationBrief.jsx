@@ -122,14 +122,16 @@ export default function InvestigationBrief({
               const selectedIndex = domainIds.indexOf(selectedId);
               
               const kbdStyle = {
-                padding: "2px 5px",
-                border: "1px solid rgba(255, 255, 255, 0.12)",
+                padding: "2px 6px",
+                border: `1px solid ${displayColor}99`,
                 borderRadius: "4px",
                 margin: "0 4px",
-                background: "rgba(255, 255, 255, 0.03)",
+                background: `${displayColor}22`,
                 fontFamily: "'JetBrains Mono', monospace",
-                fontSize: "8.5px",
-                color: "rgba(255, 255, 255, 0.6)",
+                fontSize: "9px",
+                fontWeight: 700,
+                color: displayColor,
+                boxShadow: `0 0 10px ${displayColor}44`,
               };
 
               const hintContainerStyle = {
@@ -138,9 +140,11 @@ export default function InvestigationBrief({
                 flexDirection: "column",
                 gap: "6px",
                 fontFamily: "'JetBrains Mono', monospace",
-                fontSize: "8.5px",
-                letterSpacing: "1.2px",
-                color: "rgba(255, 255, 255, 0.25)",
+                fontSize: "9px",
+                letterSpacing: "1.4px",
+                color: displayColor,
+                fontWeight: 600,
+                textShadow: `0 0 10px ${displayColor}66`,
                 textTransform: "uppercase",
                 paddingLeft: "10px",
               };

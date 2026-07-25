@@ -8,75 +8,101 @@ export default function ArchitectureDnaCard({
   summaryMetrics = {},
   onFullStatsClick,
 }) {
-  const totalFiles = reduxFiles?.length || reduxNodes.length || 0;
+  const rawFiles = knowledgeGraph?.rawFiles || reduxFiles || [];
+  
+  // Collect all unique file objects or file paths
+  const fileMap = new Map();
+  
+  if (Array.isArray(rawFiles) && rawFiles.length > 0) {
+    rawFiles.forEach(f => {
+      const filePath = f.path || f.file || f.name;
+      if (filePath && !fileMap.has(filePath)) {
+        fileMap.set(filePath, { path: filePath, name: f.name || filePath.split('/').pop(), content: f.content });
+      }
+    });
+  }
+  
+  // Fallback if rawFiles is not available: collect unique file nodes or file references from knowledgeGraph.nodes
+  if (fileMap.size === 0 && Array.isArray(knowledgeGraph?.nodes)) {
+    knowledgeGraph.nodes.forEach(n => {
+      if (n.file && !fileMap.has(n.file)) {
+        fileMap.set(n.file, { path: n.file, name: n.file.split('/').pop() });
+      }
+    });
+  }
+
+  const uniqueFiles = Array.from(fileMap.values());
+  const totalFiles = uniqueFiles.length || reduxFiles?.length || reduxNodes.length || 0;
   const totalLoc = summaryMetrics.totalLoc || reduxNodes.reduce((acc, n) => acc + (n.metadata?.loc || 0), 0);
-  const allNodes = knowledgeGraph?.nodes || reduxNodes;
-  const archEntities = allNodes.filter(n => n.kind && n.kind !== 'file');
-  const totalEntitiesCount = archEntities.length > 0 ? archEntities.length : reduxNodes.length;
 
-  // 1. Dynamic Entity Counts from Knowledge Graph, File Paths, and Node Subtypes
-  const compCount = allNodes.filter(n => n.kind === 'component' || !n.kind).length || 1;
+  // File Classification Logic (Every file classified ONCE into a universal architectural category)
+  function classifyFile(filePath) {
+    const p = (filePath || "").replace(/\\/g, '/');
+    const filename = p.split('/').pop();
 
-  // Aggregate custom hook nodes + unique hooks declared across file paths & component metadata
-  const hookNodes = allNodes.filter(n =>
-    n.kind === 'hook' ||
-    n.subtype === 'hook' ||
-    (n.file && n.file.toLowerCase().includes('hook')) ||
-    (n.name && /^use[A-Z]/.test(n.name))
-  );
-  const uniqueMetadataHooks = new Set();
-  allNodes.forEach(n => {
-    if (Array.isArray(n.metadata?.hooks)) {
-      n.metadata.hooks.forEach(h => {
-        if (typeof h === 'string') uniqueMetadataHooks.add(h);
-        else if (h?.name) uniqueMetadataHooks.add(h.name);
-      });
+    // 1. Pages
+    if (/(^|\/)pages\//i.test(p) || /Page\.[jt]sx?$/i.test(filename)) {
+      return 'page';
     }
+
+    // 2. Routes
+    if (/(^|\/)routes?\//i.test(p) || /Router\.[jt]sx?$/i.test(filename) || /route/i.test(filename)) {
+      return 'route';
+    }
+
+    // 3. State
+    if (/(^|\/)(redux|slices?|stores?|contexts?)\//i.test(p) || /(Slice|Store|Context)\.[jt]sx?$/i.test(filename)) {
+      return 'state';
+    }
+
+    // 4. Services (APIs / Network / Service files)
+    if (/(^|\/)(services?|api)\//i.test(p) || /(Service|Api|Client)\.[jt]sx?$/i.test(filename)) {
+      return 'service';
+    }
+
+    // 5. Hooks
+    if (/(^|\/)hooks\//i.test(p) || /^use[A-Z].*\.[jt]sx?$/.test(filename)) {
+      return 'hook';
+    }
+
+    // 6. Components
+    if (/(^|\/)components\//i.test(p) || /\.[jt]sx$/.test(filename)) {
+      return 'comp';
+    }
+
+    // 7. Utilities (Includes helpers, constants, engines, adapters, lib)
+    return 'util';
+  }
+
+  const categoryCounts = {
+    comp: 0,
+    hook: 0,
+    service: 0,
+    state: 0,
+    page: 0,
+    route: 0,
+    util: 0,
+  };
+
+  uniqueFiles.forEach(f => {
+    const cat = classifyFile(f.path);
+    categoryCounts[cat] = (categoryCounts[cat] || 0) + 1;
   });
-  const hookCount = Math.max(hookNodes.length, uniqueMetadataHooks.size) || 1;
 
-  const apiCount = allNodes.filter(n =>
-    n.kind === 'api' ||
-    n.kind === 'service' ||
-    n.subtype === 'service' ||
-    n.subtype === 'api' ||
-    (n.file && (n.file.includes('api') || n.file.includes('service') || n.file.includes('engine')))
-  ).length || 1;
-
-  const stateCount = allNodes.filter(n =>
-    n.kind === 'state' ||
-    n.kind === 'store' ||
-    n.subtype === 'slice' ||
-    n.subtype === 'store' ||
-    (n.file && (n.file.includes('store') || n.file.includes('slice') || n.file.includes('redux')))
-  ).length || 1;
-
-  const pageCount = allNodes.filter(n =>
-    n.subtype === 'page' ||
-    (n.file && n.file.toLowerCase().includes('pages')) ||
-    (n.name && n.name.endsWith('Page'))
-  ).length || 1;
-
-  const routeCount = allNodes.filter(n =>
-    n.kind === 'route' ||
-    n.subtype === 'router' ||
-    (n.file && n.file.toLowerCase().includes('route'))
-  ).length || 1;
-
-  const utilCount = allNodes.filter(n =>
-    n.kind === 'util' ||
-    n.kind === 'helper' ||
-    (n.file && (n.file.includes('util') || n.file.includes('constants') || n.file.includes('helper') || n.file.includes('adapter')))
-  ).length || 1;
+  // Also check if custom hooks are declared as AST nodes in knowledgeGraph
+  const customHookNodesCount = (knowledgeGraph?.nodes || []).filter(n => n.kind === 'hook' || n.subtype === 'hook').length;
+  if (categoryCounts.hook === 0 && customHookNodesCount > 0) {
+    categoryCounts.hook = customHookNodesCount;
+  }
 
   const entityCategories = [
-    { id: 'comp',  label: 'Comp',  fullLabel: 'Components', count: compCount },
-    { id: 'hook',  label: 'Hook',  fullLabel: 'Hooks',      count: hookCount },
-    { id: 'api',   label: 'Api',   fullLabel: 'Services',   count: apiCount },
-    { id: 'state', label: 'State', fullLabel: 'Stores',     count: stateCount },
-    { id: 'page',  label: 'Page',  fullLabel: 'Pages',      count: pageCount },
-    { id: 'route', label: 'Route', fullLabel: 'Routes',     count: routeCount },
-    { id: 'util',  label: 'Util',  fullLabel: 'Utils',      count: utilCount },
+    { id: 'comp',    label: 'Comp',    fullLabel: 'Components', count: categoryCounts.comp },
+    { id: 'hook',    label: 'Hook',    fullLabel: 'Hooks',      count: categoryCounts.hook },
+    { id: 'service', label: 'Api',     fullLabel: 'Services',   count: categoryCounts.service },
+    { id: 'state',   label: 'State',   fullLabel: 'Stores',     count: categoryCounts.state },
+    { id: 'page',    label: 'Page',    fullLabel: 'Pages',      count: categoryCounts.page },
+    { id: 'route',   label: 'Route',   fullLabel: 'Routes',     count: categoryCounts.route },
+    { id: 'util',    label: 'Util',    fullLabel: 'Utils',      count: categoryCounts.util },
   ];
 
   const counts = entityCategories.map(c => c.count);
