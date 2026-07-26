@@ -58,6 +58,7 @@ function ArchitectureStudio() {
   const [composedGraph, setComposedGraph] = useState(null);
   const [layoutResult, setLayoutResult] = useState(null);
   const [isQueryLoading, setIsQueryLoading] = useState(false);
+  const [showQueryHistory, setShowQueryHistory] = useState(false);
 
   const handleQuery = useCallback(
     (templateId, focusTerm) => {
@@ -745,16 +746,16 @@ function ArchitectureStudio() {
           }}>
             {composedGraph && layoutResult ? (
               <div style={{ flex: 1, display: "flex", flexDirection: "column", overflow: "hidden" }}>
-                <QueryBar
-                  templates={ALL_TEMPLATES}
-                  onQuery={handleQuery}
-                  activeTemplateId={activeTemplateId}
-                  isLoading={isQueryLoading}
-                />
                 <QueryResultHeader
                   queryMeta={composedGraph.queryMeta}
                   template={TEMPLATE_REGISTRY.get(activeTemplateId)}
                   focus={activeFocus}
+                  onSearchQuery={(qStr) => {
+                    const match = resolveTemplate(qStr);
+                    handleQuery(match.templateId || "execution-flow", match.focusTerm || qStr);
+                  }}
+                  onToggleHistory={() => setShowQueryHistory((prev) => !prev)}
+                  historyCount={projectHistory?.length || 0}
                   onReset={() => {
                     setComposedGraph(null);
                     setLayoutResult(null);
@@ -762,29 +763,32 @@ function ArchitectureStudio() {
                     setActiveFocus(null);
                   }}
                 />
-                <div style={{ flex: 1, display: "flex", gap: 16, overflow: "hidden" }}>
-                  <div style={{
-                    flex: 1,
-                    background: "#FFFFFF",
-                    borderRadius: 16,
-                    border: "1px solid rgba(226,232,240,0.9)",
-                    boxShadow: "0 2px 16px rgba(15,23,42,0.06)",
-                    overflow: "hidden",
-                  }}>
-                    <FlowDiagram
-                      ref={flowRef}
-                      layoutedNodes={layoutResult.layoutedNodes}
-                      activeLanes={layoutResult.activeLanes || layoutResult.activePipelineStages}
-                      blueprintEdges={composedGraph.edges}
-                      queryMeta={composedGraph.queryMeta}
-                      architectureModel={architectureModel}
-                      knowledgeGraph={knowledgeGraph}
-                      selectedId={selectedId}
-                      onSelectNode={handleSelectNode}
-                      highlightedIds={highlightedIds}
-                    />
-                  </div>
+                <div style={{
+                  position: "relative",
+                  flex: 1,
+                  background: "#FFFFFF",
+                  borderRadius: 16,
+                  border: "1px solid rgba(226,232,240,0.9)",
+                  boxShadow: "0 2px 16px rgba(15,23,42,0.06)",
+                  overflow: "hidden",
+                }}>
+                  <FlowDiagram
+                    ref={flowRef}
+                    layoutedNodes={layoutResult.layoutedNodes}
+                    activeLanes={layoutResult.activeLanes || layoutResult.activePipelineStages}
+                    blueprintEdges={composedGraph.edges}
+                    queryMeta={composedGraph.queryMeta}
+                    architectureModel={architectureModel}
+                    knowledgeGraph={knowledgeGraph}
+                    selectedId={selectedId}
+                    onSelectNode={handleSelectNode}
+                    highlightedIds={highlightedIds}
+                  />
+
+                  {/* ── Floating Right Query History Panel ── */}
                   <QueryHistory
+                    isOpen={showQueryHistory}
+                    onClose={() => setShowQueryHistory(false)}
                     history={projectHistory}
                     onReplay={(entry) => handleQuery(entry.templateId, entry.focus)}
                   />
@@ -861,6 +865,8 @@ function ArchitectureStudio() {
           onClose={() => setShowInspector(false)}
         />
       )}
+
+
 
       {/* ── 5. Floating Bottom Command Dock ── */}
       <div style={{ position: "absolute", bottom: isFullscreen ? 16 : 12, left: "50%", transform: "translateX(-50%)", zIndex: isFullscreen ? 60 : 35 }}>
