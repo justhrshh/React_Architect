@@ -29,7 +29,7 @@ import QueryBar from "@/components/architecture/QueryBar";
 import QueryResultHeader from "@/components/architecture/QueryResultHeader";
 import EmptyQueryState from "@/components/architecture/EmptyQueryState";
 import QueryHistory from "@/components/architecture/QueryHistory";
-import { ALL_TEMPLATES, instantiateTemplate, TEMPLATE_REGISTRY } from "@/engines/templates";
+import { ALL_TEMPLATES, instantiateTemplate, TEMPLATE_REGISTRY, resolveTemplate } from "@/engines/templates";
 import { compose } from "@/engines/composers";
 import { computeLayout } from "@/engines/layout/blueprintLayoutEngine";
 import { selectQueryEngine, selectQueryHistory, addQueryHistoryEntry } from "@/redux/slices/graphSlice";
@@ -743,15 +743,14 @@ function ArchitectureStudio() {
             margin: isFullscreen ? 0 : "12px 16px 12px 16px",
             overflow: "hidden",
           }}>
-            <QueryBar
-              templates={ALL_TEMPLATES}
-              onQuery={handleQuery}
-              activeTemplateId={activeTemplateId}
-              isLoading={isQueryLoading}
-            />
-
             {composedGraph && layoutResult ? (
               <div style={{ flex: 1, display: "flex", flexDirection: "column", overflow: "hidden" }}>
+                <QueryBar
+                  templates={ALL_TEMPLATES}
+                  onQuery={handleQuery}
+                  activeTemplateId={activeTemplateId}
+                  isLoading={isQueryLoading}
+                />
                 <QueryResultHeader
                   queryMeta={composedGraph.queryMeta}
                   template={TEMPLATE_REGISTRY.get(activeTemplateId)}
@@ -796,6 +795,10 @@ function ArchitectureStudio() {
                 emptyState={activeTemplateId ? TEMPLATE_REGISTRY.get(activeTemplateId)?.emptyState : null}
                 templates={ALL_TEMPLATES}
                 onSelectTemplate={(tplId) => handleQuery(tplId, null)}
+                onSearchQuery={(qStr) => {
+                  const match = resolveTemplate(qStr);
+                  handleQuery(match.templateId || "execution-flow", match.focusTerm || qStr);
+                }}
               />
             )}
           </div>
