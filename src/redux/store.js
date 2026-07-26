@@ -23,4 +23,11 @@ export const store = configureStore({
     analysis: analysisReducer,
     git: gitReducer,
   },
+  middleware: (getDefaultMiddleware) =>
+    getDefaultMiddleware({
+      serializableCheck: {
+        ignoredActions: ['graph/setQueryEngine'],
+        ignoredPaths: ['graph.queryEngine'],
+      },
+    }),
 });

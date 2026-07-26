@@ -1,5 +1,5 @@
 import { createAsyncThunk } from '@reduxjs/toolkit';
-import { setFiles, setKnowledgeGraph } from '@/redux/slices/graphSlice';
+import { setFiles, setKnowledgeGraph, setQueryEngine } from '@/redux/slices/graphSlice';
 import {
   setAnalysisStatus,
   setAnalysisPhase,
@@ -7,6 +7,7 @@ import {
   setAnalysisResults,
 } from '@/redux/slices/analysisSlice';
 import { getSourceProvider, SourceUnavailableError } from '@/services/sourceProviders';
+import { GraphQueryEngine } from '@/engines/query/GraphQueryEngine';
 
 /**
  * Shared async thunk that orchestrates the full project analysis pipeline.
@@ -58,6 +59,7 @@ export const startProjectAnalysis = createAsyncThunk(
         );
 
         dispatch(setKnowledgeGraph(kg));
+        dispatch(setQueryEngine(new GraphQueryEngine(kg)));
         dispatch(setFiles(kg.files));
         window.projectFiles = kg.rawFiles;
         dispatch(setAnalysisResults(kg.analysis));
@@ -105,6 +107,7 @@ export const startProjectAnalysis = createAsyncThunk(
         dispatch(setAnalysisPhase('complete'));
         await new Promise(r => setTimeout(r, 30));
         dispatch(setKnowledgeGraph(kg));
+        dispatch(setQueryEngine(new GraphQueryEngine(kg)));
         dispatch(setFiles(kg.files));
         window.projectFiles = kg.rawFiles;
         dispatch(setAnalysisResults(analysisResults));
@@ -152,6 +155,7 @@ export const startProjectAnalysis = createAsyncThunk(
         dispatch(setAnalysisPhase('complete'));
         await new Promise(r => setTimeout(r, 30));
         dispatch(setKnowledgeGraph(kg));
+        dispatch(setQueryEngine(new GraphQueryEngine(kg)));
         dispatch(setFiles(kg.files));
         window.projectFiles = kg.rawFiles;
         dispatch(setAnalysisResults(analysisResults));

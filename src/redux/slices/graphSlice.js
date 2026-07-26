@@ -5,6 +5,8 @@ const initialState = {
   files: [],            // Scanned path strings
   selectedNodeId: "",   // Selected node identifier
   viewport: { x: 0, y: 0, zoom: 1 },
+  queryEngine: null,    // GraphQueryEngine singleton
+  queryHistory: {},     // { [projectKey: string]: Array<QueryHistoryEntry> }
 };
 
 const graphSlice = createSlice({
@@ -13,6 +15,21 @@ const graphSlice = createSlice({
   reducers: {
     setKnowledgeGraph(state, action) {
       state.knowledgeGraph = action.payload;
+    },
+    setQueryEngine(state, action) {
+      state.queryEngine = action.payload;
+    },
+    addQueryHistoryEntry(state, action) {
+      const { projectKey, entry } = action.payload || {};
+      if (!projectKey || !entry) return;
+      if (!state.queryHistory[projectKey]) {
+        state.queryHistory[projectKey] = [];
+      }
+      // Prepend and limit to 10
+      state.queryHistory[projectKey] = [
+        entry,
+        ...state.queryHistory[projectKey].filter((item) => item.id !== entry.id),
+      ].slice(0, 10);
     },
     setFiles(state, action) {
       state.files = action.payload;
@@ -34,6 +51,8 @@ const graphSlice = createSlice({
 
 export const {
   setKnowledgeGraph,
+  setQueryEngine,
+  addQueryHistoryEntry,
   setFiles,
   selectNodeId,
   clearSelection,
@@ -41,4 +60,10 @@ export const {
   resetGraph,
 } = graphSlice.actions;
 
-export default graphSlice.reducer;
+const EMPTY_ARRAY = [];
+
+export const selectQueryEngine = (state) => state.graph?.queryEngine || null;
+export const selectQueryHistory = (state, projectKey) =>
+  (projectKey && state.graph?.queryHistory?.[projectKey]) || EMPTY_ARRAY;
+
+export default graphSlice.reducer;

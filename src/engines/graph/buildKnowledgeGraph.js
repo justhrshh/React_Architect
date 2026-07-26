@@ -373,6 +373,12 @@ function buildRouteGraph(parsedFiles, graphFiles, nodes, edges, project, ctx) {
 function addRouteNodeRecursive(route, parentId, filePath, positionKey, nodes, edges, ctx) {
   const { fileMap, fileIndex, aliasMap } = ctx;
   let componentName = route.component;
+  // Default assumption: the component is declared in the same file as the route config
+  // (e.g. an inline `<Route element={<Home/>} />` where Home is a local declaration).
+  // Overwritten below with the resolved declaration's file if componentName turns out to be
+  // an imported symbol — this is what makes the ROUTE_RENDERS lookup below correct even when
+  // two files declare a same-named component.
+  let componentFile = filePath;
 
   const parentFileObj = fileMap.get(filePath);
   if (parentFileObj && componentName) {
@@ -384,6 +390,7 @@ function addRouteNodeRecursive(route, parentId, filePath, positionKey, nodes, ed
         const declaration = resolveComponentDeclaration(resolvedPath, symbolToResolve, fileMap, fileIndex, aliasMap);
         if (declaration) {
           componentName = declaration.name;
+          componentFile = declaration.file;
         }
       }
     }
@@ -401,6 +408,22 @@ function addRouteNodeRecursive(route, parentId, filePath, positionKey, nodes, ed
     })
   );
   edges.push(createEdge({ type: "ROUTE_PARENT", source: parentId, target: routeId }));
+
+  // Route → rendered component edge (Phase 6 of the Blueprint Flow v2 refactor — see TASK.md).
+  // `componentName`/`componentFile` above were already resolved via the same import/declaration
+  // resolution used everywhere else in this file — this is not a new resolution mechanism, just
+  // the first place that turns the result into an edge instead of discarding it into metadata.
+  // `routeExtractor.js` uses the literal string "Component" as its own placeholder for "could
+  // not determine a real name" (see its `elementVal || "Component"` fallbacks) — skip creating
+  // an edge in that case rather than pointing at a matching-by-coincidence node named "Component".
+  if (componentName && componentName !== "Component") {
+    const renderedComponent = nodes.find(
+      (n) => n.kind === "component" && n.name === componentName && n.file === componentFile
+    );
+    if (renderedComponent) {
+      edges.push(createEdge({ type: "ROUTE_RENDERS", source: routeId, target: renderedComponent.id }));
+    }
+  }
 
   (route.children || []).forEach((child, i) => {
     addRouteNodeRecursive(child, routeId, filePath, `${positionKey}.${i}`, nodes, edges, ctx);

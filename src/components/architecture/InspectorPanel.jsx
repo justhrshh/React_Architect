@@ -9,7 +9,10 @@ import {
   Check,
   Sparkles,
   FileCode,
-  Loader
+  Loader,
+  Maximize2,
+  Minimize2,
+  GripHorizontal,
 } from "lucide-react";
 import { calculateMaintainability } from "@/engines/analysis/modules/maintainability";
 import { analyzeImpact } from "@/engines/analysis";
@@ -112,7 +115,9 @@ export default function InspectorPanel({
 }) {
   const [toast, setToast] = useState(null);
   const [copied, setCopied] = useState(false);
+  const [copiedCode, setCopiedCode] = useState(false);
   const [isAIModalOpen, setIsAIModalOpen] = useState(false);
+  const [isEnlargedCodeOpen, setIsEnlargedCodeOpen] = useState(false);
 
   const fileContent = useMemo(() => {
     if (!knowledgeGraph || !node || !node.file) return null;
@@ -306,6 +311,18 @@ Explain the architecture like a senior engineer during onboarding.`;
       })
       .catch(() => {
         setToast("Failed to copy file path.");
+      });
+  };
+
+  const handleCopyCode = () => {
+    if (!fileContent) return;
+    navigator.clipboard.writeText(fileContent)
+      .then(() => {
+        setCopiedCode(true);
+        setToast("Source code copied to clipboard!");
+      })
+      .catch(() => {
+        setToast("Failed to copy code.");
       });
   };
 
@@ -667,7 +684,42 @@ Explain the architecture like a senior engineer during onboarding.`;
         {/* SOURCE CODE VIEWER WITH LINE HIGHLIGHTING */}
         {fileContent && (
           <>
-            <SectionHeader title="Source Code Definition" />
+            <div style={{ padding: "16px 20px 6px", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+              <span style={{ fontSize: 9.5, fontWeight: 800, letterSpacing: "0.1em", textTransform: "uppercase", color: "#475569", fontFamily: INTER }}>
+                Source Code Definition
+              </span>
+              <button
+                onClick={() => setIsEnlargedCodeOpen(true)}
+                title="Open floating enlarged code viewer"
+                style={{
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: 5,
+                  background: "#EEF2FF",
+                  border: "1px solid #C7D2FE",
+                  borderRadius: 6,
+                  padding: "3px 8px",
+                  fontSize: 10,
+                  fontWeight: 700,
+                  color: "#4338CA",
+                  cursor: "pointer",
+                  fontFamily: INTER,
+                  transition: "all 0.15s ease",
+                  userSelect: "none",
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.background = "#E0E7FF";
+                  e.currentTarget.style.borderColor = "#A5B4FC";
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.background = "#EEF2FF";
+                  e.currentTarget.style.borderColor = "#C7D2FE";
+                }}
+              >
+                <Maximize2 size={11} />
+                <span>Expand</span>
+              </button>
+            </div>
             <div style={{ padding: "8px 20px 16px", borderBottom: "1px solid #F1F5F9" }}>
               <div
                 ref={sourceCodeRef}
@@ -1153,6 +1205,156 @@ Explain the architecture like a senior engineer during onboarding.`;
               </div>
             </motion.div>
           </div>
+        )}
+      </AnimatePresence>
+
+      {/* FLOATING ENLARGED DRAGGABLE SOURCE CODE MODAL */}
+      <AnimatePresence>
+        {isEnlargedCodeOpen && fileContent && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            style={{
+              position: "fixed",
+              inset: 0,
+              background: "rgba(15, 23, 42, 0.65)",
+              backdropFilter: "blur(6px)",
+              zIndex: 99999,
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+            }}
+            onClick={() => setIsEnlargedCodeOpen(false)}
+          >
+            <motion.div
+              drag
+              dragMomentum={false}
+              initial={{ scale: 0.92, opacity: 0, y: 20 }}
+              animate={{ scale: 1, opacity: 1, y: 0 }}
+              exit={{ scale: 0.92, opacity: 0, y: 20 }}
+              transition={{ type: "spring", stiffness: 350, damping: 25 }}
+              onClick={(e) => e.stopPropagation()}
+              style={{
+                width: "84vw",
+                maxWidth: 1000,
+                height: "82vh",
+                maxHeight: 800,
+                background: "#0F172A",
+                borderRadius: 16,
+                border: "1px solid #334155",
+                boxShadow: "0 25px 60px rgba(0,0,0,0.5), 0 0 0 1px rgba(255,255,255,0.08)",
+                display: "flex",
+                flexDirection: "column",
+                overflow: "hidden",
+              }}
+            >
+              {/* Header / Drag Bar */}
+              <div
+                style={{
+                  padding: "12px 20px",
+                  background: "#1E293B",
+                  borderBottom: "1px solid #334155",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "space-between",
+                  cursor: "grab",
+                  userSelect: "none",
+                }}
+              >
+                <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                  <GripHorizontal size={18} color="#64748B" />
+                  <div style={{ width: 26, height: 26, borderRadius: 6, background: "rgba(99, 102, 241, 0.15)", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                    <FileCode size={14} color="#818CF8" />
+                  </div>
+                  <div>
+                    <span style={{ fontSize: 13.5, fontWeight: 700, color: "#F8FAFC", fontFamily: INTER, letterSpacing: "-0.01em" }}>
+                      {node.name} — {node.file?.split("/").pop()}
+                    </span>
+                    <span style={{ fontSize: 10.5, color: "#94A3B8", fontFamily: MONO, display: "block" }}>
+                      {node.file} • {fileContent.split("\n").length} LOC • Highlighted at Line {activeHighlightLine}
+                    </span>
+                  </div>
+                </div>
+
+                <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                  <button
+                    onClick={handleCopyCode}
+                    style={{
+                      display: "inline-flex", alignItems: "center", gap: 5,
+                      padding: "6px 12px", borderRadius: 8, background: "#334155",
+                      border: "1px solid #475569", color: "#E2E8F0", fontSize: 11,
+                      fontFamily: INTER, fontWeight: 600, cursor: "pointer",
+                      transition: "all 0.15s ease",
+                    }}
+                  >
+                    {copiedCode ? <Check size={13} color="#10B981" /> : <Copy size={13} />}
+                    <span>{copiedCode ? "Copied" : "Copy Code"}</span>
+                  </button>
+
+                  <button
+                    onClick={handleOpenFile}
+                    style={{
+                      display: "inline-flex", alignItems: "center", gap: 5,
+                      padding: "6px 12px", borderRadius: 8, background: "#334155",
+                      border: "1px solid #475569", color: "#E2E8F0", fontSize: 11,
+                      fontFamily: INTER, fontWeight: 600, cursor: "pointer",
+                      transition: "all 0.15s ease",
+                    }}
+                  >
+                    <span>Open in Editor</span>
+                  </button>
+
+                  <button
+                    onClick={() => setIsEnlargedCodeOpen(false)}
+                    style={{
+                      width: 30, height: 30, borderRadius: "50%", background: "#334155",
+                      border: "none", color: "#94A3B8", display: "flex", alignItems: "center",
+                      justifyContent: "center", cursor: "pointer", fontSize: 14, fontWeight: 700,
+                      transition: "all 0.15s ease",
+                    }}
+                    onMouseEnter={(e) => {
+                      e.currentTarget.style.background = "#EF4444";
+                      e.currentTarget.style.color = "#FFFFFF";
+                    }}
+                    onMouseLeave={(e) => {
+                      e.currentTarget.style.background = "#334155";
+                      e.currentTarget.style.color = "#94A3B8";
+                    }}
+                  >
+                    ✕
+                  </button>
+                </div>
+              </div>
+
+              {/* Code Viewer Body */}
+              <div style={{ flex: 1, overflowY: "auto", padding: "16px 0", fontFamily: MONO, fontSize: 12.5, lineHeight: 1.7, scrollbarWidth: "thin", color: "#E2E8F0" }}>
+                {fileContent.split("\n").map((lineText, idx) => {
+                  const lineNum = idx + 1;
+                  const isHighlighted = lineNum === activeHighlightLine;
+                  return (
+                    <div
+                      key={lineNum}
+                      style={{
+                        display: "flex",
+                        padding: "3px 24px",
+                        background: isHighlighted ? "rgba(99, 102, 241, 0.28)" : "transparent",
+                        borderLeft: isHighlighted ? "4px solid #818CF8" : "4px solid transparent",
+                        transition: "background 0.15s ease",
+                      }}
+                    >
+                      <span style={{ width: 48, flexShrink: 0, color: isHighlighted ? "#A5B4FC" : "#475569", fontWeight: isHighlighted ? 700 : 400, userSelect: "none" }}>
+                        {lineNum}
+                      </span>
+                      <span style={{ color: isHighlighted ? "#FFFFFF" : "#CBD5E1", fontWeight: isHighlighted ? 600 : 400, whiteSpace: "pre-wrap", wordBreak: "break-all" }}>
+                        {lineText || " "}
+                      </span>
+                    </div>
+                  );
+                })}
+              </div>
+            </motion.div>
+          </motion.div>
         )}
       </AnimatePresence>
     </motion.aside>

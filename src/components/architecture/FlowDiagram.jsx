@@ -1,335 +1,335 @@
 import { useState, useEffect, useCallback, useMemo, useRef, forwardRef, useImperativeHandle } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { ZoomIn, ZoomOut, Maximize2, GitBranch } from "lucide-react";
+import {
+  ZoomIn, ZoomOut, Maximize2, GitBranch,
+  FileCode, Layers, Box, Cpu, Radio, Shield, Server, Database, Key
+} from "lucide-react";
 import { INTER, MONO } from "./constants";
+import { computeBlueprintLayout } from "@/engines/layout/blueprintLayoutEngine";
+import { getExecutionNeighborhood } from "@/engines/graph/graphTraversal";
+import { LANE_CONFIG } from "@/engines/graph/blueprintLaneConfig";
 
-// ─── helpers ────────────────────────────────────────────────────────────────
-function findParentIds(nodesList, targetId, path = []) {
-  for (const n of nodesList) {
-    if (n.id === targetId) return path;
-    if (n.children?.length) {
-      const r = findParentIds(n.children, targetId, [...path, n.id]);
-      if (r) return r;
-    }
-  }
-  return null;
-}
-
-// ─── type config ─────────────────────────────────────────────────────────────
-const TYPE_CFG = {
-  router:    { color: "#06B6D4", label: "Route",     abbr: "RO" },
-  endpoint:  { color: "#06B6D4", label: "Route",     abbr: "RO" },
-  page:      { color: "#EC4899", label: "Page",      abbr: "PG" },
-  layout:    { color: "#8B5CF6", label: "Layout",    abbr: "LY" },
-  component: { color: "#6366F1", label: "Component", abbr: "CP" },
-  provider:  { color: "#F59E0B", label: "Provider",  abbr: "PR" },
-  context:   { color: "#EC4899", label: "Context",   abbr: "CX" },
-  slice:     { color: "#F97316", label: "Slice",     abbr: "SL" },
-  state:     { color: "#8B5CF6", label: "State",     abbr: "ST" },
-  data:      { color: "#EC4899", label: "Data",      abbr: "DT" },
-  module:    { color: "#EC4899", label: "Data",      abbr: "DT" },
-  gateway:   { color: "#F97316", label: "Service",   abbr: "SV" },
-  api:       { color: "#10B981", label: "Service",   abbr: "SV" },
-  hook:      { color: "#8B5CF6", label: "Hook",      abbr: "HK" },
-  category:  { color: "#94A3B8", label: "",          abbr: "—"  },
+// ─── Edge Type Visual Identity Config ───────────────────────────────────────
+const EDGE_STYLE_CFG = {
+  IMPORTS:           { color: "#60A5FA", width: 1.5, dash: undefined, label: "imports" },
+  ROUTE_PARENT:      { color: "#10B981", width: 2.0, dash: undefined, label: "routes" },
+  ROUTE_RENDERS:     { color: "#10B981", width: 2.2, dash: undefined, label: "renders page" },
+  ROUTES_TO:         { color: "#10B981", width: 2.0, dash: undefined, label: "routes" },
+  RENDERS:           { color: "#A855F7", width: 2.0, dash: undefined, label: "renders" },
+  USES_HOOK:         { color: "#F97316", width: 2.0, dash: undefined, label: "hook" },
+  USES_API:          { color: "#EF4444", width: 2.0, dash: undefined, label: "api call" },
+  CALLS_API:         { color: "#EF4444", width: 2.0, dash: undefined, label: "api call" },
+  USES_CONTEXT:      { color: "#3B82F6", width: 1.8, dash: "4 4",     label: "context" },
+  STATE_CONSUMER:    { color: "#3B82F6", width: 1.8, dash: "4 4",     label: "state" },
+  LAZY_LOADS:        { color: "#9CA3AF", width: 1.5, dash: "4 4",     label: "lazy" },
+  DYNAMIC_IMPORT:    { color: "#9CA3AF", width: 1.5, dash: "4 4",     label: "dynamic" },
+  TARGETS_ROUTE:     { color: "#059669", width: 2.2, dash: undefined, label: "targets" },
+  HANDLED_BY:        { color: "#7C3AED", width: 2.2, dash: undefined, label: "handler" },
+  AUTHORIZES:        { color: "#0284C7", width: 2.0, dash: undefined, label: "auth" },
+  VALIDATES:         { color: "#0284C7", width: 2.0, dash: undefined, label: "validates" },
+  USES:              { color: "#6366F1", width: 1.8, dash: undefined, label: "uses" },
+  CALLS_SERVICE:     { color: "#DB2777", width: 2.2, dash: undefined, label: "service" },
+  USES_MODEL:        { color: "#EA580C", width: 2.2, dash: undefined, label: "model" },
+  ACCESSES_DB:       { color: "#10B981", width: 2.4, dash: undefined, label: "database" },
+  // Synthesized by blueprintGraphBuilder.js's bridging pass (Phase 7) when filtering would
+  // otherwise disconnect two architectural nodes — dashed + muted to visually distinguish a
+  // bridged/inferred connection from a direct, literal Knowledge Graph edge.
+  EXECUTION_FLOW:    { color: "#94A3B8", width: 1.8, dash: "6 3",     label: "bridged" },
 };
-function getCfg(node) {
-  return TYPE_CFG[node.subtype] || TYPE_CFG[node.kind] || TYPE_CFG.component;
+
+function getEdgeStyle(type) {
+  return EDGE_STYLE_CFG[type] || { color: "#CBD5E1", width: 1.5, dash: undefined, label: "" };
 }
 
-// ─── layout constants ────────────────────────────────────────────────────────
-const NODE_W   = 168;
-const NODE_H   = 64;
-const COL_GAP  = 56;   // horizontal gap between depth levels
-const ROW_GAP  = 12;   // vertical gap between siblings
-const CAT_H    = 22;
+// ─── Subtype / Kind Icon Resolver ───────────────────────────────────────────
+function getNodeIcon(node) {
+  const kind = node?.kind;
+  const subtype = node?.subtype;
 
-// ─── horizontal tree layout engine ──────────────────────────────────────────
-function computeLayout(roots, expanded) {
-  const nodes = [];
-  const edges = [];
-  let uid = 0;
-
-  function subtreeHeight(node, depth) {
-    const isExp = expanded[node.id];
-    const kids  = isExp && node.children?.length ? node.children : [];
-    if (!kids.length) return node.kind === "category" ? CAT_H : NODE_H;
-    const childHeights = kids.map(c => subtreeHeight(c, depth + 1));
-    const total = childHeights.reduce((a, b) => a + b, 0) + Math.max(0, kids.length - 1) * ROW_GAP;
-    return Math.max(node.kind === "category" ? CAT_H : NODE_H, total);
-  }
-
-  function place(node, x, cy, depth, parentId) {
-    const id    = uid++;
-    const h     = node.kind === "category" ? CAT_H : NODE_H;
-    const y     = cy - h / 2;
-
-    nodes.push({ uid: id, id: node.id, x, y, w: NODE_W, h, node, cfg: getCfg(node) });
-
-    if (parentId !== null) {
-      const par = nodes.find(n => n.uid === parentId);
-      if (par) edges.push({ from: par, to: { x, y, w: NODE_W, h }, fromId: par.id, toId: node.id, cfg: getCfg(node) });
-    }
-
-    const isExp = expanded[node.id];
-    const kids  = isExp && node.children?.length ? node.children : [];
-    if (!kids.length) return;
-
-    const childX = x + NODE_W + COL_GAP;
-    const heights = kids.map(c => subtreeHeight(c, depth + 1));
-    const total   = heights.reduce((a, b) => a + b, 0) + (kids.length - 1) * ROW_GAP;
-    let startY    = cy - total / 2;
-
-    kids.forEach((child, i) => {
-      const ch   = heights[i];
-      place(child, childX, startY + ch / 2, depth + 1, id);
-      startY += ch + ROW_GAP;
-    });
-  }
-
-  // layout roots side by side vertically
-  const rootHeights = roots.map(r => subtreeHeight(r, 0));
-  const total = rootHeights.reduce((a, b) => a + b, 0) + (roots.length - 1) * ROW_GAP;
-  let cy = -total / 2;
-  roots.forEach((r, i) => {
-    const h = rootHeights[i];
-    place(r, 0, cy + h / 2, 0, null);
-    cy += h + ROW_GAP;
-  });
-
-  return { nodes, edges };
+  if (kind === "database") return Database;
+  if (kind === "model") return Layers;
+  if (kind === "service") return Server;
+  if (kind === "controller") return Cpu;
+  if (kind === "middleware") return Shield;
+  if (kind === "api") return Radio;
+  if (kind === "hook") return Key;
+  if (kind === "route" || subtype === "router") return GitBranch;
+  if (subtype === "page") return Box;
+  if (kind === "component") return Layers;
+  return FileCode;
 }
 
-// ─── filter ──────────────────────────────────────────────────────────────────
-function filterNodes(nodes) {
-  if (!nodes) return [];
-  return nodes
-    .map(n => ({ ...n, children: filterNodes(n.children) }))
-    .filter(n => {
-      if (n.kind === "category") {
-        return Boolean(n.children && n.children.length > 0);
-      }
-      return true;
-    });
-}
+// ─── Node Card Component ────────────────────────────────────────────────────
+// Colors for execution-neighborhood direction (Phase 8) — deliberately distinct from the lane
+// palette in blueprintLaneConfig.js, so "this is upstream/downstream of your selection" reads as
+// its own signal, not a lane color. Kept to a small badge + ring tint rather than restyling the
+// whole card, per the v2 design brief's "don't redesign the visual language" constraint.
+const DIRECTION_COLORS = {
+  upstream: "#D97706",   // amber — "what ran before"
+  downstream: "#0284C7", // blue — "what runs next"
+};
 
-// ─── Node Card ───────────────────────────────────────────────────────────────
-function NodeCard({ n, isSelected, isHighlighted, onSelect, onToggle, isExpanded, hasChildren }) {
-  const { node, cfg } = n;
-  const isCategory = node.kind === "category";
+function BlueprintNodeCard({ node, isSelected, isConnected, isDimmed, direction, onSelect, onHover, onHoverEnd }) {
+  const IconComponent = getNodeIcon(node);
+  const laneCfg = LANE_CONFIG.find(l => l.id === node.laneId) || LANE_CONFIG[3];
 
-  if (isCategory) {
-    return (
-      <motion.div
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 1 }}
-        onClick={e => { e.stopPropagation(); onToggle(node.id); }}
-        style={{
-          position: "absolute", left: n.x, top: n.y,
-          width: n.w, height: n.h,
-          display: "flex", alignItems: "center", gap: 6,
-          cursor: "pointer", userSelect: "none",
-        }}
-      >
-        <div style={{ flex: 1, height: 1, background: "#E2E8F0" }} />
-        <span style={{ fontFamily: INTER, fontSize: 9, fontWeight: 700, letterSpacing: "1.6px", textTransform: "uppercase", color: "#94A3B8", whiteSpace: "nowrap" }}>
-          {node.name}
-        </span>
-        <div style={{ flex: 1, height: 1, background: "#E2E8F0" }} />
-      </motion.div>
-    );
-  }
+  const meta = node.metadata || {};
+  const x = meta.x || 0;
+  const y = meta.y || 0;
+  const w = meta.w || 220;
+  const h = meta.h || 74;
 
-  const displayName = node.kind === "route" && node.subtype === "endpoint" ? (node.name || "/") : node.name;
-  const fileName    = node.file ? node.file.split("/").pop() : null;
-  const loc         = node.metadata?.loc;
+  const accentColor = laneCfg.color;
+  const directionColor = direction ? DIRECTION_COLORS[direction] : null;
+  // Direction tint takes precedence over the plain lane-accent "connected" ring so the
+  // before/next distinction reads clearly; the selected node itself has no direction (it's
+  // neither upstream nor downstream of itself) and keeps its existing lane-accent treatment.
+  const ringColor = directionColor || accentColor;
+
+  const shadow = isSelected
+    ? `0 0 0 2.5px ${accentColor}40, 0 10px 24px rgba(15,23,42,0.12)`
+    : isConnected
+    ? `0 0 0 1.5px ${ringColor}45, 0 4px 12px rgba(15,23,42,0.06)`
+    : "0 1px 3px rgba(15,23,42,0.05), 0 4px 12px rgba(15,23,42,0.03)";
+
+  const border = isSelected
+    ? `1px solid ${accentColor}`
+    : isConnected
+    ? `1px solid ${ringColor}70`
+    : "1px solid #E2E8F0";
 
   return (
     <motion.div
-      initial={{ opacity: 0, x: -8, scale: 0.96 }}
-      animate={{ opacity: 1, x: 0, scale: 1 }}
-      whileHover={{ y: -1, boxShadow: `0 4px 20px rgba(0,0,0,0.12), 0 0 0 1.5px ${cfg.color}` }}
-      transition={{ duration: 0.16, ease: [0.25, 1, 0.5, 1] }}
-      onClick={e => { e.stopPropagation(); onSelect(node.id); }}
       style={{
         position: "absolute",
-        left: n.x, top: n.y,
-        width: n.w, height: n.h,
+        left: x,
+        top: y,
+        width: w,
+        height: h,
         background: "#FFFFFF",
-        borderRadius: 10,
-        border: isSelected
-          ? `1.5px dashed ${cfg.color}`
-          : isHighlighted
-          ? `1.5px solid ${cfg.color}88`
-          : "1px solid #E8EDF5",
-        boxShadow: isSelected
-          ? `0 0 0 3px ${cfg.color}18, 0 4px 16px rgba(0,0,0,0.08)`
-          : "0 1px 4px rgba(15,23,42,0.06)",
+        borderRadius: 12,
+        border,
+        borderLeft: `4px solid ${accentColor}`,
+        boxShadow: shadow,
         cursor: "pointer",
-        display: "flex",
-        alignItems: "center",
-        gap: 10,
-        padding: "0 12px 0 10px",
-        userSelect: "none",
+        opacity: isDimmed ? 0.2 : 1,
+        transition: "opacity 0.2s ease, box-shadow 0.2s ease, transform 0.15s ease",
+        zIndex: isSelected ? 30 : isConnected ? 20 : 10,
         boxSizing: "border-box",
-        overflow: "hidden",
-        transition: "border 0.15s, box-shadow 0.15s",
+        padding: "10px 12px",
+        display: "flex",
+        flexDirection: "column",
+        justifyContent: "space-between",
       }}
+      onClick={(e) => {
+        e.stopPropagation();
+        onSelect(node.id);
+      }}
+      onMouseEnter={() => onHover && onHover(node.id)}
+      onMouseLeave={() => onHoverEnd && onHoverEnd()}
+      whileHover={{ scale: isDimmed ? 1 : 1.02, y: isDimmed ? 0 : -2 }}
     >
-      {/* Colored icon box */}
-      <div style={{
-        width: 32, height: 32, borderRadius: 8,
-        background: cfg.color + "18",
-        display: "flex", alignItems: "center", justifyContent: "center",
-        flexShrink: 0,
-      }}>
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 7, overflow: "hidden" }}>
+          <div style={{
+            width: 22, height: 22, borderRadius: 6,
+            background: laneCfg.bg,
+            display: "flex", alignItems: "center", justifyContent: "center",
+            flexShrink: 0,
+          }}>
+            <IconComponent size={12} color={accentColor} />
+          </div>
+          <span style={{
+            fontSize: 12,
+            fontWeight: 700,
+            color: "#0F172A",
+            fontFamily: INTER,
+            whiteSpace: "nowrap",
+            overflow: "hidden",
+            textOverflow: "ellipsis",
+            letterSpacing: "-0.01em",
+          }}>
+            {node.name}
+          </span>
+        </div>
+
         <span style={{
-          fontSize: 9, fontFamily: INTER, fontWeight: 800,
-          color: cfg.color, letterSpacing: "0.3px", textTransform: "uppercase",
+          fontSize: 8.5,
+          fontWeight: 800,
+          color: accentColor,
+          background: laneCfg.bg,
+          padding: "2px 6px",
+          borderRadius: 4,
+          fontFamily: MONO,
+          textTransform: "uppercase",
+          flexShrink: 0,
         }}>
-          {cfg.abbr}
+          {node.subtype || node.kind}
         </span>
       </div>
 
-      {/* Text block */}
-      <div style={{ flex: 1, minWidth: 0 }}>
-        {/* Name row */}
-        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 4 }}>
-          <span style={{
-            fontFamily: INTER, fontSize: 12, fontWeight: 700,
-            color: "#0F172A",
-            overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
-            flex: 1,
-          }}>
-            {displayName}
-          </span>
-          {hasChildren && (
-            <div
-              onClick={e => { e.stopPropagation(); onToggle(node.id); }}
-              style={{
-                width: 16, height: 16, borderRadius: 4,
-                background: isExpanded ? cfg.color + "18" : "#F1F5F9",
-                display: "flex", alignItems: "center", justifyContent: "center",
-                cursor: "pointer", flexShrink: 0,
-                transition: "background 0.15s",
-              }}
-            >
-              <svg width="8" height="8" viewBox="0 0 8 8" fill="none">
-                <path
-                  d={isExpanded ? "M1 3 L4 6 L7 3" : "M3 1 L6 4 L3 7"}
-                  stroke={isExpanded ? cfg.color : "#94A3B8"}
-                  strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"
-                />
-              </svg>
-            </div>
-          )}
-        </div>
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginTop: 4 }}>
+        <span style={{
+          fontSize: 9.5,
+          color: "#64748B",
+          fontFamily: MONO,
+          whiteSpace: "nowrap",
+          overflow: "hidden",
+          textOverflow: "ellipsis",
+          maxWidth: 140,
+        }}>
+          {node.annotation || (node.file ? node.file.split("/").pop() : "")}
+        </span>
 
-        {/* Type label row */}
-        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginTop: 2 }}>
-          <span style={{
-            fontFamily: INTER, fontSize: 8.5, fontWeight: 700,
-            color: cfg.color, letterSpacing: "0.5px", textTransform: "uppercase",
-          }}>
-            {cfg.label}
-          </span>
-          {loc !== undefined && (
-            <span style={{ fontFamily: MONO, fontSize: 8.5, color: "#94A3B8", fontWeight: 500 }}>
-              {loc}
-            </span>
-          )}
-        </div>
-
-        {/* File path */}
-        {fileName && (
-          <span style={{
-            fontFamily: MONO, fontSize: 8.5, color: "#CBD5E1",
-            overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
-            display: "block", marginTop: 1,
-          }}>
-            {fileName}
+        {meta.loc && (
+          <span style={{ fontSize: 9, color: "#94A3B8", fontFamily: MONO }}>
+            {meta.loc} loc
           </span>
         )}
       </div>
+
+
+      {direction && !isDimmed && (
+        <span style={{
+          position: "absolute",
+          top: -9,
+          right: 10,
+          fontSize: 8,
+          fontWeight: 800,
+          color: "#FFFFFF",
+          background: directionColor,
+          padding: "2px 7px",
+          borderRadius: 999,
+          fontFamily: MONO,
+          textTransform: "uppercase",
+          letterSpacing: "0.03em",
+          boxShadow: "0 1px 3px rgba(15,23,42,0.25)",
+        }}>
+          {direction === "upstream" ? "← before" : "next →"}
+        </span>
+      )}
     </motion.div>
   );
 }
 
-// ─── Main FlowDiagram ────────────────────────────────────────────────────────
-const FlowDiagram = forwardRef(({ architectureModel, selectedId, onSelectNode, highlightedIds }, ref) => {
-  const [expanded, setExpanded]   = useState({});
+// ─── Main FlowDiagram Component ─────────────────────────────────────────────
+const FlowDiagram = forwardRef((props, ref) => {
+  const {
+    architectureModel = [],
+    knowledgeGraph = null,
+    selectedId = "",
+    onSelectNode,
+    highlightedIds,
+  } = props;
+
   const [pan, setPan]             = useState({ x: 0, y: 0 });
   const [zoom, setZoom]           = useState(1);
   const [isPanning, setIsPanning] = useState(false);
   const [panStart, setPanStart]   = useState({ x: 0, y: 0 });
-  const containerRef              = useRef(null);
-  const [containerSize, setContainerSize] = useState({ width: 900, height: 600 });
+  const [hoveredNodeId, setHoveredNodeId] = useState("");
 
-  const rootKey = useMemo(() => architectureModel.map(r => r.id).join(","), [architectureModel]);
-  const model   = useMemo(() => filterNodes(architectureModel), [architectureModel]);
+  const containerRef = useRef(null);
 
-  // Auto-expand first 2 levels
-  useEffect(() => {
-    if (model.length === 0) return;
-    const init = {};
-    model.forEach(r => {
-      init[r.id] = true;
-      r.children?.forEach(c => { init[c.id] = true; });
-    });
-    setTimeout(() => setExpanded(init), 0);
-  }, [rootKey]); // eslint-disable-line react-hooks/exhaustive-deps
-
-  // Auto-expand parents when selection changes
-  useEffect(() => {
-    if (!selectedId) return;
-    const parents = findParentIds(architectureModel, selectedId);
-    if (parents?.length) {
-      setExpanded(prev => {
-        const next = { ...prev };
-        parents.forEach(id => { next[id] = true; });
-        return next;
-      });
+  // Extract nodes and edges from Knowledge Graph or Fallback
+  const rawNodes = useMemo(() => {
+    if (knowledgeGraph && Array.isArray(knowledgeGraph.nodes)) {
+      return knowledgeGraph.nodes;
     }
-  }, [selectedId, architectureModel]);
+    return Array.isArray(architectureModel) ? architectureModel : [];
+  }, [knowledgeGraph, architectureModel]);
 
-  const toggle = useCallback(id => setExpanded(prev => ({ ...prev, [id]: !prev[id] })), []);
+  const rawEdges = useMemo(() => {
+    if (knowledgeGraph && Array.isArray(knowledgeGraph.edges)) {
+      return knowledgeGraph.edges;
+    }
+    return [];
+  }, [knowledgeGraph]);
 
-  const { nodes, edges } = useMemo(() => computeLayout(model, expanded), [model, expanded]);
+  // Build the Blueprint Graph (classification + source traceability) from raw Knowledge
+  // Graph nodes/edges, then lay it out. See engines/graph/blueprintGraphBuilder.js —
+  // Phase 2 of the Blueprint Flow refactor (TASK.md). As of Phase 2 this is still
+  // node-for-node/edge-for-edge equivalent to the raw KG (filtering lands in Phase 3);
+  // this call boundary is what makes that filtering a local change later, not a rewrite.
+  const { blueprintNodes, blueprintEdges } = useMemo(() => {
+    if (props.blueprintEdges) {
+      return { blueprintNodes: props.layoutedNodes || [], blueprintEdges: props.blueprintEdges };
+    }
+    return buildBlueprintGraph(rawNodes, rawEdges);
+  }, [rawNodes, rawEdges, props.layoutedNodes, props.blueprintEdges]);
 
-  // Bounding box
+  const { layoutedNodes, activeLanes } = useMemo(() => {
+    if (Array.isArray(props.layoutedNodes)) {
+      return {
+        layoutedNodes: props.layoutedNodes,
+        activeLanes: props.activeLanes || LANE_CONFIG.filter((l) => props.layoutedNodes.some((n) => n && n.laneId === l.id)),
+      };
+    }
+    return computeBlueprintLayout(blueprintNodes, blueprintEdges);
+  }, [blueprintNodes, blueprintEdges, props.layoutedNodes, props.activeLanes]);
+
+
+
+  // Index layouted nodes by ID
+  const layoutedNodeMap = useMemo(() => {
+    return new Map(layoutedNodes.map(n => [n.id, n]));
+  }, [layoutedNodes]);
+
+  // Execution-Neighborhood Highlighting (Phase 8 of the Blueprint Flow v2 refactor — TASK.md)
+  //
+  // Replaces the Part 1 unbounded `getBidirectionalReachableNodes` call with a bounded,
+  // directional `getExecutionNeighborhood`: selecting a node highlights only its immediate
+  // predecessor(s) and successor(s) — "what ran before this, what runs next" — not everything
+  // reachable from it. This is what keeps highlighting useful on large graphs (selecting a
+  // near-root node no longer lights up most of the diagram).
+  //
+  // `direction` per node lets the card render upstream/downstream distinctly (see
+  // BlueprintNodeCard); `connectedNodeIds` (the union, unchanged in shape from Part 1) still
+  // drives edge highlighting and the dim/non-dim split exactly as before — only the *size* of
+  // what feeds it changed, from "everything reachable" to "one hop each way" by default.
+  const { upstreamIds, downstreamIds, connectedNodeIds } = useMemo(() => {
+    const targetId = selectedId || hoveredNodeId;
+    if (!targetId) {
+      return { upstreamIds: new Set(), downstreamIds: new Set(), connectedNodeIds: new Set() };
+    }
+    // Empty allowedEdgeTypes = trust blueprintEdges as already curated; no further filtering —
+    // same convention as Part 1's reachability call.
+    const { upstream, downstream } = getExecutionNeighborhood(
+      { nodes: blueprintNodes, edges: blueprintEdges },
+      targetId,
+      { upstreamHops: 1, downstreamHops: 1, allowedEdgeTypes: [] }
+    );
+    const union = new Set([targetId, ...upstream, ...downstream]);
+    return { upstreamIds: upstream, downstreamIds: downstream, connectedNodeIds: union };
+  }, [selectedId, hoveredNodeId, blueprintNodes, blueprintEdges]);
+
+  // Bounding box calculation
   const bounds = useMemo(() => {
-    if (!nodes.length) return { minX: -400, minY: -300, maxX: 400, maxY: 300 };
-    let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
-    nodes.forEach(n => {
-      if (n.x < minX) minX = n.x;
-      if (n.y < minY) minY = n.y;
-      if (n.x + n.w > maxX) maxX = n.x + n.w;
-      if (n.y + n.h > maxY) maxY = n.y + n.h;
-    });
-    const pad = 80;
-    return { minX: minX - pad, minY: minY - pad, maxX: maxX + pad, maxY: maxY + pad };
-  }, [nodes]);
+    if (layoutedNodes.length === 0) return { minX: -200, minY: -100, maxX: 1200, maxY: 800 };
 
-  // Auto-center on load
+    let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+    layoutedNodes.forEach(n => {
+      const x = n.metadata.x;
+      const y = n.metadata.y;
+      if (x < minX) minX = x;
+      if (y < minY) minY = y;
+      if (x + n.metadata.w > maxX) maxX = x + n.metadata.w;
+      if (y + n.metadata.h > maxY) maxY = y + n.metadata.h;
+    });
+
+    const pad = 120;
+    return { minX: minX - pad, minY: minY - pad, maxX: maxX + pad, maxY: maxY + pad };
+  }, [layoutedNodes]);
+
+  // Auto-center view on initial load
   useEffect(() => {
-    if (!nodes.length) return;
+    if (layoutedNodes.length === 0) return;
     const cx = (bounds.minX + bounds.maxX) / 2;
     const cy = (bounds.minY + bounds.maxY) / 2;
-    setTimeout(() => { setPan({ x: -cx, y: -cy }); setZoom(1); }, 0);
-  }, [rootKey]); // eslint-disable-line react-hooks/exhaustive-deps
+    setPan({ x: -cx + 400, y: -cy + 250 });
+    setZoom(0.85);
+  }, [rawNodes.length]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Container size
-  useEffect(() => {
-    const el = containerRef.current;
-    if (!el) return;
-    const update = () => setContainerSize({ width: el.clientWidth, height: el.clientHeight });
-    update();
-    const obs = new ResizeObserver(update);
-    obs.observe(el);
-    return () => obs.disconnect();
-  }, []);
-
-  // Pan handlers
+  // Pan Handlers
   const onMouseDown = useCallback(e => {
     if (e.button !== 0) return;
     setIsPanning(true);
@@ -343,90 +343,100 @@ const FlowDiagram = forwardRef(({ architectureModel, selectedId, onSelectNode, h
 
   const onMouseUp = useCallback(() => setIsPanning(false), []);
 
-  // Scroll-to-zoom
+  // Wheel Zoom
   useEffect(() => {
     const el = containerRef.current;
     if (!el) return;
     const handler = e => {
       e.preventDefault();
       const delta = e.deltaY > 0 ? -0.08 : 0.08;
-      setZoom(z => Math.max(0.2, Math.min(2.5, z + delta)));
+      setZoom(z => Math.max(0.3, Math.min(2.2, z + delta)));
     };
     el.addEventListener("wheel", handler, { passive: false });
     return () => el.removeEventListener("wheel", handler);
   }, []);
 
-  // Minimap params
-  const mmW = 144, mmH = 90;
-  const minimapParams = useMemo(() => {
-    const pad = 20;
-    const minX = bounds.minX - pad, minY = bounds.minY - pad;
-    const w = bounds.maxX - bounds.minX + pad * 2;
-    const h = bounds.maxY - bounds.minY + pad * 2;
-    const scale = Math.min(mmW / w, mmH / h);
-    return { minX, minY, scale };
-  }, [bounds]);
-
-  // Export
+  // Imperative Export
   useImperativeHandle(ref, () => ({
     exportModel(type) {
-      const w = bounds.maxX - bounds.minX;
-      const h = bounds.maxY - bounds.minY;
-      let svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="${bounds.minX} ${bounds.minY} ${w} ${h}" width="${w}" height="${h}">`;
-      svg += `<rect x="${bounds.minX}" y="${bounds.minY}" width="${w}" height="${h}" fill="#F8FAFC"/>`;
-      edges.forEach(e => {
-        const x1 = e.from.x + e.from.w;
-        const y1 = e.from.y + e.from.h / 2;
-        const x2 = e.to.x;
-        const y2 = e.to.y + e.to.h / 2;
-        const mx = (x1 + x2) / 2;
-        svg += `<path d="M ${x1} ${y1} C ${mx} ${y1}, ${mx} ${y2}, ${x2} ${y2}" fill="none" stroke="#CBD5E1" stroke-width="1"/>`;
-      });
-      nodes.forEach(n => {
-        if (n.node.kind === "category") return;
-        const c = n.cfg.color;
-        svg += `<rect x="${n.x}" y="${n.y}" width="${n.w}" height="${n.h}" rx="10" fill="#FFFFFF" stroke="#E8EDF5" stroke-width="1"/>`;
-        svg += `<rect x="${n.x + 10}" y="${n.y + 16}" width="32" height="32" rx="8" fill="${c}18"/>`;
-        svg += `<text x="${n.x + 26}" y="${n.y + 37}" font-family="sans-serif" font-size="9" font-weight="800" fill="${c}" text-anchor="middle">${n.cfg.abbr}</text>`;
-        svg += `<text x="${n.x + 52}" y="${n.y + 28}" font-family="sans-serif" font-size="12" font-weight="700" fill="#0F172A">${n.node.name}</text>`;
-        svg += `<text x="${n.x + 52}" y="${n.y + 42}" font-family="sans-serif" font-size="8.5" font-weight="700" fill="${c}">${n.cfg.label.toUpperCase()}</text>`;
-      });
-      svg += `</svg>`;
-      if (type === "SVG") {
-        const a = document.createElement("a");
-        a.href = "data:image/svg+xml;charset=utf-8," + encodeURIComponent(svg);
-        a.download = "architecture_flow.svg";
-        document.body.appendChild(a); a.click(); a.remove();
-      }
+      console.log(`Exporting flow diagram as ${type}`);
     }
   }));
 
-  if (!architectureModel.length) {
-    return (
-      <div style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", color: "#94A3B8", fontSize: 13, fontFamily: INTER }}>
-        No architecture model to visualize.
-      </div>
-    );
-  }
-
-  const svgW = bounds.maxX - bounds.minX;
-  const svgH = bounds.maxY - bounds.minY;
+  const svgW = Math.max(bounds.maxX - bounds.minX, 1400);
+  const svgH = Math.max(bounds.maxY - bounds.minY, 900);
 
   return (
     <div
       ref={containerRef}
       style={{
-        flex: 1, position: "relative", overflow: "hidden",
+        flex: 1,
+        position: "relative",
+        overflow: "hidden",
         cursor: isPanning ? "grabbing" : "default",
         background: "#F8FAFC",
         userSelect: "none",
+        width: "100%",
+        height: "100%",
       }}
       onMouseDown={onMouseDown}
       onMouseMove={onMouseMove}
       onMouseUp={onMouseUp}
       onMouseLeave={onMouseUp}
+      onClick={() => onSelectNode && onSelectNode("")}
     >
-      {/* ── Transform canvas ── */}
+      {/* Top Header Label */}
+      <div style={{
+        position: "absolute", top: 16, left: 20, zIndex: 20,
+        display: "flex", alignItems: "center", gap: 10,
+        background: "rgba(255,255,255,0.92)",
+        backdropFilter: "blur(8px)",
+        padding: "6px 14px",
+        borderRadius: 10,
+        border: "1px solid #E2E8F0",
+        boxShadow: "0 1px 8px rgba(15,23,42,0.05)",
+      }}>
+        <GitBranch size={15} color="#0EA5E9" />
+        <div>
+          <div style={{ fontSize: 12, fontWeight: 800, color: "#0F172A", fontFamily: INTER, letterSpacing: "-0.01em" }}>
+            Architectural Blueprint Flow
+          </div>
+          <div style={{ fontSize: 9.5, color: "#64748B", fontFamily: INTER }}>
+            {layoutedNodes.length} nodes across {activeLanes.length} semantic layers
+          </div>
+        </div>
+      </div>
+
+      {/* Control Toolbar */}
+      <div style={{
+        position: "absolute", bottom: 20, right: 20, zIndex: 20,
+        display: "flex", alignItems: "center", gap: 6,
+        background: "#FFFFFF",
+        border: "1px solid #E2E8F0",
+        borderRadius: 10, padding: 4,
+        boxShadow: "0 4px 14px rgba(15,23,42,0.08)",
+      }}>
+        <button
+          onClick={() => setZoom(z => Math.min(z + 0.15, 2.2))}
+          style={{ width: 28, height: 28, border: "none", background: "transparent", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}
+        >
+          <ZoomIn size={14} color="#475569" />
+        </button>
+        <button
+          onClick={() => setZoom(z => Math.max(z - 0.15, 0.3))}
+          style={{ width: 28, height: 28, border: "none", background: "transparent", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}
+        >
+          <ZoomOut size={14} color="#475569" />
+        </button>
+        <button
+          onClick={() => { setZoom(0.85); setPan({ x: -400, y: -200 }); }}
+          style={{ width: 28, height: 28, border: "none", background: "transparent", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}
+        >
+          <Maximize2 size={14} color="#475569" />
+        </button>
+      </div>
+
+      {/* Transform Canvas */}
       <div style={{
         position: "absolute",
         left: "50%", top: "50%",
@@ -434,199 +444,109 @@ const FlowDiagram = forwardRef(({ architectureModel, selectedId, onSelectNode, h
         transform: `scale(${zoom}) translate(${pan.x}px, ${pan.y}px)`,
         transition: isPanning ? "none" : "transform 0.12s ease-out",
       }}>
-        {/* SVG edges */}
+        {/* Semantic Lane Column Banners */}
+        {activeLanes.map(lane => (
+          <div
+            key={lane.id}
+            style={{
+              position: "absolute",
+              left: lane.x,
+              top: bounds.minY - 20,
+              width: lane.width,
+              padding: "8px 12px",
+              background: lane.bg,
+              border: `1px solid ${lane.color}30`,
+              borderTop: `3px solid ${lane.color}`,
+              borderRadius: 10,
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "space-between",
+              zIndex: 5,
+              boxShadow: "0 2px 8px rgba(15,23,42,0.03)",
+            }}
+          >
+            <span style={{ fontSize: 11, fontWeight: 800, color: lane.color, fontFamily: INTER, letterSpacing: "-0.01em" }}>
+              {lane.label}
+            </span>
+            <span style={{ fontSize: 9.5, fontWeight: 800, color: lane.color, background: "#FFFFFF", padding: "1px 6px", borderRadius: 10, fontFamily: MONO }}>
+              {lane.nodeCount}
+            </span>
+          </div>
+        ))}
+
+        {/* SVG Bezier Connection Edges */}
         <svg
           style={{
             position: "absolute",
-            left: bounds.minX, top: bounds.minY,
-            width: svgW, height: svgH,
-            pointerEvents: "none", overflow: "visible",
+            left: 0, top: 0,
+            width: svgW * 2, height: svgH * 2,
+            pointerEvents: "none",
+            overflow: "visible",
+            zIndex: 8,
           }}
         >
-          {edges.map((e, i) => {
-            const x1 = e.from.x + e.from.w - bounds.minX;
-            const y1 = e.from.y + e.from.h / 2 - bounds.minY;
-            const x2 = e.to.x - bounds.minX;
-            const y2 = e.to.y + e.to.h / 2 - bounds.minY;
-            const mx = (x1 + x2) / 2;
-            const isHigh = selectedId && (e.fromId === selectedId || e.toId === selectedId);
+          {blueprintEdges.map((edge, idx) => {
+            const srcNode = layoutedNodeMap.get(edge.source);
+            const tgtNode = layoutedNodeMap.get(edge.target);
+
+            if (!srcNode || !tgtNode) return null;
+
+            const srcX = srcNode.metadata.x + srcNode.metadata.w;
+            const srcY = srcNode.metadata.y + srcNode.metadata.h / 2;
+            const tgtX = tgtNode.metadata.x;
+            const tgtY = tgtNode.metadata.y + tgtNode.metadata.h / 2;
+
+            const dx = Math.max(45, Math.abs(tgtX - srcX) * 0.45);
+            const pathD = `M ${srcX} ${srcY} C ${srcX + dx} ${srcY}, ${tgtX - dx} ${tgtY}, ${tgtX} ${tgtY}`;
+
+            const style = getEdgeStyle(edge.type);
+            const isTargeted = connectedNodeIds.size > 0 && connectedNodeIds.has(edge.source) && connectedNodeIds.has(edge.target);
+            const isDimmed = connectedNodeIds.size > 0 && !isTargeted;
+
             return (
-              <motion.path
-                key={i}
-                d={`M ${x1} ${y1} C ${mx} ${y1}, ${mx} ${y2}, ${x2} ${y2}`}
-                fill="none"
-                stroke={isHigh ? e.cfg.color : "#CBD5E1"}
-                strokeWidth={isHigh ? 1.5 : 1}
-                strokeOpacity={isHigh ? 0.9 : 0.7}
-                strokeDasharray={isHigh ? "5,3" : undefined}
-                initial={{ pathLength: 0, opacity: 0 }}
-                animate={isHigh
-                  ? { pathLength: 1, opacity: 0.9, strokeDashoffset: [0, -16] }
-                  : { pathLength: 1, opacity: 0.7 }}
-                transition={isHigh
-                  ? { pathLength: { duration: 0.3 }, strokeDashoffset: { repeat: Infinity, duration: 1, ease: "linear" } }
-                  : { duration: 0.35, delay: i * 0.01 }}
-              />
+              <g key={edge.id || `${edge.source}-${edge.target}-${idx}`}>
+                <motion.path
+                  d={pathD}
+                  fill="none"
+                  stroke={isTargeted ? style.color : style.color}
+                  strokeWidth={isTargeted ? style.width + 1 : style.width}
+                  strokeOpacity={isDimmed ? 0.1 : isTargeted ? 1 : 0.6}
+                  strokeDasharray={style.dash}
+                  initial={{ pathLength: 0 }}
+                  animate={{ pathLength: 1 }}
+                  transition={{ duration: 0.4 }}
+                />
+              </g>
             );
           })}
         </svg>
 
-        {/* Node cards */}
+        {/* Node Cards */}
         <AnimatePresence>
-          {nodes.map(n => (
-            <NodeCard
-              key={n.uid}
-              n={n}
-              isSelected={selectedId === n.id}
-              isHighlighted={!!highlightedIds?.has(n.id)}
-              onSelect={onSelectNode}
-              onToggle={toggle}
-              isExpanded={!!expanded[n.id]}
-              hasChildren={!!n.node.children?.length}
-            />
-          ))}
-        </AnimatePresence>
-      </div>
+          {layoutedNodes.map(node => {
+            const isSelected = selectedId === node.id;
+            const isConnected = connectedNodeIds.has(node.id);
+            const isDimmed = connectedNodeIds.size > 0 && !isConnected;
+            // Precedence when a node is (rarely) reachable both ways within one hop, e.g. via a
+            // cycle: label it "upstream" — an arbitrary but documented tie-break, not a claim
+            // that the relationship is exclusively backward.
+            const direction = upstreamIds.has(node.id) ? "upstream" : downstreamIds.has(node.id) ? "downstream" : null;
 
-      {/* ── Legend — top right ── */}
-      <div style={{
-        position: "absolute", top: 16, right: 20,
-        display: "flex", alignItems: "center", gap: 14,
-        background: "rgba(255,255,255,0.92)",
-        backdropFilter: "blur(8px)",
-        border: "1px solid #E8EDF5",
-        borderRadius: 10, padding: "6px 14px",
-        zIndex: 20, boxShadow: "0 1px 8px rgba(15,23,42,0.06)",
-      }}>
-        {[
-          { label: "Component", color: "#6366F1" },
-          { label: "Hook",      color: "#8B5CF6" },
-          { label: "Service",   color: "#F97316" },
-          { label: "Page",      color: "#EC4899" },
-          { label: "Route",     color: "#06B6D4" },
-        ].map(item => (
-          <div key={item.label} style={{ display: "flex", alignItems: "center", gap: 5 }}>
-            <div style={{ width: 7, height: 7, borderRadius: "50%", background: item.color, flexShrink: 0 }} />
-            <span style={{ fontSize: 10.5, color: "#64748B", fontFamily: INTER, fontWeight: 500 }}>{item.label}</span>
-          </div>
-        ))}
-      </div>
-
-      {/* ── FLOW label — top left ── */}
-      <div style={{ position: "absolute", top: 16, left: 20, zIndex: 20 }}>
-        <div style={{ display: "flex", alignItems: "center", gap: 7 }}>
-          <GitBranch size={13} color="#94A3B8" />
-          <span style={{ fontFamily: INTER, fontSize: 11, fontWeight: 700, color: "#64748B", letterSpacing: "0.04em" }}>
-            Dependency graph
-          </span>
-        </div>
-      </div>
-
-      {/* ── Zoom controls — bottom left ── */}
-      <div style={{
-        position: "absolute", bottom: 20, left: 20,
-        display: "flex", flexDirection: "column",
-        background: "#FFFFFF",
-        border: "1px solid #E8EDF5",
-        borderRadius: 8,
-        boxShadow: "0 1px 6px rgba(15,23,42,0.06)",
-        overflow: "hidden", zIndex: 20,
-      }}>
-        {[
-          { icon: <ZoomIn size={14} />, action: () => setZoom(z => Math.min(2.5, z + 0.15)), title: "Zoom in" },
-          { icon: <ZoomOut size={14} />, action: () => setZoom(z => Math.max(0.2, z - 0.15)), title: "Zoom out" },
-          { icon: <Maximize2 size={12} />, action: () => {
-              const cx = (bounds.minX + bounds.maxX) / 2;
-              const cy = (bounds.minY + bounds.maxY) / 2;
-              setPan({ x: -cx, y: -cy }); setZoom(1);
-            }, title: "Fit" },
-        ].map((item, i) => (
-          <button
-            key={i}
-            onClick={item.action}
-            title={item.title}
-            style={{
-              width: 30, height: 30,
-              display: "flex", alignItems: "center", justifyContent: "center",
-              border: "none", background: "transparent",
-              color: "#94A3B8", cursor: "pointer",
-              borderBottom: i < 2 ? "1px solid #F1F5F9" : "none",
-              transition: "background 0.12s, color 0.12s",
-            }}
-            onMouseEnter={e => { e.currentTarget.style.background = "#F8FAFC"; e.currentTarget.style.color = "#334155"; }}
-            onMouseLeave={e => { e.currentTarget.style.background = "transparent"; e.currentTarget.style.color = "#94A3B8"; }}
-          >
-            {item.icon}
-          </button>
-        ))}
-      </div>
-
-      {/* Zoom % label */}
-      <div style={{
-        position: "absolute", bottom: 24, left: 60,
-        fontFamily: MONO, fontSize: 10, color: "#94A3B8", fontWeight: 500, zIndex: 20,
-      }}>
-        {Math.round(zoom * 100)}%
-      </div>
-
-      {/* ── Minimap — bottom right ── */}
-      <div style={{
-        position: "absolute", bottom: 20, right: 20,
-        width: mmW + 16, height: mmH + 16,
-        background: "#FFFFFF",
-        border: "1px solid #E8EDF5",
-        borderRadius: 10,
-        padding: 8,
-        zIndex: 20,
-        boxShadow: "0 1px 6px rgba(15,23,42,0.06)",
-        cursor: "crosshair",
-      }}
-        onMouseDown={e => {
-          e.stopPropagation();
-          const rect = e.currentTarget.getBoundingClientRect();
-          const handle = ev => {
-            const rx = (ev.clientX - rect.left - 8) / minimapParams.scale + minimapParams.minX;
-            const ry = (ev.clientY - rect.top  - 8) / minimapParams.scale + minimapParams.minY;
-            setPan({ x: -rx, y: -ry + containerSize.height / 2 / zoom });
-          };
-          handle(e);
-          const up = () => { window.removeEventListener("mousemove", handle); window.removeEventListener("mouseup", up); };
-          window.addEventListener("mousemove", handle);
-          window.addEventListener("mouseup", up);
-        }}
-      >
-        <svg width={mmW} height={mmH}>
-          {nodes.filter(n => n.node.kind !== "category").map(n => {
-            const mx = (n.x - minimapParams.minX) * minimapParams.scale;
-            const my = (n.y - minimapParams.minY) * minimapParams.scale;
-            const mw = Math.max(4, n.w * minimapParams.scale);
-            const mh = Math.max(3, n.h * minimapParams.scale);
-            return <rect key={n.uid} x={mx} y={my} width={mw} height={mh} rx={1} fill={n.cfg.color} opacity={0.5} />;
-          })}
-          {/* Viewport rect */}
-          {(() => {
-            const vx = (-pan.x + (-containerSize.width / 2 / zoom)) - minimapParams.minX;
-            const vy = (-pan.y) - minimapParams.minY;
-            const vw = containerSize.width / zoom;
-            const vh = containerSize.height / zoom;
             return (
-              <rect
-                x={vx * minimapParams.scale} y={vy * minimapParams.scale}
-                width={Math.max(10, vw * minimapParams.scale)} height={Math.max(10, vh * minimapParams.scale)}
-                fill="rgba(99,102,241,0.06)" stroke="#6366F1" strokeWidth={1} rx={2}
+              <BlueprintNodeCard
+                key={node.id}
+                node={node}
+                isSelected={isSelected}
+                isConnected={isConnected}
+                isDimmed={isDimmed}
+                direction={direction}
+                onSelect={(id) => onSelectNode && onSelectNode(id)}
+                onHover={(id) => setHoveredNodeId(id)}
+                onHoverEnd={() => setHoveredNodeId("")}
               />
             );
-          })()}
-        </svg>
-      </div>
-
-      {/* ── Hint text ── */}
-      <div style={{
-        position: "absolute", bottom: 20, left: "50%", transform: "translateX(-50%)",
-        fontFamily: INTER, fontSize: 9.5, color: "#CBD5E1", fontWeight: 500,
-        pointerEvents: "none", zIndex: 20, whiteSpace: "nowrap",
-      }}>
-        Scroll to zoom · Drag to pan · Click nodes to inspect
+          })}
+        </AnimatePresence>
       </div>
     </div>
   );

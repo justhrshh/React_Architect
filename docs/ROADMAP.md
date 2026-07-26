@@ -1,199 +1,251 @@
-# React Architect Development Roadmap
+### Current roadmap
+🚀 Roadmap: AI-Powered Architecture Query Engine
+Vision
 
-Trace milestones and sprints for the React Architect workspace platform.
+React Architect should not attempt to visualize an entire codebase in a single static graph. As projects grow beyond a few dozen files, traditional dependency graphs become cluttered, overwhelming, and ultimately lose their value.
 
----
+Instead, React Architect should become an Architecture Query Engine—a system that generates focused, interactive architecture visualizations based on what the developer wants to understand.
 
-## Completed Sprints
+Rather than asking developers to interpret a massive graph, the platform should answer their architectural questions through intelligent, dynamically generated visualizations.
 
-### Sprint 14 — Analysis Engine Accuracy & Semantic Refinements
-- **Redux Selector & Action Tracing**: Enhanced `reduxExtractor.js` to resolve imported selector functions (`useSelector(selectProject)`) and action dispatches (`dispatch(setActiveRoom)`), generating deterministic `STATE_CONSUMER` and `DISPATCHES_ACTION` edges.
-- **Application Data Module Recognition (`USES_DATA`)**: Extended Knowledge Graph to map static data modules and constants (`constants.js`, `testIds.js`) as first-class `kind: "data"` nodes with pink `DT` badges in Flow Studio.
-- **Architecture Adapter Traversal Optimization**: Fixed fallback route duplicate traversals in `architectureAdapter.js`, ensuring route-mapped pages appear exactly once under their intentional route endpoints.
-- **Architecture DNA Universal 7-Category Classification**: Refactored `ArchitectureDnaCard.jsx` to perform single-pass file-level classification into 7 universal categories (`Comp`, `Hook`, `Api`, `State`, `Page`, `Route`, `Util`), eliminating misleading AST node counts.
-- **Inspector Panel & Workspace Contrast**: Enhanced `InspectorPanel.jsx` heading contrast (`#334155` bold text) and added color legends for React Core vs Custom/State hooks.
+Problem Statement
 
-### Sprint 13 — Core AI Integrations & Life Cycles
-- **Sprint 13.1 (Studio Discoverability)**: Added Arrow keys and Enter key keyboard navigation interaction hints underneath the "Enter Workspace" button in the Hub workspace selector.
-- **Sprint 13.2 (Connect Architect AI with Architecture Studio)**: Enabled dynamic links in AI text responses to center, focus, and open components in Architecture Studio. Built the inline Code Explorer sidebar inside the chat view, resolved rendering crashes for components properties parsed as objects, and implemented origin-aware back navigation.
-- **Sprint 13.3 (Project-Scoped Conversations)**: Scoped AI chat histories dynamically based on active selected project IDs using dedicated localStorage namespaces to isolate conversations.
-- **Sprint 13.4 (Persistent Workspace Sessions)**: Added initialization tracking inside `hubSlice.js` to skip redundant AST rebuilding and play workspace boot sequences only once per active session.
+Current architecture visualization assumes there is one "correct" Blueprint Flow for every project.
 
-### Sprint 11: Production Hardening & Impact Analysis UI
-- Normalized store casing (`src/redux/store.js`) and hardened engine imports with explicit `.js` extensions for Node/Vite ESM compatibility.
-- Added route-level code splitting with `React.lazy`/`Suspense` so heavy studio pages load as separate chunks.
-- Surfaced on-demand Impact Analysis inside the Architecture Studio inspector, including blast radius, direct uses/used-by relationships, grouped affected counts, and low/medium/high risk labels.
-- Added a lightweight Node test harness covering parser extraction, import resolution, Knowledge Graph creation, analysis, and impact analysis.
-- Updated changelog documentation for Sprint 11 completion.
+This approach introduces several limitations:
 
-### Sprint 11.3: Graph Focus Mode
-- Added isolated neighborhood Focus Mode — selecting a node fades all unrelated nodes and highlights only the selected component and its directly connected peers.
-- Introduced Relationship Toggles (Parents, Children, Imports, Hooks, State, APIs, Routes) to dynamically expand or contract the visible neighborhood.
-- Derived sub-graph rendering computed on-demand without mutating the underlying Knowledge Graph.
+Large projects quickly become unreadable due to hundreds of interconnected nodes.
+Developers rarely need to understand the entire application at once.
+Every investigation has a different focus (routing, authentication, Redux, APIs, state flow, backend execution, etc.).
+A single visualization cannot effectively answer every architectural question.
 
-### Sprint 11.4: Inspector Panel Redesign & Quick Actions
-- Redesigned the inspector into independently collapsible accordion sections: Overview, Health, Hierarchy, Hooks, State, APIs, and Impact Analysis.
-- Added Quick Actions toolbar with Open in Editor (Vite middleware), Highlight Related Nodes, and Explain with AI (reserved slot).
-- Smooth height transitions and context-sensitive default open sections per node type.
+The problem is not graph rendering—it is attempting to answer every question with the same graph.
 
-### Sprint 11.5: Professional Productivity Features
-- Added SVG, PNG (2×), and PDF canvas exporters implemented via `forwardRef`/`useImperativeHandle` to bypass browser popup blockers.
-- Embedded floating glassmorphic Keyboard Shortcuts HUD showing `Ctrl+F`, `F`, `Esc`, `Tab` bindings.
-- Added Viewport Minimap HUD with real-time sync viewport box, click-to-pan, and drag navigation.
-- Animated bezier edge curves, node hover lift transforms, skeleton loaders, and refined micro-interactions.
-- Removed unused Share and Settings header buttons.
-- Fixed fullscreen black screen (missing flex layout on wrapper) and export coordinate accuracy.
+Proposed Solution
 
+Replace the static Blueprint Flow with an AI-assisted Architecture Query Engine.
 
-### Sprint 1 - 3: Baseline R3F Architecture
-- Setup 3D blueprint void environment, lights, star particles, and camera orbit controls.
-- Created central Project Brain platform.
+Instead of presenting a predefined graph, React Architect first asks:
 
-### Sprint 4 - 6: Hub & Import Wizards
-- Implemented stand-alone `/hub` dashboard for workspace import options.
-- Configured local filesystem handle select methods.
+"What would you like to understand?"
 
-### Sprint 7: Decoupled Portals & Unified Tool Routes
-- Deployed cinematic R3F torus gateway portal transitions with node collapse/implosion sequences.
-- Registered `/architecture`, `/routes`, `/state`, `/api`, and `/docs` explorer pages.
+The user can describe the architecture they want to explore in natural language.
 
-### Sprint 8: Real AST Scanning & Workspace Studios
-- **Scanner Engine**: Implemented AST-based parser extraction for components, routes, slices, and services.
-- **Contrast Polish**: Designed high-contrast off-white sidebar file-trees.
-- **Page-collapse Fullscreen**: Collapses panel views inside the workspace for fullscreen graph mapping.
-- **Studios Mapping**: Deployed React Flow maps for Component Nesting, Route Mappings, Redux State slices, and API Client endpoints. Added a markdown reader for guide documents.
+Examples:
 
-### Sprint 9: Unified Centralized Knowledge Graph Engine
-- **Knowledge Graph Framework**: Designed a framework-agnostic node/edge factory database mapping project DNA.
-- **Extractor Pipelines**: Orchestrated modular extractors under `src/engines/parser/extractors/`.
-- **Layout coordinator**: Decoupled visual layer calculations (`layoutEngine.js`) from visual client adapters.
-- **Studios Refactoring**: Updated all five studios to load, inspect, and map nodes/edges directly from the central Knowledge Graph database.
+Show routing architecture
+Visualize authentication flow
+Explain dashboard execution
+Show Redux architecture
+Trace login flow
+Show API lifecycle
+Explain state management
+Show backend request flow
+Visualize component hierarchy
+Show payment execution
+Explain data flow
 
-### Sprint 9.2: Analysis Engine
-- **Reusable Analysis Engine**: Built `src/engines/analysis/` as a pure consumer of the Knowledge Graph — no parsing, no AST, no Babel, no React Flow dependency of any kind.
-- **Modular Design**: Six independent modules (`projectDNA`, `architectureHealth`, `dependencyHeatmap`, `deadCode`, `complexity`, `impactAnalysis`) orchestrated by `analysisEngine.js`, each exposing a common `analyze(graph)` interface.
-- **Pluggable Health Scoring**: `architectureHealth.js` uses an array-of-rules pattern — every scoring rule is an independent function contributing its own deduction, so new rules never require touching existing ones.
-- **Shared Metrics Toolbox**: `metrics.js` centralizes graph math (degree maps, centrality, cycle detection, BFS depth, orphan detection) so no module duplicates the same traversal logic.
-- **On-Demand Impact Analysis**: `analyzeImpact(graph, nodeId)` traverses the graph in both directions to compute blast radius — laying the groundwork for Live Refactoring (Feature 1) and the Refactor Simulator (Feature 10).
+The system then generates a focused visualization tailored specifically to that request.
 
-### Sprint 10: Architecture Explorer Foundation
-- **Architecture Adapter**: Created a reusable Architecture Model independent of React Flow.
-- **Synchronized Exploration**: Built synchronized Summary, Explorer, and Graph views.
-- **Semantic Traversal**: Added semantic DFS hierarchy traversal with automatic root detection and cycle protection.
-- **Shared Inspector**: Synchronized component properties, rendering connections, and recommendations.
+High-Level Architecture
+Knowledge Graph
+        │
+        ▼
+Intent Engine
+        │
+        ▼
+Graph Query Engine
+        │
+        ▼
+Flow Composer
+        │
+        ▼
+Layout Engine
+        │
+        ▼
+Presentation Engine
+Intent Engine
 
-### Sprint 10.2: Core Boot, Flow Views & Maintainability Analytics
-- **Cinematic Core Boot**: Reworked Project Brain core to serve as the exclusive voice during startup, displaying cross-fading typography.
-- **Architecture Flow View**: Built a top-to-bottom directed flow diagram using a custom layout solver, pannable canvas, and progressive disclosure toggles.
-- **Maintainability Scoring**: Removed simplistic LOC thresholds; deployed a multi-signal health scoring engine evaluating hooks, imports, dependencies, responsibilities, and complexity.
-- **Actionable Advice**: Context-aware recommendations detailing *why* components require refactoring.
+The Intent Engine interprets what the developer wants to understand.
 
----
+Simple, deterministic queries should bypass AI entirely.
 
-## Future Roadmap: Product Direction & Studio Vision (v2)
+Examples:
 
-React Architect should no longer be designed as five independent visualization pages. It should evolve into an operating system for understanding React applications.
+Routes
+Redux
+Components
+APIs
+Backend
+Context
+Hooks
 
-Every studio must answer a specific developer question instead of exposing raw project data.
+These can directly map to predefined graph queries.
 
-The Workspace is the central command room where developers choose which aspect of their application they want to investigate.
+For semantic or complex requests, AI is used only for intent interpretation.
 
----
+Example:
 
-### Domain Architecture Studios
+"How does user authentication work?"
 
-#### • Architecture Studio — *"How is this project built?"*
-Focus on component hierarchy, maintainability, architecture health, dependency relationships, complexity, and impact analysis.
-* **Status**: Production Ready.
+AI translates this into a structured architecture query rather than generating the visualization itself.
 
-#### • Navigation Studio (formerly Routes Studio) — *"How do users move through this application?"*
-Focus on route hierarchy, layouts, authentication flow, redirects, dynamic routes, user journeys, route health, and navigation analytics.
-* **Status**: In Progress.
+Example output:
 
-#### • Data Flow Studio (formerly State Studio) — *"Where does my data come from and where does it go?"*
-Focus on Redux, Context, props, local state, custom hooks, state origins, update chains, state consumers, duplicate state detection, prop drilling, and overall data movement.
-* **Status**: In Progress.
+{
+  "focus": "Authentication",
+  "depth": 4,
+  "include": [
+    "routes",
+    "components",
+    "api",
+    "backend"
+  ],
+  "exclude": [
+    "styles",
+    "tests",
+    "utilities"
+  ]
+}
 
-#### • Network Studio (formerly API Studio) — *"How does the frontend communicate with the backend?"*
-Focus on components, services, API clients, endpoints, requests, responses, loading states, error handling, duplicate requests, request lifecycle, and API health.
-* **Status**: In Progress.
+This keeps the visualization deterministic, accurate, and independent of AI hallucinations.
 
-#### • Architect AI (new flagship AI workspace) — *"Help me understand this project."*
-This studio is not a generic chatbot. It is an architectural workspace powered by the Knowledge Graph, Architecture Model, Analysis Engine, Impact Analysis, Maintainability Engine, Route Graph, Data Graph, and Network Graph.
+Graph Query Engine
 
-Architect AI should answer questions such as:
-* *Explain this component.*
-* *Explain authentication.*
-* *Why is this component re-rendering?*
-* *Can I safely delete this file?*
-* *What breaks if I change this?*
-* *Find duplicated logic.*
-* *Explain this hook.*
-* *Explain this route.*
-* *Which components should be refactored first?*
-* *Generate onboarding documentation.*
-* *Plan a new feature before implementation.*
-* **Status**: In Progress.
+The Graph Query Engine retrieves only the portion of the Knowledge Graph required to answer the user's question.
 
----
+Rather than visualizing the entire project, it extracts a focused architectural subgraph.
 
-### Core Architecture Philosophy
+Examples:
 
-All studios must consume the same Knowledge Graph and Analysis Engine. No studio should perform its own parsing or duplicate architectural analysis.
+Routing graph
+Authentication graph
+Dashboard execution graph
+API request graph
+Redux graph
+Component hierarchy
+Backend request lifecycle
 
-The long-term philosophy of React Architect is:
+The Knowledge Graph already contains the necessary architectural metadata—the Query Engine simply filters and assembles the relevant subset.
 
-```
-Import Project
-  │
-  ▼
-Analyze
-  │
-  ▼
-Build Knowledge Graph
-  │
-  ▼
-Enter Workspace
-  │
-  ▼
-Investigate Architecture  ("How is it built?")
-  │
-  ▼
-Investigate Navigation    ("How do users move?")
-  │
-  ▼
-Investigate Data Flow     ("Where does my data go?")
-  │
-  ▼
-Investigate Network       ("How does frontend communicate?")
-  │
-  ▼
-Investigate the Project through AI ("Help me understand everything.")
-```
+Flow Composer
 
-The product is no longer a visualization tool. It is an operating system for understanding React applications.
+The Flow Composer transforms raw graph data into a visualization model.
 
----
+Responsibilities include:
 
-### Upcoming Sprints & Developmental Priority
+Selecting relevant nodes
+Selecting meaningful relationships
+Grouping related entities
+Collapsing implementation details
+Removing unnecessary noise
+Building architectural lanes
+Preparing semantic edge metadata
+Creating visualization-ready structures
 
-#### Sprint 12 — Navigation Studio (Routes to Journeys)
-- Transition the `/routes` view into the Navigation Studio.
-- Map layout nesting relationships and highlight auth-gated routes visually.
-- Expose redirects and route analytics inside the inspector.
+This stage separates architectural reasoning from visual layout.
 
-#### Sprint 13 — Data Flow Studio (State to Lifecycles)
-- Transition the `/state` view into the Data Flow Studio.
-- Build visual state consumer and update cascades mapping hooks to redux slices.
-- Highlight duplicate state variables and deep prop-drilling pathways.
+Layout Engine
 
-#### Sprint 14 — Network Studio (API to Lifecycles)
-- Transition the `/api` view into the Network Studio.
-- Map end-to-end component-to-service-to-endpoint network transactions.
-- Highlight duplicate/redundant API request loops.
+The Layout Engine focuses solely on positioning nodes.
 
-#### Sprint 15 — Architect AI (Flagship AI Onboarding)
-- Deploy the AI-powered architectural assistant chat interface.
-- Wire the assistant to query the centralized Redux `knowledgeGraph` state and `analysis` state.
-- Enable Graph-aware queries (explain auth, compute mock implementations, calculate blast radius).
+Since the graph has already been filtered and composed, layout algorithms become significantly simpler and more reliable.
+
+Layouts should prioritize:
+
+Readability
+Logical execution order
+Minimal edge crossings
+Expandability
+Consistent spacing
+Large-project scalability
+Presentation Engine
+
+Presentation should communicate architecture—not simply render nodes.
+
+Possible enhancements include:
+
+Semantic Edge Types
+
+Different relationship types should have distinct visual identities.
+
+Examples:
+
+Route Navigation
+API Calls
+State Updates
+Context Dependencies
+Component Composition
+Backend Execution
+File Imports
+
+Developers should immediately recognize relationship types without reading labels.
+
+Intelligent Node Cards
+
+Each node can include concise architectural context.
+
+Example:
+
+Dashboard
+
+• Fetches dashboard statistics
+
+• Depends on Dashboard API
+
+• Uses DashboardSlice
+
+Rather than long explanations, provide short contextual insights that improve comprehension.
+
+Interactive Exploration
+
+Visualizations should support progressive exploration.
+
+Examples:
+
+Expand dependencies
+Collapse implementation details
+Trace execution
+Highlight related architecture
+Follow request lifecycle
+Follow state updates
+
+Developers should navigate architecture rather than inspect static diagrams.
+
+Scalability Goals
+
+This architecture must scale from:
+
+Small projects (~20 files)
+Medium projects (~100 files)
+Large enterprise applications (500–1000+ files)
+
+The amount of information displayed should depend on the user's question—not the size of the project.
+
+A project with 1,000 files should remain as approachable as one with 50 files because only the relevant architectural slice is visualized.
+
+AI's Responsibility
+
+AI should not generate architecture.
+
+AI should:
+
+Understand user intent
+Identify architectural focus
+Convert natural language into structured graph queries
+Provide concise contextual annotations
+
+The Knowledge Graph remains the authoritative source of architectural truth.
+
+This approach ensures both accuracy and explainability while minimizing reliance on AI-generated output.
+
+Long-Term Vision
+
+React Architect evolves from a static architecture viewer into an intelligent architecture exploration platform.
+
+Developers no longer navigate enormous dependency graphs. Instead, they ask architectural questions, and the platform responds with precise, beautifully presented, and interactive visualizations generated directly from the project's Knowledge Graph.
+
+Core Philosophy
+
+Don't show developers everything. Show them exactly what they need to understand.
 

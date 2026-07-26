@@ -25,6 +25,16 @@ import {
 } from "lucide-react";
 import { calculateMaintainability } from "@/engines/analysis/modules/maintainability";
 
+import QueryBar from "@/components/architecture/QueryBar";
+import QueryResultHeader from "@/components/architecture/QueryResultHeader";
+import EmptyQueryState from "@/components/architecture/EmptyQueryState";
+import QueryHistory from "@/components/architecture/QueryHistory";
+import { ALL_TEMPLATES, instantiateTemplate, TEMPLATE_REGISTRY } from "@/engines/templates";
+import { compose } from "@/engines/composers";
+import { computeLayout } from "@/engines/layout/blueprintLayoutEngine";
+import { selectQueryEngine, selectQueryHistory, addQueryHistoryEntry } from "@/redux/slices/graphSlice";
+import { GraphQueryEngine } from "@/engines/query/GraphQueryEngine";
+
 function nevercall() {
   console.log("This function should never be called. It is a placeholder for future functionality.");
 }
@@ -38,6 +48,75 @@ function ArchitectureStudio() {
   const knowledgeGraph  = useSelector((state) => state.graph.knowledgeGraph);
   const reduxFiles      = useSelector((state) => state.graph.files);
   const analysis        = useSelector((state) => state.analysis);
+  const queryEngine     = useSelector(selectQueryEngine);
+
+  const projectKey = selectedProject?.name || selectedProject?.id || "default";
+  const projectHistory = useSelector((state) => selectQueryHistory(state, projectKey));
+
+  const [activeTemplateId, setActiveTemplateId] = useState(null);
+  const [activeFocus, setActiveFocus] = useState(null);
+  const [composedGraph, setComposedGraph] = useState(null);
+  const [layoutResult, setLayoutResult] = useState(null);
+  const [isQueryLoading, setIsQueryLoading] = useState(false);
+
+  const handleQuery = useCallback(
+    (templateId, focusTerm) => {
+      setIsQueryLoading(true);
+      try {
+        const template = TEMPLATE_REGISTRY.get(templateId) || ALL_TEMPLATES[0];
+        const query = instantiateTemplate(templateId, focusTerm);
+
+        let subgraph = { nodes: [], edges: [], queryMeta: {} };
+        let activeEngine = queryEngine;
+
+        if (!activeEngine && knowledgeGraph) {
+          activeEngine = new GraphQueryEngine(knowledgeGraph);
+        }
+
+        if (activeEngine) {
+          subgraph = activeEngine.executeQuery(query);
+        }
+
+        if (!subgraph.nodes || subgraph.nodes.length === 0) {
+          setComposedGraph(null);
+          setLayoutResult(null);
+          setActiveTemplateId(templateId);
+          setActiveFocus(focusTerm);
+          setIsQueryLoading(false);
+          return;
+        }
+
+        const composed = compose(subgraph, template, subgraph.queryMeta);
+        const layout = computeLayout(composed, {});
+
+        setComposedGraph(composed);
+        setLayoutResult(layout);
+        setActiveTemplateId(templateId);
+        setActiveFocus(focusTerm);
+
+        const uniqueId = typeof crypto !== "undefined" && crypto.randomUUID
+          ? crypto.randomUUID()
+          : `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+
+        const entry = {
+          id: uniqueId,
+          templateId,
+          focus: focusTerm,
+          displayLabel: template.historyLabel(focusTerm),
+          timestamp: Date.now(),
+          queryMeta: subgraph.queryMeta,
+        };
+        dispatch(addQueryHistoryEntry({ projectKey, entry }));
+      } catch (err) {
+        console.error("Query execution error:", err);
+      } finally {
+        setIsQueryLoading(false);
+      }
+    },
+    [queryEngine, knowledgeGraph, projectKey, dispatch]
+  );
+
+
 
   const [activeTab, setActiveTab] = useState(() => location.state?.tab || "summary");
   const [showInspector, setShowInspector] = useState(false);
@@ -652,29 +731,73 @@ function ArchitectureStudio() {
           </div>
         )}
 
-        {/* FLOW STUDIO (React Flow / Radial Canvas) */}
+        {/* FLOW STUDIO (Query Engine v2 Visualization) */}
         {activeTab === "flow" && (
           <div style={{
             flex: 1,
             display: "flex",
             flexDirection: "column",
             margin: isFullscreen ? 0 : "12px 16px 12px 16px",
-            background: "#FFFFFF",
-            borderRadius: isFullscreen ? 0 : 16,
-            border: isFullscreen ? "none" : "1px solid rgba(226,232,240,0.9)",
-            boxShadow: isFullscreen ? "none" : "0 2px 16px rgba(15,23,42,0.06)",
             overflow: "hidden",
           }}>
-            <FlowDiagram
-              ref={flowRef}
-              architectureModel={architectureModel}
-              knowledgeGraph={knowledgeGraph}
-              selectedId={selectedId}
-              onSelectNode={handleSelectNode}
-              highlightedIds={highlightedIds}
+            <QueryBar
+              templates={ALL_TEMPLATES}
+              onQuery={handleQuery}
+              activeTemplateId={activeTemplateId}
+              isLoading={isQueryLoading}
             />
+
+            {composedGraph && layoutResult ? (
+              <div style={{ flex: 1, display: "flex", flexDirection: "column", overflow: "hidden" }}>
+                <QueryResultHeader
+                  queryMeta={composedGraph.queryMeta}
+                  template={TEMPLATE_REGISTRY.get(activeTemplateId)}
+                  focus={activeFocus}
+                  onReset={() => {
+                    setComposedGraph(null);
+                    setLayoutResult(null);
+                    setActiveTemplateId(null);
+                    setActiveFocus(null);
+                  }}
+                />
+                <div style={{ flex: 1, display: "flex", gap: 16, overflow: "hidden" }}>
+                  <div style={{
+                    flex: 1,
+                    background: "#FFFFFF",
+                    borderRadius: 16,
+                    border: "1px solid rgba(226,232,240,0.9)",
+                    boxShadow: "0 2px 16px rgba(15,23,42,0.06)",
+                    overflow: "hidden",
+                  }}>
+                    <FlowDiagram
+                      ref={flowRef}
+                      layoutedNodes={layoutResult.layoutedNodes}
+                      activeLanes={layoutResult.activeLanes || layoutResult.activePipelineStages}
+                      blueprintEdges={composedGraph.edges}
+                      queryMeta={composedGraph.queryMeta}
+                      architectureModel={architectureModel}
+                      knowledgeGraph={knowledgeGraph}
+                      selectedId={selectedId}
+                      onSelectNode={handleSelectNode}
+                      highlightedIds={highlightedIds}
+                    />
+                  </div>
+                  <QueryHistory
+                    history={projectHistory}
+                    onReplay={(entry) => handleQuery(entry.templateId, entry.focus)}
+                  />
+                </div>
+              </div>
+            ) : (
+              <EmptyQueryState
+                emptyState={activeTemplateId ? TEMPLATE_REGISTRY.get(activeTemplateId)?.emptyState : null}
+                templates={ALL_TEMPLATES}
+                onSelectTemplate={(tplId) => handleQuery(tplId, null)}
+              />
+            )}
           </div>
         )}
+
 
         {/* HISTORY STUDIO — Repository Architecture Timeline */}
         {activeTab === "history" && (

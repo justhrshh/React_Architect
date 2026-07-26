@@ -13,6 +13,7 @@ export const INTENTS = {
   IMPACT:    'impact',
   PLAN:      'plan',
   SEARCH:    'search',
+  ARCHITECTURE_QUERY: 'architecture_query',
   GENERAL:   'general',
 };
 
@@ -28,6 +29,7 @@ const INTENT_CONFIG = {
   [INTENTS.IMPACT]:    { context: ['selection', 'sourceCode', 'analysisSummary'],           requiresSelection: true  },
   [INTENTS.PLAN]:      { context: ['projectOverview', 'analysisSummary'],                  requiresSelection: false },
   [INTENTS.SEARCH]:    { context: ['graphSummary', 'analysisSummary'],                     requiresSelection: false },
+  [INTENTS.ARCHITECTURE_QUERY]: { context: ['graphSummary'],                              requiresSelection: false },
   [INTENTS.GENERAL]:   { context: ['projectOverview', 'graphSummary'],                     requiresSelection: false },
 };
 
@@ -38,6 +40,7 @@ const INTENT_CONFIG = {
 const RULES = [
   [/^(hi|hello|hey|howdy|good\s*(morning|afternoon|evening)|what'?s\s*up)\b/i, INTENTS.GREETING, 0.95],
   [/\b(who\s+are\s+you|what\s+are\s+you|introduce\s+yourself|what\s+can\s+you\s+do|your\s+capabilities)\b/i, INTENTS.IDENTITY, 0.95],
+  [/\b(show\s+me|diagram|visualize|flow\s+chart|execution\s+chain|architecture\s+of|component\s+hierarchy|state\s+flow|routes\s+map|request\s+lifecycle)\b/i, INTENTS.ARCHITECTURE_QUERY, 0.9],
   [/\b(safe\s*(ly)?\s*delete|safe\s+to\s+remove|what\s+breaks|blast\s+radius|impact\s+(of|analysis|if)|downstream\s+effects?)\b/i, INTENTS.IMPACT, 0.9],
   [/\b(dead\s+code|unused\s+(component|file|hook|import|export)|find\s+(all|unused|orphan|dead))\b/i, INTENTS.SEARCH, 0.9],
   [/\b(plan\s+(a|the|this)\s+feature|how\s+(to|would\s+I|should\s+I)\s+(add|implement|build|create|refactor)|recommend\s*(improvements|refactor))\b/i, INTENTS.PLAN, 0.85],
@@ -45,6 +48,7 @@ const RULES = [
   [/\b(tell\s+me\s+about\s+(this\s+)?(project|app|codebase)|project\s+overview|what\s+(does|is)\s+this\s+(project|app)|describe\s+(the\s+)?(project|app))\b/i, INTENTS.PROJECT, 0.9],
   [/\b(explain|describe|what\s+(does|is)|how\s+does|tell\s+me\s+about|walk\s+me\s+through)\b/i, INTENTS.EXPLAIN, 0.7],
 ];
+
 
 /**
  * Classify user question into an intent.

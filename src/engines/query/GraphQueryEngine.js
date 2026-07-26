@@ -255,4 +255,144 @@ export class GraphQueryEngine {
   getDatabaseView() {
     return getDatabaseView(this);
   }
+
+  /**
+   * Primary traversal engine execution method for ArchitectureQuery objects.
+   * Performs seed-anchored, depth-bounded, edge-type-filtered BFS and returns a focused subgraph.
+   *
+   * @param {object} query - ArchitectureQuery instance
+   * @returns {{ nodes: Array<object>, edges: Array<object>, queryMeta: object }}
+   */
+  executeQuery(query) {
+    const startTime = performance.now();
+    if (!query || !query.traversal) {
+      return { nodes: [], edges: [], queryMeta: { executionMs: 0, nodeCount: 0, edgeCount: 0 } };
+    }
+
+    const { focus, traversal, meta } = query;
+    const { includeKinds = [], includeEdgeTypes = [], excludeKinds = [], depth = 4, direction = "forward", maxNodes = 50 } = traversal;
+
+    // Step 1 — Seed Resolution
+    let seeds = [];
+    if (focus?.seeds && focus.seeds.length > 0) {
+      seeds = focus.seeds.filter((id) => this.nodesMap.has(id));
+    } else if (focus?.term) {
+      const term = focus.term.toLowerCase().trim();
+      const strategy = focus.strategy || "name-match";
+
+      if (strategy === "name-match") {
+        seeds = this.nodes.filter((n) => n.name && n.name.toLowerCase().includes(term)).map((n) => n.id);
+      } else if (strategy === "kind-match") {
+        seeds = includeKinds.flatMap((k) => Array.from(this.kindIndex.get(k) || []));
+      } else if (strategy === "entry-points") {
+        seeds = this.nodes.filter((n) => n.kind === "file" && /(main|index|App|server|app|_app)\.[jt]sx?$/i.test(n.file || "")).map((n) => n.id);
+      } else if (strategy === "router-nodes") {
+        seeds = this.nodes.filter((n) => n.kind === "route" && (n.subtype === "router" || (n.name && n.name.includes("Router")))).map((n) => n.id);
+      }
+    }
+
+    // Fallback: If seeds empty, seed from domain kinds
+    if (seeds.length === 0) {
+      if (includeKinds.length > 0) {
+        seeds = includeKinds.flatMap((k) => Array.from(this.kindIndex.get(k) || []));
+      } else {
+        seeds = this.nodes.map((n) => n.id);
+      }
+    }
+
+    // Step 2 — BFS Traversal
+    const visited = new Set(seeds);
+    let queue = [...seeds];
+    let currentDepth = 0;
+
+    const includeEdgeSet = new Set(includeEdgeTypes);
+
+    while (queue.length > 0 && currentDepth < depth) {
+      const nextQueue = [];
+      for (const nodeId of queue) {
+        if (direction === "forward" || direction === "both") {
+          const outgoing = this.outgoingEdgesIndex.get(nodeId) || [];
+          for (const edge of outgoing) {
+            if (includeEdgeSet.size === 0 || includeEdgeSet.has(edge.type)) {
+              if (!visited.has(edge.target)) {
+                visited.add(edge.target);
+                nextQueue.push(edge.target);
+              }
+            }
+          }
+        }
+
+        if (direction === "backward" || direction === "both") {
+          const incoming = this.incomingEdgesIndex.get(nodeId) || [];
+          for (const edge of incoming) {
+            if (includeEdgeSet.size === 0 || includeEdgeSet.has(edge.type)) {
+              if (!visited.has(edge.source)) {
+                visited.add(edge.source);
+                nextQueue.push(edge.source);
+              }
+            }
+          }
+        }
+      }
+      queue = nextQueue;
+      currentDepth++;
+    }
+
+    // Step 3 — Kind Filter & Exclusion
+    const includeKindSet = new Set(includeKinds);
+    const excludeKindSet = new Set(excludeKinds);
+
+    let resultNodeIds = Array.from(visited).filter((id) => {
+      const node = this.nodesMap.get(id);
+      if (!node) return false;
+      if (excludeKindSet.has(node.kind)) return false;
+      if (includeKindSet.size > 0 && !includeKindSet.has(node.kind)) return false;
+      return true;
+    });
+
+    let truncated = false;
+
+    // Step 4 — maxNodes Enforcement (Sort by degree connectivity)
+    if (resultNodeIds.length > maxNodes) {
+      truncated = true;
+      resultNodeIds.sort((a, b) => {
+        const degA = (this.incomingEdgesIndex.get(a)?.length || 0) + (this.outgoingEdgesIndex.get(a)?.length || 0);
+        const degB = (this.incomingEdgesIndex.get(b)?.length || 0) + (this.outgoingEdgesIndex.get(b)?.length || 0);
+        return degB - degA;
+      });
+      resultNodeIds = resultNodeIds.slice(0, maxNodes);
+    }
+
+    const finalNodeSet = new Set(resultNodeIds);
+    const resultNodes = resultNodeIds.map((id) => this.nodesMap.get(id));
+
+    // Step 5 — Edge Collection
+    const resultEdges = [];
+    finalNodeSet.forEach((sourceId) => {
+      const outgoing = this.outgoingEdgesIndex.get(sourceId) || [];
+      for (const edge of outgoing) {
+        if (finalNodeSet.has(edge.target)) {
+          if (includeEdgeSet.size === 0 || includeEdgeSet.has(edge.type)) {
+            resultEdges.push(edge);
+          }
+        }
+      }
+    });
+
+    const executionMs = Math.round(performance.now() - startTime);
+
+    return {
+      nodes: resultNodes,
+      edges: resultEdges,
+      queryMeta: {
+        templateId: meta?.templateId || "custom",
+        focus: focus?.term || null,
+        nodeCount: resultNodes.length,
+        edgeCount: resultEdges.length,
+        truncated,
+        executionMs,
+      },
+    };
+  }
 }
+
