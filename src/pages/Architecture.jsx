@@ -167,8 +167,11 @@ function ArchitectureStudio() {
     setShowInspector(true);
   }, [dispatch]);
 
+  const hasInitialSelectedRef = useRef(false);
+
   useEffect(() => {
-    if (reduxNodes.length > 0 && !selectedId) {
+    if (reduxNodes.length > 0 && !selectedId && !hasInitialSelectedRef.current) {
+      hasInitialSelectedRef.current = true;
       const dashboardNode = reduxNodes.find(n => n.name.toLowerCase().includes("dashboard") || n.id.toLowerCase().includes("dashboard"));
       const appNode       = reduxNodes.find(n => n.name === "App" || n.id.includes("App"));
       const defaultNode   = dashboardNode || appNode || reduxNodes[0];

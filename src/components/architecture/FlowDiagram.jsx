@@ -329,19 +329,37 @@ const FlowDiagram = forwardRef((props, ref) => {
     setZoom(0.85);
   }, [rawNodes.length]); // eslint-disable-line react-hooks/exhaustive-deps
 
+  const isDraggingRef = useRef(false);
+  const mouseDownPosRef = useRef({ x: 0, y: 0 });
+
   // Pan Handlers
   const onMouseDown = useCallback(e => {
     if (e.button !== 0) return;
     setIsPanning(true);
+    isDraggingRef.current = false;
+    mouseDownPosRef.current = { x: e.clientX, y: e.clientY };
     setPanStart({ x: e.clientX - pan.x * zoom, y: e.clientY - pan.y * zoom });
   }, [pan, zoom]);
 
   const onMouseMove = useCallback(e => {
     if (!isPanning) return;
+    const dx = Math.abs(e.clientX - mouseDownPosRef.current.x);
+    const dy = Math.abs(e.clientY - mouseDownPosRef.current.y);
+    if (dx > 3 || dy > 3) {
+      isDraggingRef.current = true;
+    }
     setPan({ x: (e.clientX - panStart.x) / zoom, y: (e.clientY - panStart.y) / zoom });
   }, [isPanning, panStart, zoom]);
 
   const onMouseUp = useCallback(() => setIsPanning(false), []);
+
+  const handleCanvasClick = useCallback((e) => {
+    if (isDraggingRef.current) {
+      isDraggingRef.current = false;
+      return;
+    }
+    if (onSelectNode) onSelectNode("");
+  }, [onSelectNode]);
 
   // Wheel Zoom
   useEffect(() => {
@@ -383,7 +401,7 @@ const FlowDiagram = forwardRef((props, ref) => {
       onMouseMove={onMouseMove}
       onMouseUp={onMouseUp}
       onMouseLeave={onMouseUp}
-      onClick={() => onSelectNode && onSelectNode("")}
+      onClick={handleCanvasClick}
     >
       {/* Top Header Label */}
       <div style={{
