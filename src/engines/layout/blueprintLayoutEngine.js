@@ -94,6 +94,8 @@ export function computeLayout(composedGraph, options = {}) {
       return computeTreeLayout(composedGraph, options);
     case "bipartite":
       return computeBipartiteLayout(composedGraph, options);
+    case "tripartite":
+      return computeTripartiteLayout(composedGraph, options);
     case "pipeline":
       return computePipelineLayout(composedGraph, options);
     default:
@@ -188,6 +190,91 @@ export function computeBipartiteLayout(composedGraph, options = {}) {
       },
     });
   });
+
+  return { layoutedNodes };
+}
+
+/**
+ * Tripartite 3-column / 4-column layout for state flow (Section 8.9).
+ */
+export function computeTripartiteLayout(composedGraph, options = {}) {
+  const { nodes = [] } = composedGraph || {};
+  const CARD_W = options.cardWidth || 220;
+  const CARD_H = options.cardHeight || 80;
+  const TOP_PADDING = options.topPadding || 80;
+  const LEFT_PADDING = options.leftPadding || 60;
+  const COLUMN_GAP = options.columnGap || 320;
+  const ROW_GAP = options.rowGap || 28;
+
+  const stateNodes = nodes.filter((n) => n.group === "state" || n.kind === "state");
+  const hookNodes = nodes.filter((n) => n.group === "hook" || n.kind === "hook");
+  const compNodes = nodes.filter((n) => n.kind === "component" || (n.group !== "state" && n.group !== "hook" && n.group !== "api" && n.kind !== "state" && n.kind !== "hook" && n.kind !== "api"));
+  const apiNodes = nodes.filter((n) => n.group === "api" || n.kind === "api");
+
+  const layoutedNodes = [];
+
+  // Column 0: State
+  stateNodes.forEach((node, idx) => {
+    layoutedNodes.push({
+      ...node,
+      metadata: {
+        ...node.metadata,
+        x: LEFT_PADDING,
+        y: TOP_PADDING + idx * (CARD_H + ROW_GAP),
+        w: CARD_W,
+        h: CARD_H,
+      },
+    });
+  });
+
+  // Column 1: Hooks (or skip if empty)
+  const hookColX = hookNodes.length > 0 ? LEFT_PADDING + COLUMN_GAP : LEFT_PADDING;
+  if (hookNodes.length > 0) {
+    hookNodes.forEach((node, idx) => {
+      layoutedNodes.push({
+        ...node,
+        metadata: {
+          ...node.metadata,
+          x: hookColX,
+          y: TOP_PADDING + idx * (CARD_H + ROW_GAP),
+          w: CARD_W,
+          h: CARD_H,
+        },
+      });
+    });
+  }
+
+  // Column 2: Components
+  const compColX = hookNodes.length > 0 ? LEFT_PADDING + COLUMN_GAP * 2 : LEFT_PADDING + COLUMN_GAP;
+  compNodes.forEach((node, idx) => {
+    layoutedNodes.push({
+      ...node,
+      metadata: {
+        ...node.metadata,
+        x: compColX,
+        y: TOP_PADDING + idx * (CARD_H + ROW_GAP),
+        w: CARD_W,
+        h: CARD_H,
+      },
+    });
+  });
+
+  // Column 3: API Endpoints (if fullstack)
+  if (apiNodes.length > 0) {
+    const apiColX = hookNodes.length > 0 ? LEFT_PADDING + COLUMN_GAP * 3 : LEFT_PADDING + COLUMN_GAP * 2;
+    apiNodes.forEach((node, idx) => {
+      layoutedNodes.push({
+        ...node,
+        metadata: {
+          ...node.metadata,
+          x: apiColX,
+          y: TOP_PADDING + idx * (CARD_H + ROW_GAP),
+          w: CARD_W,
+          h: CARD_H,
+        },
+      });
+    });
+  }
 
   return { layoutedNodes };
 }

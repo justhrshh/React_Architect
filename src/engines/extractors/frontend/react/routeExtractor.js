@@ -21,6 +21,8 @@ export function extractRoutes(ast, code, filePath = "") {
           component: route.component || "Component",
           type: "jsx",
           index: route.index,
+          protected: route.isProtected,
+          guardName: route.guardName,
           line: node.loc ? node.loc.start.line : null,
         });
       }
@@ -57,6 +59,8 @@ function readJsxRouteAttributes(openingElement) {
   let pathVal = null;
   let elementVal = null;
   let index = false;
+  let isProtected = false;
+  let guardName = null;
 
   openingElement.attributes.forEach((attr) => {
     if (!attr.name) return;
@@ -69,15 +73,34 @@ function readJsxRouteAttributes(openingElement) {
       index = true;
     }
     if (attrName === "element" && attr.value && attr.value.expression && attr.value.expression.type === "JSXElement") {
-      elementVal = attr.value.expression.openingElement.name.name;
+      const elemNode = attr.value.expression;
+      const topName = elemNode.openingElement.name.name;
+      if (topName && /guard|private|protected|auth|require/i.test(topName)) {
+        isProtected = true;
+        guardName = topName;
+        const childElem = (elemNode.children || []).find((c) => c.type === "JSXElement");
+        if (childElem && childElem.openingElement && childElem.openingElement.name && childElem.openingElement.name.name) {
+          elementVal = childElem.openingElement.name.name;
+        } else {
+          elementVal = topName;
+        }
+      } else {
+        elementVal = topName;
+      }
     }
     if ((attrName === "component" || attrName === "Component") && attr.value && attr.value.expression) {
       const expr = attr.value.expression;
-      if (expr.type === "Identifier") elementVal = expr.name;
+      if (expr.type === "Identifier") {
+        elementVal = expr.name;
+        if (/guard|private|protected|auth|require/i.test(expr.name)) {
+          isProtected = true;
+          guardName = expr.name;
+        }
+      }
     }
   });
 
-  return { path: pathVal, component: elementVal, index };
+  return { path: pathVal, component: elementVal, index, isProtected, guardName };
 }
 
 function hasRouteShape(objectExpr) {

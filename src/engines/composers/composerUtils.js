@@ -10,10 +10,12 @@ export const ARCHITECTURAL_NODE_KINDS = new Set([
 ]);
 
 export const ARCHITECTURAL_EDGE_TYPES = new Set([
-  "RENDERS", "USES_HOOK", "USES_CONTEXT", "STATE_CONSUMER", "DISPATCHES_ACTION",
+  "RENDERS", "USES_HOOK", "HOOK_CALLS_HOOK", "USES_CONTEXT",
+  "STATE_CONSUMER", "DISPATCHES_ACTION", "ASYNC_THUNK", "SUBSCRIBES_TO",
   "USES_API", "CALLS_API", "TARGETS_ROUTE", "ROUTE_PARENT", "ROUTE_RENDERS",
   "HANDLED_BY", "AUTHORIZES", "VALIDATES", "USES",
   "CALLS_SERVICE", "USES_MODEL", "ACCESSES_DB", "LAZY_LOADS",
+  "EXECUTION_FLOW",
 ]);
 
 export const BRIDGED_EDGE_TYPE = "EXECUTION_FLOW";
@@ -48,12 +50,18 @@ export function classifyArchitecturalUnit(node) {
   }
 
   // 6. Backend Routes & Middleware
-  if (
-    kind === "middleware" ||
-    (kind === "route" && lowerFile.includes("routes/")) ||
-    lowerFile.includes("middleware/")
-  ) {
-    return "backend_routes";
+  // Phase 1.3 — use metadata.source to correctly distinguish backend routes from
+  // frontend routes. Express/NestJS/Fastify routes go to backend_routes.
+  // React Router / Next.js routes are handled by the routing lane below.
+  if (kind === "middleware") return "backend_routes";
+  if (lowerFile.includes("middleware/")) return "backend_routes";
+  if (kind === "route") {
+    const source = node.metadata?.source || "";
+    if (source === "express" || source === "nestjs" || source === "fastify" || source === "koa") {
+      return "backend_routes";
+    }
+    // If source is not set, fall back to file-path heuristic
+    if (!source && lowerFile.includes("routes/")) return "backend_routes";
   }
 
   // 5. API Clients & Frontend Endpoints
@@ -81,7 +89,7 @@ export function classifyArchitecturalUnit(node) {
     return "entry";
   }
 
-  // 1. Routing
+  // 1. Routing — frontend routes only (react-router, nextjs, unknown source)
   if (
     kind === "route" ||
     subtype === "router" ||
@@ -213,7 +221,8 @@ export function buildAnnotation(node, queryMeta = {}) {
   if (kind === "controller") return "Controller Logic";
   if (kind === "service") return "Business Service";
   if (kind === "model") return "Data Model";
-  if (kind === "database") return "Database Storage";
+  if (kind === "database") return `${node.metadata?.engine || "Database"} Storage`;
+  if (kind === "hook") return "Custom Hook";
 
   return subtype || kind || "";
 }

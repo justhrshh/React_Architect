@@ -1,13 +1,14 @@
 /**
  * navigation-flow.template.js
  *
- * Routing and page navigation flow template.
+ * Routing and page navigation flow template definition.
+ * Implements Section 6 of the Studio Re-Architecture Implementation Specification.
  */
 
 export default {
   id: "navigation-flow",
   displayName: "Navigation Flow",
-  description: "Map routes, nested route structures, and page component mappings.",
+  description: "Map route hierarchies, nested route structures, and page component assignments.",
   icon: "Compass",
   chipColor: "#F59E0B",
 
@@ -20,15 +21,15 @@ export default {
   query: {
     graphType: "navigation-flow",
     traversal: {
-      includeKinds: ["route", "component"],
-      includeEdgeTypes: ["ROUTE_PARENT", "ROUTE_RENDERS", "RENDERS"],
+      includeKinds: ["route"],
+      includeEdgeTypes: ["ROUTE_PARENT", "ROUTE_RENDERS"],
       excludeKinds: [
         "file", "function", "variable", "data",
-        "api", "state", "hook", "controller", "service", "model", "database"
+        "api", "state", "hook", "controller", "service", "model", "database", "component"
       ],
-      depth: 6,
+      depth: 8,
       direction: "forward",
-      maxNodes: 60,
+      maxNodes: 80,
     },
     focus: {
       strategy: "kind-match",
@@ -45,12 +46,11 @@ export default {
     },
     presentation: {
       edgeSemantics: {
-        ROUTE_PARENT: { label: "nested in", style: "solid" },
-        ROUTE_RENDERS: { label: "renders", style: "dashed" },
-        RENDERS: { label: "renders", style: "dotted" },
+        ROUTE_PARENT:  { label: "nests",  style: "solid" },
+        ROUTE_RENDERS: { label: "serves", style: "dashed" },
       },
       interaction: {
-        expandable: false,
+        expandable: true,
         traceable: false,
         explorable: true,
       },
@@ -59,7 +59,7 @@ export default {
 
   emptyState: {
     heading: "No routes detected",
-    description: "This project has no React Router routes, Next.js file routes, or page declarations detected.",
+    description: "This project has no React Router routes or Next.js file routes detected.",
     suggestions: ["Component Hierarchy", "Execution Flow"],
   },
 

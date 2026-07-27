@@ -13,6 +13,9 @@ import { createNode, createNodeId } from "../graph/nodeFactory.js";
  * - USES_MODEL     : Service / Controller ──► Model
  * - ACCESSES_DB    : Model ──► Database (Logical Store)
  *
+ * Phase 0.6  : All Express route nodes carry metadata.source = "express".
+ * Phase 0.12 : Database node is detected from import analysis instead of hardcoded MongoDB.
+ *
  * Runs in strict passes:
  * Pass 1: Collect router mount prefixes (e.g. app.use('/api/auth', authRouter)).
  * Pass 2: Instantiate all Express Nodes (Routes, Controllers, Middleware, Services, Models, Database).
@@ -135,27 +138,31 @@ export function resolveExpressRelationships(nodes, edges, fileMap, diagnostics =
             subtype: "endpoint",
             name: `${rt.method} ${fullPath}`,
             file: filePath,
-            metadata: { method: rt.method, path: fullPath, rawPath: rt.path, line: rt.line },
+            // Phase 0.6 — Express route nodes get source: "express" so studios can
+            // distinguish them from React Router / Next.js frontend routes.
+            metadata: { method: rt.method, path: fullPath, rawPath: rt.path, line: rt.line, source: "express" },
           })
         );
       }
     });
   }
 
-  // Logical Database Node
+  // Phase 0.12 — Logical Database Node: detected from import analysis rather than hardcoded.
+  // Previously this was always "MongoDB". Now we inspect imports across all files.
   const modelNodes = nodes.filter((n) => n.kind === "model");
   let dbNodeId = null;
   if (modelNodes.length > 0) {
-    dbNodeId = "database:mongodb";
+    const dbInfo = detectDatabase(fileMap);
+    dbNodeId = `database:${dbInfo.subtype}`;
     if (!nodes.some((n) => n.id === dbNodeId)) {
       nodes.push(
         createNode({
           id: dbNodeId,
           kind: "database",
-          subtype: "database",
-          name: "Database (MongoDB)",
+          subtype: dbInfo.subtype,
+          name: dbInfo.name,
           file: modelNodes[0].file,
-          metadata: { engine: "MongoDB / Mongoose" },
+          metadata: { engine: dbInfo.name },
         })
       );
     }
@@ -305,4 +312,27 @@ function cleanMatch(a, b) {
   const aLower = a.toLowerCase();
   const bLower = b.toLowerCase();
   return aLower.includes(bLower) || bLower.includes(aLower);
+}
+
+/**
+ * Phase 0.12 — Detect the database technology from file imports.
+ * Returns { name: string, subtype: string }.
+ * Falls back to { name: "Database", subtype: "unknown" } if nothing is detected.
+ */
+function detectDatabase(fileMap) {
+  for (const [, fileObj] of fileMap.entries()) {
+    const imports = fileObj.summary?.imports || [];
+    for (const imp of imports) {
+      const src = imp.source || "";
+      if (src === "mongoose")                         return { name: "MongoDB",           subtype: "mongodb" };
+      if (src === "pg" || src === "pg-pool")          return { name: "PostgreSQL",        subtype: "postgresql" };
+      if (src === "mysql2" || src === "mysql")        return { name: "MySQL",             subtype: "mysql" };
+      if (src === "@prisma/client")                   return { name: "Prisma / Database", subtype: "prisma" };
+      if (src === "sequelize")                        return { name: "Sequelize / DB",   subtype: "sequelize" };
+      if (src === "better-sqlite3" || src === "sqlite3") return { name: "SQLite",         subtype: "sqlite" };
+      if (src === "redis" || src === "ioredis")       return { name: "Redis",             subtype: "redis" };
+      if (src === "cassandra-driver")                 return { name: "Cassandra",         subtype: "cassandra" };
+    }
+  }
+  return { name: "Database", subtype: "unknown" };
 }

@@ -47,6 +47,8 @@ function buildHeaders(token) {
   return headers;
 }
 
+export let lastRateLimitInfo = { remaining: null, reset: null };
+
 export async function apiFetch(url, token, provider = 'github') {
   const start = performance.now();
   let res;
@@ -61,13 +63,19 @@ export async function apiFetch(url, token, provider = 'github') {
   const durationMs = performance.now() - start;
   GitLogger.logRequest({ method: 'GET', url, status: res.status, durationMs, cached: false, provider });
 
+  const remainingHeader = res.headers.get('x-ratelimit-remaining');
+  const resetHeader = res.headers.get('x-ratelimit-reset');
+  if (remainingHeader !== null) {
+    lastRateLimitInfo.remaining = parseInt(remainingHeader, 10);
+    lastRateLimitInfo.reset = resetHeader;
+  }
+
   if (!res.ok) {
     const bodyText = await res.text().catch(() => '');
     let bodyJson = null;
     try { bodyJson = JSON.parse(bodyText); } catch {}
 
-    const remaining = res.headers.get('x-ratelimit-remaining');
-    const resetHeader = res.headers.get('x-ratelimit-reset');
+    const remaining = remainingHeader;
 
     const isRateLimited =
       res.status === 429 ||

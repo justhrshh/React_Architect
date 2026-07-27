@@ -57,10 +57,10 @@ export default function EmptyQueryState({
         <div className="absolute top-1/4 left-1/3 w-[600px] h-[600px] rounded-full bg-purple-100/50 blur-3xl" />
         <div className="absolute -bottom-10 -right-10 w-[650px] h-[650px] rounded-full bg-indigo-100/60 blur-3xl" />
 
-        {/* Seamless Multi-Stop White Edge Vignette (Blends ultra-smoothly into ambient glows while keeping soft white at corners) */}
+        {/* Seamless Multi-Stop White Edge Vignette */}
         <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,transparent_60%,rgba(255,255,255,0.3)_78%,rgba(255,255,255,0.75)_92%,white_100%)] pointer-events-none z-0" />
 
-        {/* ── Custom Animated Ripple Loader Background (Replacing SVG Rings) ── */}
+        {/* ── Custom Animated Ripple Loader Background ── */}
         <div className="absolute inset-0 flex items-center justify-center pointer-events-none z-0 overflow-hidden">
           <style>{`
             .loader-container {

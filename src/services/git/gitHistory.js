@@ -18,11 +18,21 @@ export async function fetchBranches(provider, owner, repo, token = null) {
   let result = [];
   switch (provider) {
     case 'github': {
-      const [branchData, repoData] = await Promise.all([
+      const repoCacheKey = `${provider}:${owner}/${repo}`;
+      let repoData = GitCache.repos.get(repoCacheKey);
+      
+      const fetchRepoPromise = repoData
+        ? Promise.resolve(repoData)
+        : apiFetch(`https://api.github.com/repos/${owner}/${repo}`, token, provider).then(data => {
+            GitCache.repos.set(repoCacheKey, data);
+            return data;
+          });
+
+      const [branchData, fetchedRepoData] = await Promise.all([
         apiFetch(`https://api.github.com/repos/${owner}/${repo}/branches?per_page=100`, token, provider),
-        apiFetch(`https://api.github.com/repos/${owner}/${repo}`, token, provider),
+        fetchRepoPromise,
       ]);
-      const defaultBranch = repoData.default_branch;
+      const defaultBranch = fetchedRepoData.default_branch;
       result = branchData.map((b) => ({
         name: b.name,
         isDefault: b.name === defaultBranch,
@@ -288,10 +298,20 @@ export async function runImportAnalysis(provider, owner, repo, ref, token = null
     let treeItems = [];
 
     if (provider === 'github') {
-      const repoData = await apiFetch(`https://api.github.com/repos/${owner}/${repo}`, token, provider).catch(() => null);
+      const repoCacheKey = `${provider}:${owner}/${repo}`;
+      let repoData = GitCache.repos.get(repoCacheKey);
+      if (!repoData) {
+        repoData = await apiFetch(`https://api.github.com/repos/${owner}/${repo}`, token, provider).catch(() => null);
+        if (repoData) GitCache.repos.set(repoCacheKey, repoData);
+      }
       if (repoData?.size) repoSizeKb = repoData.size;
 
-      const treeData = await apiFetch(`https://api.github.com/repos/${owner}/${repo}/git/trees/${ref}?recursive=1`, token, provider).catch(() => null);
+      const treeCacheKey = `${provider}:${owner}/${repo}:${ref}`;
+      let treeData = GitCache.trees.get(treeCacheKey);
+      if (!treeData) {
+        treeData = await apiFetch(`https://api.github.com/repos/${owner}/${repo}/git/trees/${ref}?recursive=1`, token, provider).catch(() => null);
+        if (treeData) GitCache.trees.set(treeCacheKey, treeData);
+      }
       if (treeData?.tree) treeItems = treeData.tree;
     }
 

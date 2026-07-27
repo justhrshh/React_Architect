@@ -486,6 +486,9 @@ const ImportProjectModal = ({ onClose }) => {
             {view === STATES.ERROR && (
               <ErrorView
                 error={errorMsg}
+                gitToken={gitToken}
+                setGitToken={setGitToken}
+                onRetry={handleGitConnect}
                 onBack={() => { setErrorMsg(null); setView(STATES.IDLE); }}
                 onAddToken={() => { setView(STATES.GIT_INPUT); setShowToken(true); }}
               />
@@ -1225,7 +1228,7 @@ const StrategyAnalysisView = ({
   );
 };
 
-const ErrorView = ({ error, onBack, onAddToken }) => {
+const ErrorView = ({ error, gitToken, setGitToken, onRetry, onBack, onAddToken }) => {
   const [showDetails, setShowDetails] = useState(false);
 
   const isObj    = error && typeof error === 'object';
@@ -1254,7 +1257,7 @@ const ErrorView = ({ error, onBack, onAddToken }) => {
       : 'bg-red-50 border-red-200 text-red-500';
 
   return (
-    <div className="flex flex-col items-center gap-5 py-6 text-center">
+    <div className="flex flex-col items-center gap-4 py-4 text-center">
       <div className={`w-12 h-12 rounded-2xl flex items-center justify-center text-xl font-bold border ${iconBg}`}>
         {iconEmoji}
       </div>
@@ -1266,9 +1269,39 @@ const ErrorView = ({ error, onBack, onAddToken }) => {
         </p>
       </div>
 
+      {/* Inline Token Box for Rate Limit Errors */}
+      {type === 'RATE_LIMIT' && setGitToken && (
+        <div className="w-full max-w-md p-4 bg-amber-50/70 border border-amber-200/90 rounded-2xl flex flex-col gap-2.5 text-left shadow-sm">
+          <p className="font-mono text-[10px] font-bold text-amber-900 uppercase tracking-wider flex items-center gap-1.5">
+            <span>🔒</span> Bypass Rate Limit Immediately (5,000 req/hr)
+          </p>
+          <div className="flex gap-2">
+            <input
+              type="password"
+              value={gitToken || ''}
+              onChange={(e) => setGitToken(e.target.value)}
+              placeholder="Paste Personal Access Token (ghp_...)"
+              className="flex-1 px-3.5 py-2.5 rounded-xl border border-neutral-300 bg-white font-mono text-[11px] text-neutral-900 outline-none focus:border-amber-500 focus:ring-2 focus:ring-amber-100 transition-all"
+              autoFocus
+            />
+            <button
+              onClick={() => {
+                if (onRetry) onRetry();
+              }}
+              className="px-4 py-2.5 rounded-xl bg-neutral-950 hover:bg-neutral-800 text-white font-mono text-[10.5px] font-bold uppercase tracking-wider transition-all shadow-md shrink-0"
+            >
+              Apply Token &amp; Retry
+            </button>
+          </div>
+          <p className="font-mono text-[9px] text-neutral-500 leading-tight">
+            Need a token? Create one in GitHub Settings → Developer Settings → Personal Access Tokens (no scope required for public repos).
+          </p>
+        </div>
+      )}
+
       {/* Developer Diagnostics Expandable Section */}
       {(status || endpoint || provider || rawBody) && (
-        <div className="w-full max-w-md mt-1 text-left">
+        <div className="w-full max-w-md text-left">
           <button
             type="button"
             onClick={() => setShowDetails((v) => !v)}
@@ -1309,14 +1342,14 @@ const ErrorView = ({ error, onBack, onAddToken }) => {
       )}
 
       {/* Actions */}
-      <div className="flex gap-3 mt-2 w-full max-w-sm">
+      <div className="flex gap-3 mt-1 w-full max-w-sm">
         <button
           onClick={onBack}
           className="flex-1 py-3.5 rounded-xl border border-neutral-200 bg-white font-mono text-xs uppercase tracking-wider text-neutral-500 hover:text-neutral-900 hover:border-neutral-300 hover:bg-neutral-50 transition-all font-bold"
         >
-          ← Try Again
+          ← Back
         </button>
-        {showAddToken && onAddToken && (
+        {showAddToken && onAddToken && type !== 'RATE_LIMIT' && (
           <button
             onClick={onAddToken}
             className="flex-1 py-3.5 rounded-xl bg-neutral-950 text-white font-mono text-xs uppercase tracking-wider font-bold hover:bg-neutral-800 transition-all shadow-md"

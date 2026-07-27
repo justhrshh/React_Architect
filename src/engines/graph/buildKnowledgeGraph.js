@@ -8,6 +8,7 @@ import { createNode, createNodeId } from "./nodeFactory.js";
 import { createEdge, createEdgeId } from "./edgeFactory.js";
 import { validateGraph } from "./graphValidator.js";
 import { buildFileManifest, createGraphLookupMaps } from "./incrementalTracker.js";
+import { classifyProject } from "../classifier/projectClassifier.js";
 
 /**
  * Builds the centralized Knowledge Graph representing the entire project structure.
@@ -20,6 +21,10 @@ export function buildKnowledgeGraph(files, project) {
   const nodes = [];
   const edges = [];
   const diagnostics = [];
+
+  // Phase 0.1 — Classify the project before building the graph.
+  // The result is stored in the returned graph and consumed by studio composers.
+  const classification = classifyProject(files);
 
   const aliasMap = buildAliasMap(files);
   const graphFiles = files.filter((f) => !f.isConfig);
@@ -95,6 +100,8 @@ export function buildKnowledgeGraph(files, project) {
       buildTool: "Vite",
       packageManager: "npm",
       reactVersion: "19.0.0",
+      // Phase 0.1 — project type classification
+      classification,
     },
     nodes,
     edges: uniqueEdges,
@@ -170,6 +177,66 @@ function buildNodesForFile(file, nodes, edges) {
         metadata: { reason: "declared_in" },
       })
     );
+  });
+
+  // Phase 0.3 — Custom hook nodes (kind: "hook") from hookExtractor output.
+  // Hooks are architecturally distinct from components — they encapsulate
+  // stateful logic without rendering UI.
+  (summary.hooks || []).forEach((hook) => {
+    const hookId = createNodeId("hook", file.path, hook.name);
+    nodes.push(
+      createNode({
+        id: hookId,
+        kind: "hook",
+        subtype: "custom",
+        name: hook.name,
+        file: file.path,
+        metadata: { line: hook.line },
+      })
+    );
+    edges.push(
+      createEdge({
+        type: "DEPENDENCY",
+        source: hookId,
+        target: createNodeId("file", file.path, file.name),
+        metadata: { reason: "declared_in" },
+      })
+    );
+  });
+
+  // Phase 0.4 — Context state nodes from contextExtractor output.
+  // Each createContext() call becomes a state node with subtype "context".
+  (summary.contexts || []).forEach((ctx) => {
+    const ctxId = createNodeId("state", file.path, ctx.name, "context");
+    if (!nodes.some((n) => n.id === ctxId)) {
+      nodes.push(
+        createNode({
+          id: ctxId,
+          kind: "state",
+          subtype: "context",
+          name: ctx.name,
+          file: file.path,
+          metadata: { line: ctx.line },
+        })
+      );
+    }
+  });
+
+  // Phase 0.5 — Zustand store nodes from zustandExtractor output.
+  (summary.zustandStores || []).forEach((store) => {
+    const storeId = createNodeId("state", file.path, store.name, "zustand");
+    if (!nodes.some((n) => n.id === storeId)) {
+      nodes.push(
+        createNode({
+          id: storeId,
+          kind: "state",
+          subtype: "zustand-store",
+          name: store.name,
+          file: file.path,
+          metadata: { line: store.line || null },
+        })
+      );
+    }
   });
 
   (summary.functions || []).forEach((fn) => {
@@ -317,7 +384,9 @@ function buildRouteGraph(parsedFiles, graphFiles, nodes, edges, project, ctx) {
     if (!summary.routes || summary.routes.length === 0) return;
 
     const routerId = createNodeId("route", file.path, "core", "router");
-    nodes.push(createNode({ id: routerId, kind: "route", subtype: "router", name: "Router", file: file.path }));
+    // Phase 0.6 — React Router routes carry source: "react-router" so studios
+    // can distinguish them from Express backend routes (source: "express" etc.).
+    nodes.push(createNode({ id: routerId, kind: "route", subtype: "router", name: "Router", file: file.path, metadata: { source: "react-router" } }));
 
     summary.routes.forEach((route, index) => {
       addRouteNodeRecursive(route, routerId, file.path, `${index}`, nodes, edges, ctx);
@@ -329,7 +398,7 @@ function buildRouteGraph(parsedFiles, graphFiles, nodes, edges, project, ctx) {
 
     if (pageRoutes.length > 0) {
       const fileRouterId = createNodeId("route", "app/", "nextjs", "router");
-      nodes.push(createNode({ id: fileRouterId, kind: "route", subtype: "router", name: "Next.js File Router", file: "app/" }));
+      nodes.push(createNode({ id: fileRouterId, kind: "route", subtype: "router", name: "Next.js File Router", file: "app/", metadata: { source: "nextjs" } }));
 
       pageRoutes.forEach((route) => {
         const routeId = createNodeId("route", route.file, route.path, "endpoint");
@@ -340,7 +409,8 @@ function buildRouteGraph(parsedFiles, graphFiles, nodes, edges, project, ctx) {
             subtype: "endpoint",
             name: route.path,
             file: route.file,
-            metadata: { componentName: route.component, source: route.source },
+            // Phase 0.6 — Next.js file-system routes get source: "nextjs"
+            metadata: { componentName: route.component, source: "nextjs" },
           })
         );
         edges.push(createEdge({ type: "ROUTE_PARENT", source: fileRouterId, target: routeId }));
@@ -404,7 +474,8 @@ function addRouteNodeRecursive(route, parentId, filePath, positionKey, nodes, ed
       subtype: "endpoint",
       name: route.path,
       file: filePath,
-      metadata: { componentName, line: route.line, index: !!route.index },
+      // Phase 0.6 — React Router endpoint routes carry source: "react-router"
+      metadata: { componentName, line: route.line, index: !!route.index, source: "react-router" },
     })
   );
   edges.push(createEdge({ type: "ROUTE_PARENT", source: parentId, target: routeId }));

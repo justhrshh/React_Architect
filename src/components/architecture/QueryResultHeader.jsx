@@ -34,9 +34,14 @@ export default function QueryResultHeader({
         >
           <IconComponent className="w-4 h-4" />
         </div>
-        <div className="shrink-0 font-bold text-slate-800 tracking-tight">
-          {template?.displayName || "Execution Flow"}
-          {focus && <span className="text-indigo-600 font-medium ml-1">({focus})</span>}
+        <div className="shrink-0 font-bold text-slate-800 tracking-tight flex items-center gap-2">
+          <span>{template?.displayName || "Execution Flow"}</span>
+          {focus && <span className="text-indigo-600 font-medium">({focus})</span>}
+          {queryMeta.classification?.type && (
+            <span className="uppercase text-[10px] font-bold tracking-wider px-2 py-0.5 rounded-full bg-slate-100 text-slate-600 border border-slate-200">
+              {queryMeta.classification.type}
+            </span>
+          )}
         </div>
 
         {/* Integrated White Inline Search Bar */}

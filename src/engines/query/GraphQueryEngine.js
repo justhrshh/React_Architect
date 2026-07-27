@@ -285,13 +285,26 @@ export class GraphQueryEngine {
       } else if (strategy === "kind-match") {
         seeds = includeKinds.flatMap((k) => Array.from(this.kindIndex.get(k) || []));
       } else if (strategy === "entry-points") {
-        seeds = this.nodes.filter((n) => n.kind === "file" && /(main|index|App|server|app|_app)\.[jt]sx?$/i.test(n.file || "")).map((n) => n.id);
+        seeds = this.nodes.filter((n) =>
+          (n.kind === "file" && /(main|index|App|server|app|_app)\.[jt]sx?$/i.test(n.file || "")) ||
+          (n.kind === "component" && (n.name === "App" || n.name === "main" || n.subtype === "root"))
+        ).map((n) => n.id);
       } else if (strategy === "router-nodes") {
         seeds = this.nodes.filter((n) => n.kind === "route" && (n.subtype === "router" || (n.name && n.name.includes("Router")))).map((n) => n.id);
       }
+    } else {
+      // No focus term: check for entry-points seed first (Section 5.6 fallback)
+      const entrySeeds = this.nodes.filter((n) =>
+        (n.kind === "file" && /(main|index|App|server|app|_app)\.[jt]sx?$/i.test(n.file || "")) ||
+        (n.kind === "component" && (n.name === "App" || n.name === "main" || n.subtype === "root"))
+      ).map((n) => n.id);
+
+      if (entrySeeds.length > 0) {
+        seeds = entrySeeds;
+      }
     }
 
-    // Fallback: If seeds empty, seed from domain kinds
+    // Fallback: If seeds still empty, seed from domain kinds
     if (seeds.length === 0) {
       if (includeKinds.length > 0) {
         seeds = includeKinds.flatMap((k) => Array.from(this.kindIndex.get(k) || []));
@@ -391,6 +404,7 @@ export class GraphQueryEngine {
         edgeCount: resultEdges.length,
         truncated,
         executionMs,
+        classification: this.rawGraph?.project?.classification || null,
       },
     };
   }

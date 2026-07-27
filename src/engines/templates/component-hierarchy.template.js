@@ -1,7 +1,8 @@
 /**
  * component-hierarchy.template.js
  *
- * Component render tree hierarchy template.
+ * Component render tree hierarchy template definition.
+ * Implements Section 7 of the Studio Re-Architecture Implementation Specification.
  */
 
 export default {
@@ -20,13 +21,13 @@ export default {
   query: {
     graphType: "component-hierarchy",
     traversal: {
-      includeKinds: ["component", "route"],
-      includeEdgeTypes: ["RENDERS", "ROUTE_RENDERS", "LAZY_LOADS"],
+      includeKinds: ["component"],
+      includeEdgeTypes: ["RENDERS", "LAZY_LOADS"],
       excludeKinds: [
-        "file", "function", "variable", "data",
+        "route", "file", "function", "variable", "data",
         "api", "state", "hook", "controller", "service", "model", "database"
       ],
-      depth: 6,
+      depth: 8,
       direction: "forward",
       maxNodes: 80,
     },
@@ -47,8 +48,7 @@ export default {
     },
     presentation: {
       edgeSemantics: {
-        RENDERS: { label: "renders", style: "solid" },
-        ROUTE_RENDERS: { label: "renders", style: "solid" },
+        RENDERS:    { label: "renders",    style: "solid" },
         LAZY_LOADS: { label: "lazy loads", style: "dashed" },
       },
       interaction: {
@@ -61,7 +61,7 @@ export default {
 
   emptyState: {
     heading: "No components found",
-    description: "This project has no React components detected. Ensure the project was scanned correctly.",
+    description: "This project has no React components detected.",
     suggestions: ["Execution Flow"],
   },
 

@@ -1,7 +1,8 @@
 /**
  * execution-flow.template.js
  *
- * Full application execution flow template definition. Replaces former Blueprint Flow.
+ * Full application execution flow template definition.
+ * Phase 1 update: includes all new edge types from Phase 0 data layer.
  */
 
 export default {
@@ -27,13 +28,22 @@ export default {
         "controller", "service", "middleware", "model", "database"
       ],
       includeEdgeTypes: [
-        "RENDERS", "ROUTE_RENDERS", "ROUTE_PARENT", "USES_API", "CALLS_API",
-        "STATE_CONSUMER", "DISPATCHES_ACTION", "USES_HOOK", "USES_CONTEXT",
-        "HANDLED_BY", "CALLS_SERVICE", "USES_MODEL", "ACCESSES_DB",
-        "AUTHORIZES", "VALIDATES", "LAZY_LOADS", "EXECUTION_FLOW"
+        // Rendering
+        "RENDERS", "ROUTE_RENDERS", "ROUTE_PARENT", "LAZY_LOADS",
+        // Hooks & Context (Phase 0 additions)
+        "USES_HOOK", "HOOK_CALLS_HOOK", "USES_CONTEXT",
+        // State
+        "STATE_CONSUMER", "DISPATCHES_ACTION", "ASYNC_THUNK", "SUBSCRIBES_TO",
+        // API
+        "USES_API", "CALLS_API", "TARGETS_ROUTE",
+        // Backend
+        "HANDLED_BY", "AUTHORIZES", "VALIDATES", "USES",
+        "CALLS_SERVICE", "USES_MODEL", "ACCESSES_DB",
+        // Synthetic bridge
+        "EXECUTION_FLOW"
       ],
       excludeKinds: ["file", "function", "variable", "data"],
-      depth: 5,
+      depth: 6,
       direction: "forward",
       maxNodes: 60,
     },
@@ -53,12 +63,17 @@ export default {
     },
     presentation: {
       edgeSemantics: {
-        RENDERS: { label: "renders", style: "solid" },
-        USES_API: { label: "calls", style: "solid" },
-        STATE_CONSUMER: { label: "reads state", style: "dashed" },
-        DISPATCHES_ACTION: { label: "dispatches", style: "dashed" },
-        HANDLED_BY: { label: "handled by", style: "solid" },
-        EXECUTION_FLOW: { label: "→", style: "dotted" },
+        RENDERS:            { label: "renders",      style: "solid" },
+        USES_HOOK:          { label: "uses",         style: "solid" },
+        USES_CONTEXT:       { label: "consumes",     style: "dashed" },
+        USES_API:           { label: "calls",        style: "solid" },
+        STATE_CONSUMER:     { label: "reads state",  style: "dashed" },
+        DISPATCHES_ACTION:  { label: "dispatches",   style: "dashed" },
+        ASYNC_THUNK:        { label: "async",        style: "dashed" },
+        SUBSCRIBES_TO:      { label: "subscribes",   style: "solid" },
+        HANDLED_BY:         { label: "handled by",   style: "solid" },
+        CALLS_SERVICE:      { label: "delegates to", style: "solid" },
+        EXECUTION_FLOW:     { label: "→",            style: "dotted" },
       },
       interaction: {
         expandable: true,

@@ -744,7 +744,12 @@ function ArchitectureStudio() {
             margin: isFullscreen ? 0 : "12px 16px 12px 16px",
             overflow: "hidden",
           }}>
-            {composedGraph && layoutResult ? (
+            {composedGraph && composedGraph.disabled ? (
+              <div style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", background: "#FFFFFF", borderRadius: 16, border: "1px solid rgba(226,232,240,0.9)", padding: 40, textAlign: "center" }}>
+                <div style={{ fontSize: 20, fontWeight: 800, color: "#0F172A", marginBottom: 8, fontFamily: INTER }}>Studio Unavailable</div>
+                <div style={{ fontSize: 13, color: "#64748B", maxWidth: 500, lineHeight: 1.6, fontFamily: INTER }}>{composedGraph.disabledReason}</div>
+              </div>
+            ) : composedGraph && layoutResult ? (
               <div style={{ flex: 1, display: "flex", flexDirection: "column", overflow: "hidden" }}>
                 <QueryResultHeader
                   queryMeta={composedGraph.queryMeta}
@@ -763,6 +768,11 @@ function ArchitectureStudio() {
                     setActiveFocus(null);
                   }}
                 />
+                {composedGraph.message && (
+                  <div style={{ background: "#EEF2FF", border: "1px solid #C7D2FE", color: "#3730A3", fontSize: 12, fontWeight: 600, padding: "8px 16px", borderRadius: 10, marginBottom: 8, fontFamily: INTER }}>
+                    {composedGraph.message}
+                  </div>
+                )}
                 <div style={{
                   position: "relative",
                   flex: 1,

@@ -1,10 +1,11 @@
 /**
  * gitCache.js
- * In-memory session cache manager for Git API responses (branches, commits, trees, zip archives).
+ * In-memory session cache manager for Git API responses (repos, branches, commits, trees, zip archives).
  */
 
 class GitCacheManager {
   constructor() {
+    this.repos = new Map();
     this.branches = new Map();
     this.commits = new Map();
     this.commitDetails = new Map();
@@ -13,6 +14,7 @@ class GitCacheManager {
   }
 
   clearAll() {
+    this.repos.clear();
     this.branches.clear();
     this.commits.clear();
     this.commitDetails.clear();
