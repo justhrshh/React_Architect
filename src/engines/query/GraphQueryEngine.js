@@ -272,7 +272,7 @@ export class GraphQueryEngine {
     const { focus, traversal, meta } = query;
     const { includeKinds = [], includeEdgeTypes = [], excludeKinds = [], depth = 4, direction = "forward", maxNodes = 50 } = traversal;
 
-    // Step 1 — Seed Resolution
+    // Step 1 — Seed Resolution with Multi-Entity & Navigation Chain Support
     let seeds = [];
     if (focus?.seeds && focus.seeds.length > 0) {
       seeds = focus.seeds.filter((id) => this.nodesMap.has(id));
@@ -282,6 +282,15 @@ export class GraphQueryEngine {
 
       if (strategy === "name-match") {
         seeds = this.nodes.filter((n) => n.name && n.name.toLowerCase().includes(term)).map((n) => n.id);
+        if (seeds.length === 0) {
+          seeds = this.nodes.filter((n) =>
+            (n.name && n.name.toLowerCase().includes(term)) ||
+            (n.id && n.id.toLowerCase().includes(term)) ||
+            (n.file && n.file.toLowerCase().includes(term)) ||
+            (n.kind && n.kind.toLowerCase().includes(term)) ||
+            (n.subtype && n.subtype.toLowerCase().includes(term))
+          ).map((n) => n.id);
+        }
       } else if (strategy === "kind-match") {
         seeds = includeKinds.flatMap((k) => Array.from(this.kindIndex.get(k) || []));
       } else if (strategy === "entry-points") {
@@ -292,15 +301,72 @@ export class GraphQueryEngine {
       } else if (strategy === "router-nodes") {
         seeds = this.nodes.filter((n) => n.kind === "route" && (n.subtype === "router" || (n.name && n.name.includes("Router")))).map((n) => n.id);
       }
-    } else {
-      // No focus term: check for entry-points seed first (Section 5.6 fallback)
-      const entrySeeds = this.nodes.filter((n) =>
-        (n.kind === "file" && /(main|index|App|server|app|_app)\.[jt]sx?$/i.test(n.file || "")) ||
-        (n.kind === "component" && (n.name === "App" || n.name === "main" || n.subtype === "root"))
-      ).map((n) => n.id);
 
-      if (entrySeeds.length > 0) {
-        seeds = entrySeeds;
+      // Handle Multi-Entity Path Queries (Primary -> Secondary)
+      if (focus.secondaryTerm) {
+        const secTerm = focus.secondaryTerm.toLowerCase().trim();
+        const secSeeds = this.nodes.filter((n) =>
+          (n.name && n.name.toLowerCase().includes(secTerm)) ||
+          (n.kind && n.kind.toLowerCase().includes(secTerm)) ||
+          (n.subtype && n.subtype.toLowerCase().includes(secTerm))
+        ).map((n) => n.id);
+
+        if (seeds.length > 0 && secSeeds.length > 0) {
+          const pathNodes = new Set();
+          for (const s1 of seeds) {
+            for (const s2 of secSeeds) {
+              const path = this.findPath(s1, s2);
+              if (path && path.length > 0) {
+                path.forEach((n) => pathNodes.add(n.id));
+              }
+            }
+          }
+          if (pathNodes.size > 0) {
+            seeds = Array.from(pathNodes);
+          } else {
+            seeds = [...new Set([...seeds, ...secSeeds])];
+          }
+        }
+      }
+
+      // Handle Navigation Flow Entry-to-Target Chain Reconstruction
+      if (query.graphType === "navigation-flow" && seeds.length > 0) {
+        const entryNodes = this.nodes.filter((n) =>
+          (n.kind === "file" && /(main|index|App|server|app|_app)\.[jt]sx?$/i.test(n.file || "")) ||
+          (n.kind === "component" && (n.name === "App" || n.name === "main" || n.subtype === "root")) ||
+          (n.kind === "route" && (n.subtype === "router" || (n.name && n.name.includes("Router"))))
+        ).map((n) => n.id);
+
+        const navChainNodes = new Set(seeds);
+        for (const entryId of entryNodes) {
+          for (const targetId of seeds) {
+            const chain = this.findPath(entryId, targetId);
+            if (chain && chain.length > 0) {
+              chain.forEach((n) => navChainNodes.add(n.id));
+            }
+          }
+        }
+        seeds = Array.from(navChainNodes);
+      }
+    } else {
+      // No focus term: use template strategy if specified, otherwise domain kinds
+      const strategy = focus?.strategy;
+      if (strategy === "kind-match" && includeKinds.length > 0) {
+        seeds = includeKinds.flatMap((k) => Array.from(this.kindIndex.get(k) || []));
+      } else if (strategy === "router-nodes" || (includeKinds.includes("route") && !includeKinds.includes("file"))) {
+        seeds = this.nodes.filter((n) => n.kind === "route").map((n) => n.id);
+        if (seeds.length === 0 && includeKinds.length > 0) {
+          seeds = includeKinds.flatMap((k) => Array.from(this.kindIndex.get(k) || []));
+        }
+      } else {
+        const entrySeeds = this.nodes.filter((n) =>
+          (n.kind === "file" && /(main|index|App|server|app|_app)\.[jt]sx?$/i.test(n.file || "")) ||
+          (n.kind === "component" && (n.name === "App" || n.name === "main" || n.subtype === "root"))
+        ).map((n) => n.id);
+
+        if (entrySeeds.length > 0) {
+          seeds = entrySeeds;
+        }
       }
     }
 

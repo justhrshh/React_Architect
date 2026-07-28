@@ -60,12 +60,35 @@ function ArchitectureStudio() {
   const [isQueryLoading, setIsQueryLoading] = useState(false);
   const [showQueryHistory, setShowQueryHistory] = useState(false);
 
+  const [conversationalNotice, setConversationalNotice] = useState(null);
+  const [ambiguousCandidates, setAmbiguousCandidates] = useState([]);
+
   const handleQuery = useCallback(
-    (templateId, focusTerm) => {
+    (templateId, focusTerm, secondaryTerm = null, intentMeta = null) => {
       setIsQueryLoading(true);
       try {
+        if (intentMeta && intentMeta.isAmbiguous && intentMeta.candidates?.length > 0) {
+          setAmbiguousCandidates(intentMeta.candidates);
+          setConversationalNotice(null);
+          setIsQueryLoading(false);
+          return;
+        }
+
+        setAmbiguousCandidates([]);
+
+        if (intentMeta && intentMeta.isArchitectural === false) {
+          setConversationalNotice(
+            intentMeta.conversationalMessage ||
+              "This query doesn't describe an architectural exploration. Try asking about components, execution, navigation, state, APIs, or request flow."
+          );
+          setIsQueryLoading(false);
+          return;
+        }
+
+        setConversationalNotice(null);
+
         const template = TEMPLATE_REGISTRY.get(templateId) || ALL_TEMPLATES[0];
-        const query = instantiateTemplate(templateId, focusTerm);
+        const query = instantiateTemplate(templateId, focusTerm, secondaryTerm);
 
         let subgraph = { nodes: [], edges: [], queryMeta: {} };
         let activeEngine = queryEngine;
@@ -94,6 +117,7 @@ function ArchitectureStudio() {
         setLayoutResult(layout);
         setActiveTemplateId(templateId);
         setActiveFocus(focusTerm);
+        setActiveTab("flow");
 
         const uniqueId = typeof crypto !== "undefined" && crypto.randomUUID
           ? crypto.randomUUID()
@@ -808,10 +832,18 @@ function ArchitectureStudio() {
               <EmptyQueryState
                 emptyState={activeTemplateId ? TEMPLATE_REGISTRY.get(activeTemplateId)?.emptyState : null}
                 templates={ALL_TEMPLATES}
+                conversationalNotice={conversationalNotice}
+                onClearNotice={() => setConversationalNotice(null)}
+                ambiguousCandidates={ambiguousCandidates}
+                onSelectCandidate={(cand) => handleQuery("execution-flow", cand.name)}
                 onSelectTemplate={(tplId) => handleQuery(tplId, null)}
-                onSearchQuery={(qStr) => {
-                  const match = resolveTemplate(qStr);
-                  handleQuery(match.templateId || "execution-flow", match.focusTerm || qStr);
+                onSearchQuery={async (qStr) => {
+                  let activeEngine = queryEngine;
+                  if (!activeEngine && knowledgeGraph) {
+                    activeEngine = new GraphQueryEngine(knowledgeGraph);
+                  }
+                  const match = await resolveTemplate(qStr, activeEngine);
+                  handleQuery(match.templateId || "execution-flow", match.focusTerm || qStr, match.secondaryTerm, match);
                 }}
               />
             )}

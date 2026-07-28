@@ -149,6 +149,132 @@ export function computeTreeLayout(composedGraph, options = {}) {
 }
 
 /**
+ * Horizontal sitemap layout for Navigation Flow Studio.
+ * Computes non-overlapping vertical spans for every subtree branch,
+ * guaranteeing zero node collision and centering parents over their expanded children.
+ */
+export function computeSitemapLayout(composedGraph, options = {}) {
+  const { nodes = [], edges = [] } = composedGraph || {};
+  if (nodes.length === 0) return { layoutedNodes: [] };
+
+  const CARD_W = options.cardWidth || 185;
+  const CARD_H = options.cardHeight || 72;
+  const LEFT_PADDING = options.leftPadding || 80;
+  const TOP_PADDING = options.topPadding || 80;
+  const COLUMN_WIDTH = options.columnWidth || 240;
+  const ROW_GAP = options.rowGap || 32;
+
+  const childrenMap = new Map();
+  const parentMap = new Map();
+  const nodeMap = new Map(nodes.map((n) => [n.id, { ...n }]));
+
+  nodes.forEach((n) => childrenMap.set(n.id, []));
+
+  const edgePriority = {
+    ROUTE_PARENT: 1,
+    ROUTE_RENDERS: 2,
+    RENDERS: 3,
+  };
+
+  const sortedEdges = [...edges].sort((a, b) => {
+    const pA = edgePriority[a?.type] || 4;
+    const pB = edgePriority[b?.type] || 4;
+    return pA - pB;
+  });
+
+  sortedEdges.forEach((e) => {
+    if (e && nodeMap.has(e.source) && nodeMap.has(e.target)) {
+      if (!parentMap.has(e.target)) {
+        parentMap.set(e.target, e.source);
+        if (!childrenMap.has(e.source)) childrenMap.set(e.source, []);
+        childrenMap.get(e.source).push(e.target);
+      }
+    }
+  });
+
+  const roots = nodes.filter((n) => !parentMap.has(n.id));
+  if (roots.length === 0 && nodes.length > 0) {
+    roots.push(nodes[0]);
+  }
+
+  const subtreeHeightMap = new Map();
+
+  function calcSubtreeHeight(nodeId, visited = new Set()) {
+    if (visited.has(nodeId)) return CARD_H + ROW_GAP;
+    visited.add(nodeId);
+
+    const children = childrenMap.get(nodeId) || [];
+    if (children.length === 0) {
+      const h = CARD_H + ROW_GAP;
+      subtreeHeightMap.set(nodeId, h);
+      return h;
+    }
+
+    let totalH = 0;
+    children.forEach((cid) => {
+      totalH += calcSubtreeHeight(cid, visited);
+    });
+
+    const h = Math.max(CARD_H + ROW_GAP, totalH);
+    subtreeHeightMap.set(nodeId, h);
+    return h;
+  }
+
+  roots.forEach((r) => calcSubtreeHeight(r.id));
+
+  let currentY = TOP_PADDING;
+
+  function positionSubtree(nodeId, depth, yStart, visited = new Set()) {
+    if (visited.has(nodeId)) return;
+    visited.add(nodeId);
+
+    const targetNode = nodeMap.get(nodeId);
+    if (!targetNode) return;
+
+    const children = childrenMap.get(nodeId) || [];
+    const x = LEFT_PADDING + depth * COLUMN_WIDTH;
+
+    if (children.length === 0) {
+      const y = yStart + (CARD_H + ROW_GAP) / 2 - CARD_H / 2;
+      targetNode.metadata = { ...targetNode.metadata, x, y, w: CARD_W, h: CARD_H };
+      return;
+    }
+
+    let childYCursor = yStart;
+    const childCenterYs = [];
+
+    children.forEach((cid) => {
+      const childHeight = subtreeHeightMap.get(cid) || (CARD_H + ROW_GAP);
+      positionSubtree(cid, depth + 1, childYCursor, visited);
+
+      const childNode = nodeMap.get(cid);
+      if (childNode?.metadata?.y !== undefined) {
+        childCenterYs.push(childNode.metadata.y);
+      }
+      childYCursor += childHeight;
+    });
+
+    let y = yStart + (childYCursor - yStart) / 2 - CARD_H / 2;
+    if (childCenterYs.length > 0) {
+      const minY = Math.min(...childCenterYs);
+      const maxY = Math.max(...childCenterYs);
+      y = (minY + maxY) / 2;
+    }
+
+    targetNode.metadata = { ...targetNode.metadata, x, y, w: CARD_W, h: CARD_H };
+  }
+
+  roots.forEach((r) => {
+    const rootHeight = subtreeHeightMap.get(r.id) || (CARD_H + ROW_GAP);
+    positionSubtree(r.id, r.depth ?? 0, currentY);
+    currentY += rootHeight + ROW_GAP;
+  });
+
+  const layoutedNodes = Array.from(nodeMap.values());
+  return { layoutedNodes };
+}
+
+/**
  * Bipartite 2-column layout for state flow.
  */
 export function computeBipartiteLayout(composedGraph, options = {}) {

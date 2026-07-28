@@ -5,7 +5,7 @@ import {
   FileCode, Layers, Box, Cpu, Radio, Shield, Server, Database, Key
 } from "lucide-react";
 import { INTER, MONO } from "./constants";
-import { computeBlueprintLayout } from "@/engines/layout/blueprintLayoutEngine";
+import { computeBlueprintLayout, computeSitemapLayout } from "@/engines/layout/blueprintLayoutEngine";
 import { getExecutionNeighborhood } from "@/engines/graph/graphTraversal";
 import { LANE_CONFIG } from "@/engines/graph/blueprintLaneConfig";
 
@@ -41,62 +41,100 @@ function getEdgeStyle(type) {
   return EDGE_STYLE_CFG[type] || { color: "#CBD5E1", width: 1.5, dash: undefined, label: "" };
 }
 
-// ─── Subtype / Kind Icon Resolver ───────────────────────────────────────────
-function getNodeIcon(node) {
+// ─── Subtype / Kind Visual Identity Resolver ─────────────────────────────────
+function getNodeVisualIdentity(node) {
+  const nodeType = node?.nodeType || node?.kind;
   const kind = node?.kind;
   const subtype = node?.subtype;
 
-  if (kind === "database") return Database;
-  if (kind === "model") return Layers;
-  if (kind === "service") return Server;
-  if (kind === "controller") return Cpu;
-  if (kind === "middleware") return Shield;
-  if (kind === "api") return Radio;
-  if (kind === "hook") return Key;
-  if (kind === "route" || subtype === "router") return GitBranch;
-  if (subtype === "page") return Box;
-  if (kind === "component") return Layers;
-  return FileCode;
+  if (nodeType === "route" || kind === "route") {
+    return {
+      icon: GitBranch,
+      color: "#0891B2",
+      bg: "#E0F2FE",
+      text: "#0E7490",
+      badge: node?.metadata?.isIndex ? "Index" : node?.metadata?.isDynamic ? "Dynamic" : "Route",
+    };
+  }
+
+  if (nodeType === "guard" || kind === "guard" || node?.metadata?.isProtected) {
+    return {
+      icon: Shield,
+      color: "#D97706",
+      bg: "#FEF3C7",
+      text: "#B45309",
+      badge: "Guard",
+    };
+  }
+
+  if (nodeType === "page" || subtype === "page") {
+    return {
+      icon: Box,
+      color: "#E11D48",
+      bg: "#FFE4E6",
+      text: "#BE123C",
+      badge: "Page",
+    };
+  }
+
+  if (nodeType === "reference" || node?.isReference) {
+    return {
+      icon: Radio,
+      color: "#64748B",
+      bg: "#F1F5F9",
+      text: "#475569",
+      badge: "Ref",
+    };
+  }
+
+  if (kind === "database") return { icon: Database, color: "#059669", bg: "#DCFCE7", text: "#047857", badge: "DB" };
+  if (kind === "model") return { icon: Layers, color: "#EA580C", bg: "#FFEDD5", text: "#C2410C", badge: "Model" };
+  if (kind === "service") return { icon: Server, color: "#7C3AED", bg: "#F3E8FF", text: "#6D28D9", badge: "Service" };
+  if (kind === "controller") return { icon: Cpu, color: "#7C3AED", bg: "#F3E8FF", text: "#6D28D9", badge: "Controller" };
+  if (kind === "middleware") return { icon: Shield, color: "#D97706", bg: "#FEF3C7", text: "#B45309", badge: "Middleware" };
+  if (kind === "api") return { icon: Radio, color: "#E11D48", bg: "#FFE4E6", text: "#BE123C", badge: "API" };
+  if (kind === "hook" || kind === "state") return { icon: Key, color: "#D97706", bg: "#FEF3C7", text: "#B45309", badge: "Slice" };
+
+  return {
+    icon: Layers,
+    color: "#6D28D9",
+    bg: "#F3E8FF",
+    text: "#5B21B6",
+    badge: subtype || kind || "Component",
+  };
 }
 
 // ─── Node Card Component ────────────────────────────────────────────────────
-// Colors for execution-neighborhood direction (Phase 8) — deliberately distinct from the lane
-// palette in blueprintLaneConfig.js, so "this is upstream/downstream of your selection" reads as
-// its own signal, not a lane color. Kept to a small badge + ring tint rather than restyling the
-// whole card, per the v2 design brief's "don't redesign the visual language" constraint.
 const DIRECTION_COLORS = {
   upstream: "#D97706",   // amber — "what ran before"
   downstream: "#0284C7", // blue — "what runs next"
 };
 
-function BlueprintNodeCard({ node, isSelected, isConnected, isDimmed, direction, onSelect, onHover, onHoverEnd }) {
-  const IconComponent = getNodeIcon(node);
-  const laneCfg = LANE_CONFIG.find(l => l.id === node.laneId) || LANE_CONFIG[3];
+function BlueprintNodeCard({ node, isSelected, isConnected, isDimmed, isExpanded, direction, onSelect, onToggleExpand, onHover, onHoverEnd }) {
+  const visual = getNodeVisualIdentity(node);
+  const IconComponent = visual.icon;
 
   const meta = node.metadata || {};
   const x = meta.x || 0;
   const y = meta.y || 0;
-  const w = meta.w || 220;
-  const h = meta.h || 74;
+  const w = meta.w || 210;
+  const h = meta.h || 82;
 
-  const accentColor = laneCfg.color;
-  const directionColor = direction ? DIRECTION_COLORS[direction] : null;
-  // Direction tint takes precedence over the plain lane-accent "connected" ring so the
-  // before/next distinction reads clearly; the selected node itself has no direction (it's
-  // neither upstream nor downstream of itself) and keeps its existing lane-accent treatment.
-  const ringColor = directionColor || accentColor;
+  const accentColor = visual.color;
 
-  const shadow = isSelected
-    ? `0 0 0 2.5px ${accentColor}40, 0 10px 24px rgba(15,23,42,0.12)`
-    : isConnected
-    ? `0 0 0 1.5px ${ringColor}45, 0 4px 12px rgba(15,23,42,0.06)`
-    : "0 1px 3px rgba(15,23,42,0.05), 0 4px 12px rgba(15,23,42,0.03)";
+  const handleCardClick = (e) => {
+    e.stopPropagation();
+    if (node.isReference && node.canonicalId) {
+      onSelect(node.canonicalId);
+    } else {
+      onSelect(node.id);
+    }
+  };
 
-  const border = isSelected
-    ? `1px solid ${accentColor}`
-    : isConnected
-    ? `1px solid ${ringColor}70`
-    : "1px solid #E2E8F0";
+  const footerTag = (visual.badge || node.subtype || node.kind || "COMPONENT").toUpperCase();
+
+  const outerBg = isSelected ? "#7C3AED" : visual.bg;
+  const footerTextColor = isSelected ? "#FFFFFF" : visual.text || accentColor;
 
   return (
     <motion.div
@@ -106,108 +144,126 @@ function BlueprintNodeCard({ node, isSelected, isConnected, isDimmed, direction,
         top: y,
         width: w,
         height: h,
-        background: "#FFFFFF",
-        borderRadius: 12,
-        border,
-        borderLeft: `4px solid ${accentColor}`,
-        boxShadow: shadow,
+        background: outerBg,
+        borderRadius: 22,
+        border: "none",
+        boxShadow: isSelected
+          ? `0 12px 32px rgba(124, 58, 237, 0.35)`
+          : `0 6px 20px rgba(15, 23, 42, 0.06)`,
         cursor: "pointer",
-        opacity: isDimmed ? 0.2 : 1,
-        transition: "opacity 0.2s ease, box-shadow 0.2s ease, transform 0.15s ease",
+        opacity: isDimmed ? 0.25 : 1,
+        transition: "all 0.2s cubic-bezier(0.16, 1, 0.3, 1)",
         zIndex: isSelected ? 30 : isConnected ? 20 : 10,
         boxSizing: "border-box",
-        padding: "10px 12px",
+        padding: "4px 4px 0 4px",
         display: "flex",
         flexDirection: "column",
         justifyContent: "space-between",
+        overflow: "hidden",
       }}
-      onClick={(e) => {
-        e.stopPropagation();
-        onSelect(node.id);
-      }}
+      onClick={handleCardClick}
       onMouseEnter={() => onHover && onHover(node.id)}
       onMouseLeave={() => onHoverEnd && onHoverEnd()}
-      whileHover={{ scale: isDimmed ? 1 : 1.02, y: isDimmed ? 0 : -2 }}
+      whileHover={{ scale: isDimmed ? 1 : 1.03, y: isDimmed ? 0 : -3 }}
     >
-      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8 }}>
-        <div style={{ display: "flex", alignItems: "center", gap: 7, overflow: "hidden" }}>
+      {/* Floating White Front Card — Pronounced 3D Shadow */}
+      <div style={{
+        background: "#FFFFFF",
+        borderRadius: 18,
+        padding: "8px 11px",
+        boxShadow: "0 10px 22px -3px rgba(15, 23, 42, 0.16), 0 3px 6px -1px rgba(15, 23, 42, 0.08)",
+        border: "none",
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "space-between",
+        gap: 6,
+        height: 52,
+        boxSizing: "border-box",
+      }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 8, overflow: "hidden", flex: 1 }}>
           <div style={{
-            width: 22, height: 22, borderRadius: 6,
-            background: laneCfg.bg,
+            width: 26, height: 26, borderRadius: 9,
+            background: visual.bg,
             display: "flex", alignItems: "center", justifyContent: "center",
             flexShrink: 0,
           }}>
-            <IconComponent size={12} color={accentColor} />
+            <IconComponent size={14} color={accentColor} />
           </div>
           <span style={{
-            fontSize: 12,
-            fontWeight: 700,
+            fontSize: 12.5,
+            fontWeight: 800,
             color: "#0F172A",
             fontFamily: INTER,
             whiteSpace: "nowrap",
             overflow: "hidden",
             textOverflow: "ellipsis",
-            letterSpacing: "-0.01em",
+            letterSpacing: "-0.015em",
           }}>
             {node.name}
           </span>
         </div>
 
-        <span style={{
-          fontSize: 8.5,
-          fontWeight: 800,
-          color: accentColor,
-          background: laneCfg.bg,
-          padding: "2px 6px",
-          borderRadius: 4,
-          fontFamily: MONO,
-          textTransform: "uppercase",
-          flexShrink: 0,
-        }}>
-          {node.subtype || node.kind}
-        </span>
-      </div>
-
-      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginTop: 4 }}>
-        <span style={{
-          fontSize: 9.5,
-          color: "#64748B",
-          fontFamily: MONO,
-          whiteSpace: "nowrap",
-          overflow: "hidden",
-          textOverflow: "ellipsis",
-          maxWidth: 140,
-        }}>
-          {node.annotation || (node.file ? node.file.split("/").pop() : "")}
-        </span>
-
-        {meta.loc && (
-          <span style={{ fontSize: 9, color: "#94A3B8", fontFamily: MONO }}>
-            {meta.loc} loc
-          </span>
+        {node.hasChildren && (
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              if (onToggleExpand) onToggleExpand(node.id);
+            }}
+            style={{
+              fontSize: 9.5,
+              fontWeight: 800,
+              color: isExpanded ? "#FFFFFF" : accentColor,
+              background: isExpanded ? accentColor : visual.bg,
+              border: "none",
+              padding: "3px 8px",
+              borderRadius: 9999,
+              cursor: "pointer",
+              fontFamily: MONO,
+              lineHeight: 1,
+              flexShrink: 0,
+              boxShadow: "0 1px 3px rgba(0,0,0,0.08)",
+            }}
+            title={isExpanded ? "Collapse branch" : `Expand ${node.childCount} children`}
+          >
+            {isExpanded ? "−" : `+${node.childCount}`}
+          </button>
         )}
       </div>
 
-
-      {direction && !isDimmed && (
+      {/* Exposed Bottom Lip — Soft Colored Base */}
+      <div style={{
+        padding: "4px 12px 6px 12px",
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "space-between",
+      }}>
         <span style={{
-          position: "absolute",
-          top: -9,
-          right: 10,
-          fontSize: 8,
+          fontSize: 8.5,
           fontWeight: 800,
-          color: "#FFFFFF",
-          background: directionColor,
-          padding: "2px 7px",
-          borderRadius: 999,
+          color: footerTextColor,
           fontFamily: MONO,
+          letterSpacing: "0.07em",
           textTransform: "uppercase",
-          letterSpacing: "0.03em",
-          boxShadow: "0 1px 3px rgba(15,23,42,0.25)",
+          opacity: 0.95,
         }}>
-          {direction === "upstream" ? "← before" : "next →"}
+          {footerTag}
         </span>
-      )}
+
+        {node.annotation && (
+          <span style={{
+            fontSize: 8,
+            fontWeight: 600,
+            color: isSelected ? "#EDE9FE" : `${footerTextColor}CC`,
+            fontFamily: MONO,
+            whiteSpace: "nowrap",
+            overflow: "hidden",
+            textOverflow: "ellipsis",
+            maxWidth: 100,
+          }}>
+            {node.annotation}
+          </span>
+        )}
+      </div>
     </motion.div>
   );
 }
@@ -223,10 +279,11 @@ const FlowDiagram = forwardRef((props, ref) => {
   } = props;
 
   const [pan, setPan]             = useState({ x: 0, y: 0 });
-  const [zoom, setZoom]           = useState(1);
+  const [zoom, setZoom]           = useState(0.70);
   const [isPanning, setIsPanning] = useState(false);
   const [panStart, setPanStart]   = useState({ x: 0, y: 0 });
   const [hoveredNodeId, setHoveredNodeId] = useState("");
+  const [expandedNodeIds, setExpandedNodeIds] = useState(new Set());
 
   const containerRef = useRef(null);
 
@@ -257,16 +314,55 @@ const FlowDiagram = forwardRef((props, ref) => {
     return buildBlueprintGraph(rawNodes, rawEdges);
   }, [rawNodes, rawEdges, props.layoutedNodes, props.blueprintEdges]);
 
+  // Populate default expandedNodeIds when props.layoutedNodes changes
+  useEffect(() => {
+    if (Array.isArray(props.layoutedNodes) && props.layoutedNodes.length > 0) {
+      const initial = new Set();
+      props.layoutedNodes.forEach(n => {
+        if (n.nodeType === "route" || n.nodeType === "guard" || n.nodeType === "page" || n.subtype === "router") {
+          initial.add(n.id);
+        }
+      });
+      setExpandedNodeIds(initial);
+    }
+  }, [props.layoutedNodes]);
+
   const { layoutedNodes, activeLanes } = useMemo(() => {
-    if (Array.isArray(props.layoutedNodes)) {
+    const allNodes = Array.isArray(props.layoutedNodes) ? props.layoutedNodes : [];
+    if (allNodes.length === 0) {
+      return computeBlueprintLayout(blueprintNodes, blueprintEdges);
+    }
+
+    const isSitemap = allNodes.some(n => n.childIds || n.hasChildren || n.nodeType);
+    if (!isSitemap) {
       return {
-        layoutedNodes: props.layoutedNodes,
-        activeLanes: props.activeLanes || LANE_CONFIG.filter((l) => props.layoutedNodes.some((n) => n && n.laneId === l.id)),
+        layoutedNodes: allNodes,
+        activeLanes: props.activeLanes || LANE_CONFIG.filter((l) => allNodes.some((n) => n && n.laneId === l.id)),
       };
     }
-    return computeBlueprintLayout(blueprintNodes, blueprintEdges);
-  }, [blueprintNodes, blueprintEdges, props.layoutedNodes, props.activeLanes]);
 
+    const parentMap = new Map();
+    allNodes.forEach(n => {
+      if (n.childIds && Array.isArray(n.childIds)) {
+        n.childIds.forEach(cid => parentMap.set(cid, n.id));
+      }
+    });
+
+    const filtered = allNodes.filter(node => {
+      let currParentId = parentMap.get(node.id);
+      while (currParentId) {
+        if (!expandedNodeIds.has(currParentId)) return false;
+        currParentId = parentMap.get(currParentId);
+      }
+      return true;
+    });
+
+    const { layoutedNodes: relayouted } = computeSitemapLayout({ nodes: filtered, edges: blueprintEdges });
+    return {
+      layoutedNodes: relayouted,
+      activeLanes: props.activeLanes || LANE_CONFIG.filter((l) => relayouted.some((n) => n && n.laneId === l.id)),
+    };
+  }, [blueprintNodes, blueprintEdges, props.layoutedNodes, props.activeLanes, expandedNodeIds]);
 
 
   // Index layouted nodes by ID
@@ -326,7 +422,7 @@ const FlowDiagram = forwardRef((props, ref) => {
     const cx = (bounds.minX + bounds.maxX) / 2;
     const cy = (bounds.minY + bounds.maxY) / 2;
     setPan({ x: -cx + 400, y: -cy + 250 });
-    setZoom(0.85);
+    setZoom(0.70);
   }, [rawNodes.length]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const isDraggingRef = useRef(false);
@@ -403,6 +499,14 @@ const FlowDiagram = forwardRef((props, ref) => {
       onMouseLeave={onMouseUp}
       onClick={handleCanvasClick}
     >
+      {/* ── Center-to-Outwards Radial Gradient Background ── */}
+      <div style={{
+        position: "absolute",
+        inset: 0,
+        pointerEvents: "none",
+        zIndex: 0,
+        background: "radial-gradient(ellipse at 50% 50%, #EDE9FE 0%, #F5F3FF 35%, #FAFAFF 65%, #FFFFFF 100%)",
+      }} />
       {/* Top Header Label */}
       <div style={{
         position: "absolute", top: 16, left: 20, zIndex: 20,
@@ -462,37 +566,9 @@ const FlowDiagram = forwardRef((props, ref) => {
         transform: `scale(${zoom}) translate(${pan.x}px, ${pan.y}px)`,
         transition: isPanning ? "none" : "transform 0.12s ease-out",
       }}>
-        {/* Semantic Lane Column Banners */}
-        {activeLanes.map(lane => (
-          <div
-            key={lane.id}
-            style={{
-              position: "absolute",
-              left: lane.x,
-              top: bounds.minY - 20,
-              width: lane.width,
-              padding: "8px 12px",
-              background: lane.bg,
-              border: `1px solid ${lane.color}30`,
-              borderTop: `3px solid ${lane.color}`,
-              borderRadius: 10,
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "space-between",
-              zIndex: 5,
-              boxShadow: "0 2px 8px rgba(15,23,42,0.03)",
-            }}
-          >
-            <span style={{ fontSize: 11, fontWeight: 800, color: lane.color, fontFamily: INTER, letterSpacing: "-0.01em" }}>
-              {lane.label}
-            </span>
-            <span style={{ fontSize: 9.5, fontWeight: 800, color: lane.color, background: "#FFFFFF", padding: "1px 6px", borderRadius: 10, fontFamily: MONO }}>
-              {lane.nodeCount}
-            </span>
-          </div>
-        ))}
+        {/* Clean Canvas — Lane Banners Removed */}
 
-        {/* SVG Bezier Connection Edges */}
+        {/* SVG Bezier Connection Edges with Animated Flow Left-to-Right */}
         <svg
           style={{
             position: "absolute",
@@ -503,6 +579,15 @@ const FlowDiagram = forwardRef((props, ref) => {
             zIndex: 8,
           }}
         >
+          <defs>
+            <style>{`
+              @keyframes flowLineLeftToRight {
+                from { stroke-dashoffset: 24; }
+                to { stroke-dashoffset: 0; }
+              }
+            `}</style>
+          </defs>
+
           {blueprintEdges.map((edge, idx) => {
             const srcNode = layoutedNodeMap.get(edge.source);
             const tgtNode = layoutedNodeMap.get(edge.target);
@@ -517,22 +602,34 @@ const FlowDiagram = forwardRef((props, ref) => {
             const dx = Math.max(45, Math.abs(tgtX - srcX) * 0.45);
             const pathD = `M ${srcX} ${srcY} C ${srcX + dx} ${srcY}, ${tgtX - dx} ${tgtY}, ${tgtX} ${tgtY}`;
 
-            const style = getEdgeStyle(edge.type);
             const isTargeted = connectedNodeIds.size > 0 && connectedNodeIds.has(edge.source) && connectedNodeIds.has(edge.target);
             const isDimmed = connectedNodeIds.size > 0 && !isTargeted;
 
+            const srcVisual = getNodeVisualIdentity(srcNode);
+            const lineColor = isTargeted ? "#7C3AED" : srcVisual.color || "#818CF8";
+            const lineOpacity = isDimmed ? 0.1 : isTargeted ? 1 : 0.8;
+
             return (
               <g key={edge.id || `${edge.source}-${edge.target}-${idx}`}>
-                <motion.path
+                {/* Underlay Ambient Base Path */}
+                <path
                   d={pathD}
                   fill="none"
-                  stroke={isTargeted ? style.color : style.color}
-                  strokeWidth={isTargeted ? style.width + 1 : style.width}
-                  strokeOpacity={isDimmed ? 0.1 : isTargeted ? 1 : 0.6}
-                  strokeDasharray={style.dash}
-                  initial={{ pathLength: 0 }}
-                  animate={{ pathLength: 1 }}
-                  transition={{ duration: 0.4 }}
+                  stroke={lineColor}
+                  strokeWidth={isTargeted ? 3 : 2}
+                  strokeOpacity={lineOpacity * 0.25}
+                />
+                {/* Foreground Animated Line Moving Left to Right */}
+                <path
+                  d={pathD}
+                  fill="none"
+                  stroke={lineColor}
+                  strokeWidth={isTargeted ? 2.5 : 1.75}
+                  strokeOpacity={lineOpacity}
+                  strokeDasharray="6 6"
+                  style={{
+                    animation: isDimmed ? "none" : "flowLineLeftToRight 1.2s linear infinite",
+                  }}
                 />
               </g>
             );
@@ -550,6 +647,8 @@ const FlowDiagram = forwardRef((props, ref) => {
             // that the relationship is exclusively backward.
             const direction = upstreamIds.has(node.id) ? "upstream" : downstreamIds.has(node.id) ? "downstream" : null;
 
+            const isExpanded = expandedNodeIds.has(node.id);
+
             return (
               <BlueprintNodeCard
                 key={node.id}
@@ -557,8 +656,17 @@ const FlowDiagram = forwardRef((props, ref) => {
                 isSelected={isSelected}
                 isConnected={isConnected}
                 isDimmed={isDimmed}
+                isExpanded={isExpanded}
                 direction={direction}
                 onSelect={(id) => onSelectNode && onSelectNode(id)}
+                onToggleExpand={(id) => {
+                  setExpandedNodeIds((prev) => {
+                    const next = new Set(prev);
+                    if (next.has(id)) next.delete(id);
+                    else next.add(id);
+                    return next;
+                  });
+                }}
                 onHover={(id) => setHoveredNodeId(id)}
                 onHoverEnd={() => setHoveredNodeId("")}
               />

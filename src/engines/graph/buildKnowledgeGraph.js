@@ -474,23 +474,27 @@ function addRouteNodeRecursive(route, parentId, filePath, positionKey, nodes, ed
       subtype: "endpoint",
       name: route.path,
       file: filePath,
-      // Phase 0.6 — React Router endpoint routes carry source: "react-router"
-      metadata: { componentName, line: route.line, index: !!route.index, source: "react-router" },
+      metadata: {
+        componentName,
+        line: route.line,
+        index: !!route.index,
+        protected: !!route.protected,
+        guardName: route.guardName || (route.protected ? "ProtectedRoute" : null),
+        source: "react-router",
+      },
     })
   );
   edges.push(createEdge({ type: "ROUTE_PARENT", source: parentId, target: routeId }));
 
-  // Route → rendered component edge (Phase 6 of the Blueprint Flow v2 refactor — see TASK.md).
-  // `componentName`/`componentFile` above were already resolved via the same import/declaration
-  // resolution used everywhere else in this file — this is not a new resolution mechanism, just
-  // the first place that turns the result into an edge instead of discarding it into metadata.
-  // `routeExtractor.js` uses the literal string "Component" as its own placeholder for "could
-  // not determine a real name" (see its `elementVal || "Component"` fallbacks) — skip creating
-  // an edge in that case rather than pointing at a matching-by-coincidence node named "Component".
   if (componentName && componentName !== "Component") {
-    const renderedComponent = nodes.find(
+    let renderedComponent = nodes.find(
       (n) => n.kind === "component" && n.name === componentName && n.file === componentFile
     );
+    if (!renderedComponent) {
+      renderedComponent = nodes.find(
+        (n) => n.kind === "component" && n.name === componentName
+      );
+    }
     if (renderedComponent) {
       edges.push(createEdge({ type: "ROUTE_RENDERS", source: routeId, target: renderedComponent.id }));
     }

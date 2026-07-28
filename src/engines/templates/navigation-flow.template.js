@@ -1,35 +1,35 @@
 /**
  * navigation-flow.template.js
  *
- * Routing and page navigation flow template definition.
- * Implements Section 6 of the Studio Re-Architecture Implementation Specification.
+ * Progressive Disclosure Navigation Sitemap template definition.
+ * Maps complete sitemap render chain (Router -> Route -> Guard -> Layout -> Page -> Children -> Leaf Components).
  */
 
 export default {
   id: "navigation-flow",
   displayName: "Navigation Flow",
-  description: "Map route hierarchies, nested route structures, and page component assignments.",
+  description: "Explore the complete expandable sitemap render tree from entry point to leaf components.",
   icon: "Compass",
-  chipColor: "#F59E0B",
+  chipColor: "#06B6D4",
 
   aliases: [
     "routes", "routing", "route structure", "navigation", "page flow",
     "page links", "path flow", "router", "pages", "url", "paths",
-    "protected routes", "route map", "sitemap"
+    "protected routes", "route map", "sitemap", "render chain", "expandable sitemap"
   ],
 
   query: {
     graphType: "navigation-flow",
     traversal: {
-      includeKinds: ["route"],
-      includeEdgeTypes: ["ROUTE_PARENT", "ROUTE_RENDERS"],
+      includeKinds: ["route", "component"],
+      includeEdgeTypes: ["ROUTE_PARENT", "ROUTE_RENDERS", "RENDERS"],
       excludeKinds: [
         "file", "function", "variable", "data",
-        "api", "state", "hook", "controller", "service", "model", "database", "component"
+        "api", "state", "hook", "controller", "service", "model", "database"
       ],
-      depth: 8,
+      depth: 25,
       direction: "forward",
-      maxNodes: 80,
+      maxNodes: 500,
     },
     focus: {
       strategy: "kind-match",
@@ -41,17 +41,18 @@ export default {
       annotation: "contextual",
     },
     layout: {
-      style: "tree",
-      options: { rootStrategy: "router-nodes" },
+      style: "sitemap",
+      options: { rootStrategy: "router-nodes", orientation: "horizontal" },
     },
     presentation: {
       edgeSemantics: {
-        ROUTE_PARENT:  { label: "nests",  style: "solid" },
-        ROUTE_RENDERS: { label: "serves", style: "dashed" },
+        ROUTE_PARENT:  { label: "nests",   style: "solid" },
+        ROUTE_RENDERS: { label: "serves",  style: "dashed" },
+        RENDERS:       { label: "renders", style: "dotted" },
       },
       interaction: {
         expandable: true,
-        traceable: false,
+        traceable: true,
         explorable: true,
       },
     },

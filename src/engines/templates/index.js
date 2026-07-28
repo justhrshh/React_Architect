@@ -10,7 +10,7 @@ import componentHierarchyTemplate from "./component-hierarchy.template.js";
 import navigationFlowTemplate from "./navigation-flow.template.js";
 import requestLifecycleTemplate from "./request-lifecycle.template.js";
 import { createQuery } from "../query/ArchitectureQuery.js";
-import { resolveTemplateByAlias } from "./templateResolver.js";
+import { resolveTemplateByAlias, resolveViaAI } from "./templateResolver.js";
 
 /**
  * @typedef {object} Template
@@ -43,15 +43,19 @@ ALL_TEMPLATES.forEach((template) => {
     ALIAS_REGISTRY.set(alias.toLowerCase().trim(), template.id);
   });
 });
-
 /**
- * Resolves user text input to a template ID using alias matching.
+ * Resolves user text input to a template ID using fast-path alias matching,
+ * falling back to rule-based and AI intent classification.
  *
  * @param {string} input
- * @returns {{ templateId: string | null, focusTerm: string | null, resolvedBy: "alias" | "ai" | null }}
+ * @returns {Promise<{ templateId: string | null, focusTerm: string | null, resolvedBy: "alias" | "ai" | null }>}
  */
-export function resolveTemplate(input) {
-  return resolveTemplateByAlias(input);
+export async function resolveTemplate(input, graphEngine = null) {
+  const aliasMatch = resolveTemplateByAlias(input);
+  if (aliasMatch && aliasMatch.templateId) {
+    return aliasMatch;
+  }
+  return await resolveViaAI(input, graphEngine);
 }
 
 /**
@@ -61,13 +65,14 @@ export function resolveTemplate(input) {
  * @param {string | null} focusTerm
  * @returns {object} ArchitectureQuery
  */
-export function instantiateTemplate(templateId, focusTerm = null) {
+export function instantiateTemplate(templateId, focusTerm = null, secondaryTerm = null) {
   const template = TEMPLATE_REGISTRY.get(templateId) || executionFlowTemplate;
 
   const queryPartial = {
     graphType: template.query.graphType,
     focus: {
       term: focusTerm || null,
+      secondaryTerm: secondaryTerm || null,
       strategy: template.query.focus.strategy || "name-match",
       seeds: [],
     },

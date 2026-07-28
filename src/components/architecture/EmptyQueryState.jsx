@@ -11,6 +11,10 @@ export default function EmptyQueryState({
   templates = [],
   onSelectTemplate,
   onSearchQuery,
+  conversationalNotice,
+  onClearNotice,
+  ambiguousCandidates = [],
+  onSelectCandidate,
 }) {
   const [searchValue, setSearchValue] = useState("");
 
@@ -204,16 +208,76 @@ export default function EmptyQueryState({
           </div>
 
           {/* Search Area (Borderless Gradient Pill - rgb(42, 94, 250)) */}
-          <form onSubmit={handleSearchSubmit} className="relative bg-gradient-to-r from-[rgba(42,94,250,0.15)] via-[rgba(42,94,250,0.08)] to-transparent rounded-2xl p-3.5 flex items-center space-x-3.5 transition-all focus-within:from-[rgba(42,94,250,0.22)] focus-within:via-[rgba(42,94,250,0.12)]">
-            <Search className="w-5 h-5 text-[rgb(42,94,250)] shrink-0" />
-            <input
-              type="text"
-              value={searchValue}
-              onChange={(e) => setSearchValue(e.target.value)}
-              placeholder="Search architecture..."
-              className="w-full bg-transparent text-sm font-medium text-slate-800 placeholder-slate-400 focus:outline-none border-none outline-none ring-0"
-            />
-          </form>
+          <div>
+            <form onSubmit={handleSearchSubmit} className="relative bg-gradient-to-r from-[rgba(42,94,250,0.15)] via-[rgba(42,94,250,0.08)] to-transparent rounded-2xl p-3.5 flex items-center space-x-3.5 transition-all focus-within:from-[rgba(42,94,250,0.22)] focus-within:via-[rgba(42,94,250,0.12)]">
+              <Search className="w-5 h-5 text-[rgb(42,94,250)] shrink-0" />
+              <input
+                type="text"
+                value={searchValue}
+                onChange={(e) => setSearchValue(e.target.value)}
+                placeholder="Search architecture..."
+                className="w-full bg-transparent text-sm font-medium text-slate-800 placeholder-slate-400 focus:outline-none border-none outline-none ring-0"
+              />
+            </form>
+
+            {conversationalNotice && (
+              <div className="mt-2.5 px-4 py-2.5 bg-purple-50/90 border border-purple-200/80 rounded-2xl flex items-center justify-between text-xs text-purple-900 font-medium shadow-sm backdrop-blur-sm">
+                <div className="flex items-center space-x-2.5">
+                  <span className="text-purple-600 text-sm">💬</span>
+                  <span className="leading-snug">{conversationalNotice}</span>
+                </div>
+                {onClearNotice && (
+                  <button
+                    type="button"
+                    onClick={onClearNotice}
+                    className="text-purple-400 hover:text-purple-700 p-1 shrink-0 ml-2 font-bold"
+                  >
+                    ✕
+                  </button>
+                )}
+              </div>
+            )}
+
+            {ambiguousCandidates && ambiguousCandidates.length > 0 && (
+              <div className="mt-3 p-4 bg-white/95 border border-indigo-200 rounded-2xl shadow-lg backdrop-blur-md">
+                <div className="flex items-center justify-between mb-2.5">
+                  <div className="flex items-center space-x-2">
+                    <span className="text-indigo-600 text-sm">❓</span>
+                    <span className="text-xs font-bold text-slate-800 tracking-tight">
+                      Multiple entities found. Which one would you like to explore?
+                    </span>
+                  </div>
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                  {ambiguousCandidates.map((cand) => (
+                    <button
+                      key={cand.id}
+                      type="button"
+                      onClick={() => onSelectCandidate && onSelectCandidate(cand)}
+                      className="flex flex-col items-start p-2.5 bg-indigo-50/50 hover:bg-indigo-100/70 border border-indigo-100 hover:border-indigo-300 rounded-xl transition-all text-left group"
+                    >
+                      <div className="flex items-center justify-between w-full mb-1">
+                        <span className="text-xs font-bold text-slate-900 group-hover:text-indigo-700">
+                          {cand.name}
+                        </span>
+                        <span className="text-[10px] uppercase font-mono px-1.5 py-0.2 bg-white text-indigo-600 rounded border border-indigo-200 font-semibold">
+                          {cand.kind}
+                        </span>
+                      </div>
+                      {cand.file && (
+                        <span className="text-[10px] text-slate-500 truncate max-w-full font-mono">
+                          {cand.file}
+                        </span>
+                      )}
+                      <div className="mt-1.5 text-[10px] text-indigo-600 font-medium">
+                        Match: {Math.round((cand.confidence || 0) * 100)}%
+                      </div>
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
 
           {/* Right Placeholder Cards (Borderless Gradient Pill Cards - rgb(42, 94, 250)) */}
           <div className="space-y-4">
