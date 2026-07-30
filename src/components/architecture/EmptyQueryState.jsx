@@ -19,6 +19,7 @@ export default function EmptyQueryState({
   onClearNotice,
   ambiguousCandidates = [],
   onSelectCandidate,
+  suggestions = [],
 }) {
   const [searchValue, setSearchValue] = useState("");
 
@@ -62,7 +63,7 @@ export default function EmptyQueryState({
   ];
 
   return (
-    <div className="relative w-full h-full min-h-[540px] bg-white rounded-3xl border border-slate-200/60 overflow-hidden shadow-sm flex items-center justify-center p-6 lg:p-10 selection:bg-purple-100">
+    <div className="relative w-full h-full min-h-[540px] bg-white rounded-3xl border border-slate-200/60 overflow-hidden shadow-sm flex flex-col items-center justify-center p-6 lg:p-10 selection:bg-purple-100">
       {/* ── Background Gradients & Ambient Glows ── */}
       <div className="absolute inset-0 pointer-events-none overflow-hidden">
         {/* Soft Wash Radial Glows (Rich vibrant ambient color washes) */}
@@ -224,28 +225,10 @@ export default function EmptyQueryState({
                 type="text"
                 value={searchValue}
                 onChange={(e) => setSearchValue(e.target.value)}
-                placeholder="Search architecture..."
+                placeholder="Search by component name..."
                 className="w-full bg-transparent text-sm font-medium text-slate-800 placeholder-slate-400 focus:outline-none border-none outline-none ring-0"
               />
             </form>
-
-            {conversationalNotice && (
-              <div className="mt-2.5 px-4 py-2.5 bg-purple-50/90 border border-purple-200/80 rounded-2xl flex items-center justify-between text-xs text-purple-900 font-medium shadow-sm backdrop-blur-sm">
-                <div className="flex items-center space-x-2.5">
-                  <span className="text-purple-600 text-sm">💬</span>
-                  <span className="leading-snug">{conversationalNotice}</span>
-                </div>
-                {onClearNotice && (
-                  <button
-                    type="button"
-                    onClick={onClearNotice}
-                    className="text-purple-400 hover:text-purple-700 p-1 shrink-0 ml-2 font-bold"
-                  >
-                    ✕
-                  </button>
-                )}
-              </div>
-            )}
 
             {ambiguousCandidates && ambiguousCandidates.length > 0 && (
               <div className="mt-4 w-full bg-transparent p-0 border-none shadow-none">
@@ -339,38 +322,111 @@ export default function EmptyQueryState({
 
             {/* Main White Card */}
             <div className="relative z-10 bg-white border border-slate-100/90 shadow-2xl shadow-slate-200/60 rounded-3xl p-5 lg:p-6 transition-all duration-300">
-              <h2 className="text-sm lg:text-base font-bold text-slate-900 mb-3 tracking-tight">
-                What would you like to explore?
-              </h2>
+              {conversationalNotice ? (
+                <div>
+                  <div className="flex items-start justify-between mb-4">
+                    <h2 className="text-sm lg:text-base font-bold text-purple-950 flex items-start space-x-2 tracking-tight leading-snug">
+                      <span className="text-purple-600 text-base shrink-0 mt-0.5">💬</span>
+                      <span>{conversationalNotice}</span>
+                    </h2>
+                    {onClearNotice && (
+                      <button
+                        type="button"
+                        onClick={onClearNotice}
+                        className="text-purple-400 hover:text-purple-700 text-xs font-bold px-1.5 py-0.5 rounded-lg hover:bg-purple-50 shrink-0 ml-2 cursor-pointer"
+                      >
+                        ✕
+                      </button>
+                    )}
+                  </div>
 
-              <div className="space-y-2.5">
-                {exploreItems.map((item) => (
-                  <button
-                    key={item.id}
-                    onClick={() => onSelectTemplate && onSelectTemplate(item.id)}
-                    className="group flex items-start space-x-3 w-full text-left p-1.5 rounded-xl hover:bg-purple-50/50 transition-all duration-200"
-                  >
-                    <div className="mt-0.5 w-4.5 h-4.5 rounded-full bg-purple-100 text-purple-600 flex items-center justify-center group-hover:bg-purple-600 group-hover:text-white transition-colors shrink-0">
-                      <Check className="w-3 h-3 stroke-[2.5]" />
-                    </div>
-                    <div>
-                      <div className="text-xs font-bold text-slate-800 group-hover:text-purple-700 transition-colors">
-                        {item.title}
+                  {suggestions && suggestions.length > 0 ? (
+                    <div className="space-y-2">
+                      <div className="text-[11px] font-bold text-purple-800/80 uppercase tracking-wider mb-2">
+                        Suggested components in this project:
                       </div>
-                      <div className="text-[11px] text-slate-500 font-normal leading-normal mt-0.5">
-                        {item.description}
+                      <div className="space-y-2">
+                        {suggestions.slice(0, 3).map((compName) => (
+                          <button
+                            key={compName}
+                            type="button"
+                            onClick={() => onSearchQuery && onSearchQuery(compName)}
+                            className="group flex items-center justify-between w-full text-left p-2.5 rounded-2xl bg-purple-50/50 hover:bg-purple-100/60 border border-purple-100/80 hover:border-purple-300/80 transition-all duration-200 cursor-pointer"
+                          >
+                            <div className="flex items-center space-x-3 min-w-0">
+                              <div className="w-8 h-8 rounded-xl bg-purple-100 text-purple-600 group-hover:bg-purple-600 group-hover:text-white flex items-center justify-center transition-colors shrink-0">
+                                <Box className="w-4 h-4" />
+                              </div>
+                              <div className="min-w-0">
+                                <div className="text-xs font-bold text-slate-900 group-hover:text-purple-800 transition-colors truncate">
+                                  {compName}
+                                </div>
+                                <div className="text-[11px] text-slate-500 font-normal">
+                                  Inspect architecture
+                                </div>
+                              </div>
+                            </div>
+                            <span className="text-xs font-bold text-purple-600 opacity-0 group-hover:opacity-100 transition-opacity shrink-0 ml-2">
+                              {"Explore →"}
+                            </span>
+                          </button>
+                        ))}
                       </div>
                     </div>
-                  </button>
-                ))}
-              </div>
+                  ) : (
+                    <div className="text-xs text-slate-500 py-2">
+                      Try searching for an existing component name in your project.
+                    </div>
+                  )}
 
-              {/* Faded Placeholder Lines */}
-              <div className="mt-4 space-y-1.5 pt-2 border-t border-slate-100">
-                <div className="h-1.5 w-full bg-slate-100 rounded-full" />
-                <div className="h-1.5 w-3/4 bg-slate-100/80 rounded-full" />
-                <div className="h-1.5 w-1/2 bg-slate-100/60 rounded-full" />
-              </div>
+                  {onClearNotice && (
+                    <div className="mt-4 pt-3 border-t border-purple-100/60 flex items-center justify-between">
+                      <button
+                        type="button"
+                        onClick={onClearNotice}
+                        className="text-xs font-bold text-purple-600 hover:text-purple-800 transition-colors cursor-pointer"
+                      >
+                        {"← Back to explore options"}
+                      </button>
+                    </div>
+                  )}
+                </div>
+              ) : (
+                <div>
+                  <h2 className="text-sm lg:text-base font-bold text-slate-900 mb-3 tracking-tight">
+                    What would you like to explore?
+                  </h2>
+
+                  <div className="space-y-2.5">
+                    {exploreItems.map((item) => (
+                      <button
+                        key={item.id}
+                        onClick={() => onSelectTemplate && onSelectTemplate(item.id)}
+                        className="group flex items-start space-x-3 w-full text-left p-1.5 rounded-xl hover:bg-purple-50/50 transition-all duration-200"
+                      >
+                        <div className="mt-0.5 w-4.5 h-4.5 rounded-full bg-purple-100 text-purple-600 flex items-center justify-center group-hover:bg-purple-600 group-hover:text-white transition-colors shrink-0">
+                          <Check className="w-3 h-3 stroke-[2.5]" />
+                        </div>
+                        <div>
+                          <div className="text-xs font-bold text-slate-800 group-hover:text-purple-700 transition-colors">
+                            {item.title}
+                          </div>
+                          <div className="text-[11px] text-slate-500 font-normal leading-normal mt-0.5">
+                            {item.description}
+                          </div>
+                        </div>
+                      </button>
+                    ))}
+                  </div>
+
+                  {/* Faded Placeholder Lines */}
+                  <div className="mt-4 space-y-1.5 pt-2 border-t border-slate-100">
+                    <div className="h-1.5 w-full bg-slate-100 rounded-full" />
+                    <div className="h-1.5 w-3/4 bg-slate-100/80 rounded-full" />
+                    <div className="h-1.5 w-1/2 bg-slate-100/60 rounded-full" />
+                  </div>
+                </div>
+              )}
             </div>
           </div>
         </div>

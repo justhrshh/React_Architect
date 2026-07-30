@@ -61,6 +61,7 @@ function ArchitectureStudio() {
   const [showQueryHistory, setShowQueryHistory] = useState(false);
 
   const [conversationalNotice, setConversationalNotice] = useState(null);
+  const [querySuggestions, setQuerySuggestions] = useState([]);
   const [ambiguousCandidates, setAmbiguousCandidates] = useState([]);
   const [pendingTemplateId, setPendingTemplateId] = useState(null);
   // Phase 7: unique token per ambiguous query — guards against stale speculative pre-fetch results
@@ -78,6 +79,7 @@ function ArchitectureStudio() {
           setPendingTemplateId(intentMeta.intendedTemplateId || templateId || "execution-flow");
           setPendingQueryId(queryId);
           setConversationalNotice(null);
+          setQuerySuggestions([]);
           setIsQueryLoading(false);
           // Phase 7: Fire one speculative Gemini call per ambiguous query, keyed by queryId.
           // Result is cached and applied (with queryId guard) when the user picks a candidate.
@@ -98,11 +100,26 @@ function ArchitectureStudio() {
             intentMeta.conversationalMessage ||
               "This query doesn't describe an architectural exploration. Try asking about components, execution, navigation, state, APIs, or request flow."
           );
+          setQuerySuggestions([]);
+          setIsQueryLoading(false);
+          return;
+        }
+
+        if (intentMeta && intentMeta.resolutionFailed) {
+          setConversationalNotice(
+            intentMeta.conversationalMessage || `No component named "${focusTerm}" was found.`
+          );
+          setQuerySuggestions(intentMeta.suggestions || []);
+          setComposedGraph(null);
+          setLayoutResult(null);
+          setActiveTemplateId(templateId);
+          setActiveFocus(focusTerm);
           setIsQueryLoading(false);
           return;
         }
 
         setConversationalNotice(null);
+        setQuerySuggestions([]);
 
         const template = TEMPLATE_REGISTRY.get(templateId) || ALL_TEMPLATES[0];
         const query = instantiateTemplate(templateId, focusTerm, secondaryTerm);
@@ -818,6 +835,8 @@ function ArchitectureStudio() {
                   queryMeta={composedGraph.queryMeta}
                   template={TEMPLATE_REGISTRY.get(activeTemplateId)}
                   focus={activeFocus}
+                  conversationalNotice={conversationalNotice}
+                  onClearNotice={() => setConversationalNotice(null)}
                   onSelectLens={(templateId) => {
                     handleQuery(templateId, activeFocus || selectedNode?.name || "Dashboard");
                   }}
@@ -896,6 +915,7 @@ function ArchitectureStudio() {
                 templates={ALL_TEMPLATES}
                 conversationalNotice={conversationalNotice}
                 onClearNotice={() => setConversationalNotice(null)}
+                suggestions={querySuggestions}
                 ambiguousCandidates={ambiguousCandidates}
                 onSelectCandidate={(cand) => {
                   // Phase 7: Apply speculative Gemini result if queryId matches (non-stale);

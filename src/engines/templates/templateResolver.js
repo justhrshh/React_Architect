@@ -7,8 +7,8 @@
 import { ALIAS_REGISTRY } from "./index.js";
 import { classifyIntent } from "../ai/intent.js";
 import { getProviderSettings } from "../ai/provider/settings.js";
-import { resolveEntity, buildProjectContext } from "../query/aiQueryAdapter.js";
-import { complete as geminiComplete } from "../ai/provider/gemini.js";
+import { resolveEntity, buildProjectContext, getFuzzyComponentSuggestions } from "../query/aiQueryAdapter.js";
+import { complete as geminiComplete, isGeminiQuotaExceeded } from "../ai/provider/gemini.js";
 
 // ─── Speculative Pre-Fetch Cache ─────────────────────────────────────────────
 // Maps queryId → { templateId, resolvedAt } for in-flight or completed pre-fetches.
@@ -51,6 +51,11 @@ export async function speculativeClassify(queryId, input, graphEngine = null) {
     return { queryId, templateId: cached.templateId, resolvedBy: "cache" };
   }
 
+  if (isGeminiQuotaExceeded()) {
+    SPECULATIVE_CACHE.set(queryId, { templateId: null, resolvedAt: Date.now() });
+    return { queryId, templateId: null, resolvedBy: "error" };
+  }
+
   const settings = getProviderSettings();
   const apiKey = (settings.apiKey && settings.apiKey.trim() !== "")
     ? settings.apiKey.trim()
@@ -87,7 +92,9 @@ export async function speculativeClassify(queryId, input, graphEngine = null) {
     SPECULATIVE_CACHE.set(queryId, { templateId, resolvedAt: Date.now() });
     return { queryId, templateId, resolvedBy: "ai" };
   } catch (err) {
-    console.warn("[speculativeClassify] Gemini call failed; will use local classification on candidate selection:", err.message);
+    if (!err.isQuotaExceeded) {
+      console.warn("[speculativeClassify] Gemini call failed; will use local classification on candidate selection:", err.message);
+    }
     SPECULATIVE_CACHE.set(queryId, { templateId: null, resolvedAt: Date.now() });
     return { queryId, templateId: null, resolvedBy: "error" };
   }
@@ -211,7 +218,8 @@ export function extractEntities(input) {
 
   // Strip conversational prefix phrases
   let text = clean;
-  text = text.replace(/^(how\s+(is|are|do|does|can|would|should)\s+(users?\s+)?(reach|get\s+to|call|affect|use|see)?\s*)/i, "");
+  text = text.replace(/^(what\s*(is|are|'s)?\s*)/i, "");
+  text = text.replace(/^(how\s+(is|are|do|does|can|would|should)\s+(users?\s+)?(reach|get\s+to|call|affect|use|see|built)?\s*)/i, "");
   text = text.replace(/^(which\s+(apis?|services?|components?|routes?)\s+(does|do|is|are)\s*)/i, "");
   text = text.replace(/^(what\s+(state|component|route)\s+(affects?|used\s+in|calls?)\s*)/i, "");
   text = text.replace(/^(show\s+(me\s+)?(the\s+)?(critical\s+)?(path\s+)?(from\s+)?)/i, "");
@@ -219,7 +227,7 @@ export function extractEntities(input) {
   text = text.replace(/^(tell\s+me\s+about\s+)/i, "");
 
   // Strip trailing query suffixes
-  text = text.replace(/\s+(composed\??|used\??|called\??|reached\??|flow\??|architecture\??|hierarchy\??|tree\??)$/i, "");
+  text = text.replace(/\s+(composed\s+of\??|made\s+of\??|composed\??|used\??|called\??|reached\??|flow\??|architecture\??|hierarchy\??|tree\??)$/i, "");
   text = text.replace(/\s+(call\??|affect\??|reach\??|backend\??)$/i, "");
   text = text.replace(/[?!.]+$/g, "").trim();
 
@@ -284,19 +292,41 @@ export function interpretIntentLocally(input, graphEngine = null) {
     stage1Res = resolveEntity(cleanInput, graphEngine);
   }
 
+  if (stage1Res && stage1Res.isAmbiguous) {
+    let intendedTemplateId = "execution-flow";
+    if (/hierarchy|component/i.test(cleanInput)) intendedTemplateId = "component-hierarchy";
+    else if (/route|nav/i.test(cleanInput)) intendedTemplateId = "navigation-flow";
+    else if (/state|store/i.test(cleanInput)) intendedTemplateId = "composed-architecture";
+    else if (/api|request|lifecycle/i.test(cleanInput)) intendedTemplateId = "request-lifecycle";
+
+    return {
+      templateId: null,
+      intendedTemplateId,
+      focusTerm: cleanInput,
+      isArchitectural: true,
+      isAmbiguous: true,
+      candidates: stage1Res.candidates,
+      resolvedBy: "ambiguity",
+    };
+  }
+
   const groundedFocus = stage1Res?.primaryEntity?.name || null;
+  const extracted = extractEntities(cleanInput);
+  const targetName = extracted?.primaryEntity || cleanInput;
+  const suggestions = stage1Res?.suggestions || (graphEngine ? getFuzzyComponentSuggestions(cleanInput, graphEngine) : []);
 
   for (const pattern of INTENT_STUDIO_PATTERNS) {
     if (pattern.regex.test(cleanInput)) {
       const resolutionFailed = !groundedFocus;
       return {
         templateId: pattern.templateId,
-        focusTerm: groundedFocus,
-        secondaryTerm: null,
+        focusTerm: resolutionFailed ? null : (groundedFocus || targetName),
+        secondaryTerm: extracted?.secondaryEntity || null,
         isArchitectural: true,
         resolutionFailed,
+        suggestions: resolutionFailed ? suggestions : [],
         conversationalMessage: resolutionFailed
-          ? "Could not find a component matching that in this project. Try rephrasing or check the spelling."
+          ? `No component named "${targetName}" was found.`
           : null,
         rawGeminiJson: null,
         resolvedBy: "fallback",
@@ -318,12 +348,13 @@ export function interpretIntentLocally(input, graphEngine = null) {
 
   return {
     templateId,
-    focusTerm: groundedFocus,
-    secondaryTerm: null,
+    focusTerm: resolutionFailed ? null : (groundedFocus || targetName),
+    secondaryTerm: extracted?.secondaryEntity || null,
     isArchitectural: true,
     resolutionFailed,
+    suggestions: resolutionFailed ? suggestions : [],
     conversationalMessage: resolutionFailed
-      ? "Could not find a component matching that in this project. Try rephrasing or check the spelling."
+      ? `No component named "${targetName}" was found.`
       : null,
     rawGeminiJson: null,
     resolvedBy: "fallback",
@@ -389,6 +420,10 @@ export async function resolveViaAI(input, graphEngine = null) {
         resolvedBy: "fallback",
       };
     }
+  }
+
+  if (isGeminiQuotaExceeded()) {
+    return interpretIntentLocally(cleanInput, graphEngine);
   }
 
   const settings = getProviderSettings();
@@ -457,7 +492,9 @@ export async function resolveViaAI(input, graphEngine = null) {
       };
     }
   } catch (err) {
-    console.warn("Gemini intent interpretation failed; falling back to local interpreter:", err.message);
+    if (!err.isQuotaExceeded) {
+      console.warn("Gemini intent interpretation failed; falling back to local interpreter:", err.message);
+    }
   }
 
   return interpretIntentLocally(cleanInput, graphEngine);

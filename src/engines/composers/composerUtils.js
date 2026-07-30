@@ -4,115 +4,12 @@
  * Shared utilities extracted from blueprintGraphBuilder.js for all composers.
  */
 
-export const ARCHITECTURAL_NODE_KINDS = new Set([
-  "component", "route", "controller", "middleware",
-  "service", "model", "database", "api", "hook", "state",
-]);
-
-export const ARCHITECTURAL_EDGE_TYPES = new Set([
-  "RENDERS", "USES_HOOK", "HOOK_CALLS_HOOK", "USES_CONTEXT",
-  "STATE_CONSUMER", "DISPATCHES_ACTION", "ASYNC_THUNK", "SUBSCRIBES_TO",
-  "USES_API", "CALLS_API", "TARGETS_ROUTE", "ROUTE_PARENT", "ROUTE_RENDERS",
-  "HANDLED_BY", "AUTHORIZES", "VALIDATES", "USES",
-  "CALLS_SERVICE", "USES_MODEL", "ACCESSES_DB", "LAZY_LOADS",
-  "EXECUTION_FLOW",
-]);
-
-export const BRIDGED_EDGE_TYPE = "EXECUTION_FLOW";
-
-/**
- * Classifies a Knowledge Graph node into its semantic architectural lane.
- *
- * @param {object} node
- * @returns {string} laneId
- */
-export function classifyArchitecturalUnit(node) {
-  if (!node) return "components";
-
-  const { kind, subtype, file = "", name = "" } = node;
-  const lowerFile = file.toLowerCase();
-  const lowerName = name.toLowerCase();
-
-  // 9. Database
-  if (kind === "database") return "database";
-
-  // 8. Models
-  if (kind === "model" || subtype === "orm" || lowerFile.includes("models/")) return "models";
-
-  // 7. Controllers & Services
-  if (
-    kind === "controller" ||
-    kind === "service" ||
-    lowerFile.includes("controllers/") ||
-    lowerFile.includes("services/")
-  ) {
-    return "business_logic";
-  }
-
-  // 6. Backend Routes & Middleware
-  // Phase 1.3 — use metadata.source to correctly distinguish backend routes from
-  // frontend routes. Express/NestJS/Fastify routes go to backend_routes.
-  // React Router / Next.js routes are handled by the routing lane below.
-  if (kind === "middleware") return "backend_routes";
-  if (lowerFile.includes("middleware/")) return "backend_routes";
-  if (kind === "route") {
-    const source = node.metadata?.source || "";
-    if (source === "express" || source === "nestjs" || source === "fastify" || source === "koa") {
-      return "backend_routes";
-    }
-    // If source is not set, fall back to file-path heuristic
-    if (!source && lowerFile.includes("routes/")) return "backend_routes";
-  }
-
-  // 5. API Clients & Frontend Endpoints
-  if (kind === "api" || lowerName.includes("api") || lowerFile.includes("api/")) {
-    return "api_clients";
-  }
-
-  // 4. Hooks & State
-  if (
-    kind === "hook" ||
-    kind === "state" ||
-    subtype === "slice" ||
-    subtype === "context" ||
-    subtype === "provider" ||
-    /^use[A-Z]/.test(name)
-  ) {
-    return "hooks_state";
-  }
-
-  // 0. Entry (Files or Root Components)
-  if (
-    (kind === "file" && /(^|\/)(main|index|App|server|app|_app|_document)\.[jt]sx?$/i.test(file)) ||
-    (kind === "component" && (name === "App" || name === "main" || subtype === "root"))
-  ) {
-    return "entry";
-  }
-
-  // 1. Routing — frontend routes only (react-router, nextjs, unknown source)
-  if (
-    kind === "route" ||
-    subtype === "router" ||
-    subtype === "route" ||
-    name === "Router" ||
-    lowerName.includes("route")
-  ) {
-    return "routing";
-  }
-
-  // 2. Pages
-  if (
-    subtype === "page" ||
-    lowerFile.includes("pages/") ||
-    lowerFile.includes("views/") ||
-    lowerName.endsWith("page")
-  ) {
-    return "pages";
-  }
-
-  // 3. Components (Default UI)
-  return "components";
-}
+export {
+  classifyArchitecturalUnit,
+  ARCHITECTURAL_NODE_KINDS,
+  ARCHITECTURAL_EDGE_TYPES,
+  BRIDGED_EDGE_TYPE,
+} from "../graph/laneClassifier.js";
 
 /**
  * Synthesizes bridge edges for execution chains that pass through excluded (filtered-out) nodes.

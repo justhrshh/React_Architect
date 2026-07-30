@@ -141,7 +141,7 @@ export default function QueryResultHeader({
                   handleSearchSubmit(e);
                 }
               }}
-              placeholder="Search architecture (e.g. 'Dashboard', 'auth flow')..."
+              placeholder="Find a component..."
               className="w-full bg-transparent text-xs font-medium text-slate-700 placeholder-slate-400 focus:outline-none border-none ring-0"
             />
             {searchValue.trim() && (

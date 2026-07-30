@@ -12,7 +12,23 @@ import { getProviderSettings } from "./settings.js";
  * @param {((text: string) => void)|null} [onChunk] - Streaming callback
  * @returns {Promise<string>} The model's response text
  */
+let quotaExceededUntil = 0;
+
+export function isGeminiQuotaExceeded() {
+  return Date.now() < quotaExceededUntil;
+}
+
+export function resetGeminiQuotaCircuit() {
+  quotaExceededUntil = 0;
+}
+
 export async function complete(systemPrompt, contents, onChunk = null) {
+  if (Date.now() < quotaExceededUntil) {
+    const error = new Error("Gemini API quota exceeded. Using local engine fallback.");
+    error.isQuotaExceeded = true;
+    throw error;
+  }
+
   const settings = getProviderSettings();
   const modelName = settings.model;
   const apiKey = (settings.apiKey && settings.apiKey.trim() !== "") 
@@ -58,6 +74,13 @@ export async function complete(systemPrompt, contents, onChunk = null) {
         errMsg = errBody.error.message;
       }
     } catch { /* ignore */ }
+
+    if (status === 429 || errMsg.toLowerCase().includes("quota") || errMsg.toLowerCase().includes("too many requests")) {
+      quotaExceededUntil = Date.now() + 60 * 1000; // Mute API calls for 60s
+      const error = new Error("Gemini API quota exceeded (HTTP 429). Muted for 60s, using local engine.");
+      error.isQuotaExceeded = true;
+      throw error;
+    }
 
     // Check if the model is unavailable or 404
     const isModelUnavailable = status === 404 || 

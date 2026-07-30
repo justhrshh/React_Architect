@@ -49,7 +49,7 @@ export default function QueryBar({
           type="text"
           value={inputValue}
           onChange={(e) => setInputValue(e.target.value)}
-          placeholder="Ask or search architecture (e.g. 'auth flow', 'redux state', 'routes', 'Dashboard')..."
+          placeholder="Search by component name (e.g. 'Architecture', 'FlowDiagram')..."
           className="w-full bg-slate-900/90 border border-slate-800 rounded-lg pl-10 pr-24 py-2.5 text-sm text-slate-200 placeholder-slate-500 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-all"
         />
         {inputValue && (

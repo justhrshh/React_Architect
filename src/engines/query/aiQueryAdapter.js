@@ -214,9 +214,13 @@ export function resolveEntity(userQuery, graphEngine) {
   const candidateMap = new Map();
 
   for (const node of graphEngine.nodes) {
+    // Ignore raw file nodes — component lookup operates on architectural entities
+    if (node.kind === "file") continue;
+
     const nodeName = (node.name || "").toLowerCase();
     const nodeId = (node.id || "").toLowerCase();
-    const nodeFile = (node.file || "").toLowerCase();
+    // Use file basename ONLY — do not match against full absolute folder paths
+    const fileBasename = (node.file || "").split(/[/\\]/).pop().toLowerCase();
 
     for (const gram of ngrams) {
       // Skip single-word ngrams that are generic query stop words, unless exact match with node name
@@ -230,7 +234,7 @@ export function resolveEntity(userQuery, graphEngine) {
       } else if (nodeName.includes(gram) || gram.includes(nodeName)) {
         score = 0.82;
         if (nodeName.startsWith(gram)) score += 0.08;
-      } else if (nodeFile.includes(gram)) {
+      } else if (fileBasename && fileBasename.includes(gram)) {
         score = 0.65;
       }
 
@@ -263,6 +267,9 @@ export function resolveEntity(userQuery, graphEngine) {
   // 2. FUZZY MATCH FALLBACK: Only run when exact/substring matching returns ZERO candidates
   if (scoredCandidates.length === 0) {
     for (const node of graphEngine.nodes) {
+      // Fuzzy matching is strictly for architectural entities (components, pages, routes, hooks)
+      if (node.kind === "file" || node.kind === "api" || node.id?.startsWith("api-")) continue;
+
       const nodeName = (node.name || "").toLowerCase();
       const nodeId = (node.id || "").toLowerCase();
 
@@ -271,20 +278,13 @@ export function resolveEntity(userQuery, graphEngine) {
 
         const distName = levenshteinDistance(gram, nodeName);
         const distId = levenshteinDistance(gram, nodeId);
+        const minDist = Math.min(distName, distId);
 
-        // Also compare against prefix of nodeName (e.g. "dashbord" vs "dashboardpage")
-        const prefixLength = Math.min(gram.length + 1, nodeName.length);
-        const nodePrefix = nodeName.substring(0, prefixLength);
-        const distPrefix = levenshteinDistance(gram, nodePrefix);
-
-        const minDist = Math.min(distName, distId, distPrefix);
-
-        // Strict thresholds: edit distance <= 2 OR normalized similarity >= 0.70
         const maxLen = Math.max(gram.length, nodeName.length);
         const similarity = 1 - minDist / maxLen;
 
-        if (minDist <= 2 || similarity >= 0.70) {
-          // Base score for fuzzy match capped at 0.58
+        // Strict typo recovery threshold: edit distance <= 2 AND similarity >= 0.70
+        if (minDist <= 2 && similarity >= 0.70) {
           let score = 0.58;
 
           let bonus = 0;
@@ -293,7 +293,6 @@ export function resolveEntity(userQuery, graphEngine) {
           else if (node.kind === "context" || node.kind === "store") bonus = 0.03;
           else if (node.kind === "hook") bonus = 0.03;
 
-          // Strictly cap fuzzy confidence at 0.65 max
           const finalConfidence = Math.min(0.65, Number((score + bonus).toFixed(2)));
 
           const existing = candidateMap.get(node.id);
@@ -315,49 +314,57 @@ export function resolveEntity(userQuery, graphEngine) {
   // Sort by confidence descending
   scoredCandidates.sort((a, b) => b.confidence - a.confidence);
 
-  if (scoredCandidates.length === 0) {
-    return { isAmbiguous: false, primaryEntity: null, secondaryEntity: null, candidates: [], isConversational: false };
+  // If candidate confidence is too weak (< 0.50), treat as zero match to display clean empty state + suggestions
+  if (scoredCandidates.length === 0 || scoredCandidates[0].confidence < 0.50) {
+    const suggestions = getFuzzyComponentSuggestions(clean, graphEngine);
+    return {
+      isAmbiguous: false,
+      primaryEntity: null,
+      secondaryEntity: null,
+      candidates: [],
+      suggestions,
+      isConversational: false,
+    };
   }
 
   const top = scoredCandidates[0];
   const second = scoredCandidates[1];
 
-  // Token & generic UI word scrutiny (ignoring stop words like "how", "does", "call", "api")
-  const cleanTokens = clean.toLowerCase().replace(/[^\w\s]/g, "").split(/\s+/).filter(Boolean);
-  const subjectTokens = cleanTokens.filter(t => !QUERY_STOP_WORDS.has(t));
-  const isGenericOrShortToken = subjectTokens.some(t => t.length <= 4 || GENERIC_UI_WORDS.has(t));
-
-  // Check if match is a 100% exact full-string match (e.g. nodeName === "card" when user typed "card")
-  const isExactFullMatch = cleanTokens.some(t => t === top.name.toLowerCase() || t === top.id.toLowerCase());
-
-  // 1. Multi-candidate ambiguity check (gap < 0.12 or top.confidence < 0.75)
-  if (scoredCandidates.length > 1 && second) {
-    const diff = top.confidence - second.confidence;
-    if (diff < 0.12 || top.confidence < 0.75) {
+  // If there's only 1 matching candidate, resolve directly IF exact/high confidence match (>= 0.90), otherwise treat as ambiguous candidate selection
+  if (scoredCandidates.length === 1) {
+    if (top.confidence < 0.90) {
       return {
         isAmbiguous: true,
         primaryEntity: null,
         secondaryEntity: null,
-        candidates: scoredCandidates.slice(0, 3),
+        candidates: [top],
         isConversational: false,
       };
     }
-  }
-
-  // 2. Absolute Confidence Floor (< 0.90 requires confirmation even if single candidate)
-  // 3. Generic UI Words / Short Tokens require confirmation UNLESS exact full string match
-  const requiresConfirmation = top.confidence < 0.90 || (isGenericOrShortToken && !isExactFullMatch);
-
-  if (requiresConfirmation) {
     return {
-      isAmbiguous: true,
-      primaryEntity: null,
+      isAmbiguous: false,
+      primaryEntity: top,
       secondaryEntity: null,
       candidates: [top],
       isConversational: false,
     };
   }
 
+  // Multi-candidate ambiguity check: trigger ambiguity picker if top 2 candidates are close in confidence (diff < 0.15)
+  if (scoredCandidates.length > 1 && second) {
+    const diff = top.confidence - second.confidence;
+    if (diff < 0.15 && top.confidence >= 0.75) {
+      return {
+        isAmbiguous: true,
+        primaryEntity: null,
+        secondaryEntity: null,
+        candidates: scoredCandidates.slice(0, 4),
+        isConversational: false,
+      };
+    }
+  }
+
+  // Otherwise, resolve to top candidate directly
   return {
     isAmbiguous: false,
     primaryEntity: top,
@@ -365,6 +372,60 @@ export function resolveEntity(userQuery, graphEngine) {
     candidates: [top],
     isConversational: false,
   };
+
+  // Otherwise, resolve to top candidate directly
+  return {
+    isAmbiguous: false,
+    primaryEntity: top,
+    secondaryEntity: null,
+    candidates: [top],
+    isConversational: false,
+  };
+}
+
+/**
+ * Calculates top fuzzy component suggestions from extracted project component names.
+ *
+ * @param {string} userQuery
+ * @param {object} graphEngine
+ * @returns {Array<string>} List of suggested component names
+ */
+export function getFuzzyComponentSuggestions(userQuery, graphEngine) {
+  if (!graphEngine || !graphEngine.nodes) return [];
+  const query = (userQuery || "").toLowerCase().trim();
+
+  // Filter for extracted components, pages, layouts, and lazy components
+  const componentNodes = graphEngine.nodes.filter(
+    (n) =>
+      (n.kind === "component" || n.kind === "page" || n.kind === "layout" || n.subtype === "lazy") &&
+      n.name
+  );
+
+  const uniqueNames = Array.from(new Set(componentNodes.map((n) => n.name)));
+
+  if (uniqueNames.length === 0) return [];
+  if (!query) return uniqueNames.slice(0, 3);
+
+  const scored = uniqueNames.map((name) => {
+    const lowerName = name.toLowerCase();
+    let score = 0;
+
+    if (lowerName === query) {
+      score = 1.0;
+    } else if (lowerName.startsWith(query) || query.startsWith(lowerName)) {
+      score = 0.85;
+    } else if (lowerName.includes(query) || query.includes(lowerName)) {
+      score = 0.75;
+    } else {
+      const dist = levenshteinDistance(query, lowerName);
+      const maxLen = Math.max(query.length, lowerName.length);
+      score = 1 - dist / maxLen;
+    }
+    return { name, score };
+  });
+
+  scored.sort((a, b) => b.score - a.score);
+  return scored.slice(0, 3).map((item) => item.name);
 }
 
 /**
@@ -452,12 +513,13 @@ export function buildProjectContext(resolvedEntity, graphEngine) {
  */
 export function logSearchTelemetry(data) {
   try {
-    const isDev =
-      (typeof import.meta !== "undefined" && import.meta.env && import.meta.env.DEV !== false) ||
-      (typeof window !== "undefined" && window.location && window.location.search && window.location.search.includes("debug=1")) ||
-      (typeof process !== "undefined" && process.env && process.env.NODE_ENV !== "production");
+    const isDebug =
+      typeof window !== "undefined" &&
+      window.location &&
+      window.location.search &&
+      window.location.search.includes("debug=1");
 
-    if (!isDev) return;
+    if (!isDebug) return;
 
     const row = {
       rawQuery: data?.rawQuery ?? "",
