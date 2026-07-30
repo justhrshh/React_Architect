@@ -131,6 +131,8 @@ test("buildKnowledgeGraph builds normalized universal nodes and edges for Expres
 
   assert.equal(graph.edges.some((e) => e.type === "HANDLED_BY"), true);
   assert.equal(graph.edges.some((e) => e.type === "AUTHORIZES"), true);
-  assert.equal(graph.edges.some((e) => e.type === "USES"), true);
-  assert.equal(graph.edges.some((e) => e.type === "READS"), true, `Edge READS not found in: ${JSON.stringify(graph.edges.map(e => e.type))}`);
+  assert.equal(graph.edges.some((e) => e.type === "CALLS_SERVICE"), true);
+  assert.equal(graph.edges.some((e) => e.type === "USES_MODEL"), true);
+  assert.equal(graph.edges.some((e) => e.type === "ACCESSES_DB"), true);
 });
+

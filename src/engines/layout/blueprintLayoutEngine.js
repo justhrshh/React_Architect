@@ -88,6 +88,13 @@ export function classifyNodeLane(node) {
 export function computeLayout(composedGraph, options = {}) {
   const style = composedGraph?.layoutHints?.style || "lanes";
   switch (style) {
+    case "radial-blueprint":
+    case "radial":
+      return {
+        layoutedNodes: composedGraph?.nodes || [],
+        blueprintEdges: composedGraph?.edges || [],
+        activeLanes: [],
+      };
     case "lanes":
       return computeBlueprintLayout(composedGraph?.nodes || [], composedGraph?.edges || [], options);
     case "tree":

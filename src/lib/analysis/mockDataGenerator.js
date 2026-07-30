@@ -31,7 +31,13 @@ export function getGraphDataForProject(project) {
       {
         id: "page-dashboard", name: "DashboardPage", type: "page", filePath: `app/dashboard/page.${ext}`,
         hookCount: 3, childCount: 3, apiCount: 2,
-        hooks: ["useDashboardData", "useState", "useMemo"], children: ["MetricCards", "RevenueChart", "RecentSales"],
+        hooks: ["useDashboardData", "useState", "useMemo"],
+        children: ["MetricCards", "RevenueChart", "RecentSales"],
+        stateVariables: ["activeTab", "loading", "dateRange"],
+        contextHooks: ["useAuth", "useTheme"],
+        apis: ["GET /api/dashboard/metrics", "GET /api/sales/recent"],
+        routes: ["/dashboard", "/settings", "/profile"],
+        services: ["Analytics"],
         props: [], deps: ["recharts", "date-fns"], imports: ["MetricCards", "RevenueChart", "RecentSales"],
         x: 888, y: 270,
       },
@@ -79,6 +85,20 @@ export function getGraphDataForProject(project) {
         hooks: ["useAuth"], children: [],
         props: [], deps: ["@radix-ui/react-dropdown-menu"], imports: ["DropdownMenu", "Avatar"],
         x: 262, y: 650,
+      },
+      {
+        id: "component-dashboard", name: "Dashboard", type: "component", filePath: `components/Dashboard.${ext}`,
+        hookCount: 1, childCount: 1, apiCount: 0,
+        hooks: ["useDashboard"], children: ["MetricCards"],
+        props: [], deps: [], imports: ["MetricCards"],
+        x: 450, y: 350,
+      },
+      {
+        id: "page-admin-dashboard", name: "AdminDashboard", type: "page", filePath: `app/admin/dashboard/page.${ext}`,
+        hookCount: 2, childCount: 2, apiCount: 1,
+        hooks: ["useAdminData"], children: ["MetricCards", "RecentSales"],
+        props: [], deps: [], imports: ["MetricCards", "RecentSales"],
+        x: 1050, y: 350,
       }
     ];
 
@@ -184,7 +204,13 @@ export function getGraphDataForProject(project) {
     {
       id: "main-page", name: "HomePage", type: "page", filePath: `src/pages/HomePage.${ext}`,
       hookCount: 2, childCount: 2, apiCount: 1,
-      hooks: ["useState", "useEffect"], children: ["ProjectGrid", "ContactForm"],
+      hooks: ["useState", "useEffect", "useCallback"],
+      children: ["ProjectGrid", "ContactForm"],
+      stateVariables: ["projects", "filter", "loading"],
+      contextHooks: ["useTheme"],
+      apis: ["GET /api/projects"],
+      routes: ["/projects/:id", "/contact"],
+      services: ["emailService"],
       props: [], deps: [], imports: ["ProjectGrid", "ContactForm"],
       x: 888, y: 650,
     },

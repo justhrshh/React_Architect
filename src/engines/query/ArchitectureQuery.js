@@ -5,9 +5,9 @@
  */
 
 export const VALID_GRAPH_TYPES = [
+  "composed-architecture",
   "execution-flow",
   "component-hierarchy",
-  "state-flow",
   "navigation-flow",
   "request-lifecycle",
 ];

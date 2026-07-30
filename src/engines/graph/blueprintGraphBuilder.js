@@ -8,6 +8,10 @@
  * are re-exported from engines/composers/composerUtils.js for backward compatibility.
  */
 
+export function buildBlueprintGraph(rawNodes = [], rawEdges = []) {
+  return { blueprintNodes: rawNodes, blueprintEdges: rawEdges };
+}
+
 export {
   classifyArchitecturalUnit,
   bridgeExcludedNodes,

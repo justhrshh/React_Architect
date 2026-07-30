@@ -7,7 +7,7 @@
     "dev": "vite",
     "build": "vite build",
     "lint": "eslint .",
-    "test": "node --experimental-specifier-resolution=node --test",
+    "test": "node --import ./tests/jsx-loader.mjs --test test/*.test.js tests/*.test.js",
     "preview": "vite preview"
   },
   "dependencies": {

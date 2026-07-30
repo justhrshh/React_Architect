@@ -131,6 +131,25 @@ function analyzeComponentBody(bodyNode, fileImports = []) {
   const children = new Set();
   let hasJSX = false;
 
+  // Build a set of PascalCase names that come from external (non-project) packages.
+  // A project import starts with ".", "/", "@/" (alias), or "~/".
+  // Anything else (e.g. "lucide-react", "framer-motion", "react-router-dom") is external.
+  const externalImportNames = new Set(
+    fileImports
+      .filter((imp) => {
+        const src = imp.source || "";
+        const isProjectLocal =
+          src.startsWith(".") ||
+          src.startsWith("/") ||
+          src.startsWith("@/") ||
+          src.startsWith("~/") ||
+          src.startsWith("#");
+        return !isProjectLocal;
+      })
+      .map((imp) => imp.name)
+      .filter((n) => n && /^[A-Z]/.test(n)) // PascalCase only
+  );
+
   walk(bodyNode, (node) => {
     if (node.type === "CallExpression") {
       let name = null;
@@ -172,7 +191,8 @@ function analyzeComponentBody(bodyNode, fileImports = []) {
 
       if (node.name.type === "JSXIdentifier") {
         const name = node.name.name;
-        if (/^[A-Z]/.test(name) && !REACT_BUILTIN_JSX_NAMES.has(name)) {
+        // Skip if: React built-in OR imported from an external package (lucide-react, framer-motion, etc.)
+        if (/^[A-Z]/.test(name) && !REACT_BUILTIN_JSX_NAMES.has(name) && !externalImportNames.has(name)) {
           children.add(name);
         }
       } else if (node.name.type === "JSXMemberExpression") {
@@ -181,7 +201,7 @@ function analyzeComponentBody(bodyNode, fileImports = []) {
 
         if (objectName && (propertyName === "Provider" || propertyName === "Consumer")) {
           contexts.add(objectName);
-        } else if (objectName && /^[A-Z]/.test(objectName)) {
+        } else if (objectName && /^[A-Z]/.test(objectName) && !externalImportNames.has(objectName)) {
           children.add(objectName);
         }
       }

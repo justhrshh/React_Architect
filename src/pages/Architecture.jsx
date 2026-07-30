@@ -29,7 +29,7 @@ import QueryBar from "@/components/architecture/QueryBar";
 import QueryResultHeader from "@/components/architecture/QueryResultHeader";
 import EmptyQueryState from "@/components/architecture/EmptyQueryState";
 import QueryHistory from "@/components/architecture/QueryHistory";
-import { ALL_TEMPLATES, instantiateTemplate, TEMPLATE_REGISTRY, resolveTemplate } from "@/engines/templates";
+import { ALL_TEMPLATES, instantiateTemplate, TEMPLATE_REGISTRY, resolveTemplate, speculativeClassify, getSpeculativeResult } from "@/engines/templates";
 import { compose } from "@/engines/composers";
 import { computeLayout } from "@/engines/layout/blueprintLayoutEngine";
 import { selectQueryEngine, selectQueryHistory, addQueryHistoryEntry } from "@/redux/slices/graphSlice";
@@ -62,19 +62,36 @@ function ArchitectureStudio() {
 
   const [conversationalNotice, setConversationalNotice] = useState(null);
   const [ambiguousCandidates, setAmbiguousCandidates] = useState([]);
+  const [pendingTemplateId, setPendingTemplateId] = useState(null);
+  // Phase 7: unique token per ambiguous query — guards against stale speculative pre-fetch results
+  const [pendingQueryId, setPendingQueryId] = useState(null);
 
   const handleQuery = useCallback(
     (templateId, focusTerm, secondaryTerm = null, intentMeta = null) => {
       setIsQueryLoading(true);
       try {
         if (intentMeta && intentMeta.isAmbiguous && intentMeta.candidates?.length > 0) {
+          const queryId = (typeof crypto !== "undefined" && crypto.randomUUID)
+            ? crypto.randomUUID()
+            : `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
           setAmbiguousCandidates(intentMeta.candidates);
+          setPendingTemplateId(intentMeta.intendedTemplateId || templateId || "execution-flow");
+          setPendingQueryId(queryId);
           setConversationalNotice(null);
           setIsQueryLoading(false);
+          // Phase 7: Fire one speculative Gemini call per ambiguous query, keyed by queryId.
+          // Result is cached and applied (with queryId guard) when the user picks a candidate.
+          // This call is unconditional — it fires whether or not the user ever selects a candidate.
+          let activeEngine = queryEngine;
+          if (!activeEngine && knowledgeGraph) activeEngine = new GraphQueryEngine(knowledgeGraph);
+          const rawQueryInput = intentMeta.rawInput || focusTerm || "";
+          speculativeClassify(queryId, rawQueryInput, activeEngine).catch(() => { /* silent */ });
           return;
         }
 
         setAmbiguousCandidates([]);
+        setPendingTemplateId(null);
+        setPendingQueryId(null);
 
         if (intentMeta && intentMeta.isArchitectural === false) {
           setConversationalNotice(
@@ -110,7 +127,13 @@ function ArchitectureStudio() {
           return;
         }
 
-        const composed = compose(subgraph, template, subgraph.queryMeta);
+        const queryMeta = {
+          ...subgraph.queryMeta,
+          focusTerm,
+          focus: focusTerm,
+          ...(intentMeta && typeof intentMeta === "object" ? intentMeta : {}),
+        };
+        const composed = compose(subgraph, template, queryMeta);
         const layout = computeLayout(composed, {});
 
         setComposedGraph(composed);
@@ -205,8 +228,24 @@ function ArchitectureStudio() {
   }, [reduxNodes, selectedId, dispatch]);
 
   const selectedNode = useMemo(() => {
-    if (!knowledgeGraph) return null;
-    return knowledgeGraph.nodes.find(n => n.id === selectedId) || null;
+    if (!knowledgeGraph || !selectedId) return null;
+    let match = knowledgeGraph.nodes.find(n => n.id === selectedId);
+    if (match) return match;
+
+    // Fallback resolution for synthetic lens IDs or clean entity names (e.g. Card, useAuth, APIs)
+    const clean = selectedId
+      .replace(/^child-[a-z-]+-\d+-/, "")
+      .replace(/^category-/, "")
+      .replace(/^lens-card-/, "")
+      .replace(/^(GET|POST|PUT|DELETE|PATCH)\s+/, "");
+
+    match = knowledgeGraph.nodes.find(n =>
+      (n.name && n.name.toLowerCase() === clean.toLowerCase()) ||
+      (n.id && n.id.toLowerCase() === clean.toLowerCase()) ||
+      (n.metadata?.path && typeof n.metadata.path === "string" && n.metadata.path.toLowerCase().includes(clean.toLowerCase()))
+    );
+
+    return match || null;
   }, [knowledgeGraph, selectedId]);
 
   const uniqueFiles = useMemo(() => reduxFiles || [], [reduxFiles]);
@@ -779,9 +818,16 @@ function ArchitectureStudio() {
                   queryMeta={composedGraph.queryMeta}
                   template={TEMPLATE_REGISTRY.get(activeTemplateId)}
                   focus={activeFocus}
-                  onSearchQuery={(qStr) => {
-                    const match = resolveTemplate(qStr);
-                    handleQuery(match.templateId || "execution-flow", match.focusTerm || qStr);
+                  onSelectLens={(templateId) => {
+                    handleQuery(templateId, activeFocus || selectedNode?.name || "Dashboard");
+                  }}
+                  onSearchQuery={async (qStr) => {
+                    let activeEngine = queryEngine;
+                    if (!activeEngine && knowledgeGraph) {
+                      activeEngine = new GraphQueryEngine(knowledgeGraph);
+                    }
+                    const match = await resolveTemplate(qStr, activeEngine);
+                    handleQuery(match.templateId || "execution-flow", match.focusTerm || qStr, match.secondaryTerm, match);
                   }}
                   onToggleHistory={() => setShowQueryHistory((prev) => !prev)}
                   historyCount={projectHistory?.length || 0}
@@ -807,6 +853,7 @@ function ArchitectureStudio() {
                   overflow: "hidden",
                 }}>
                   <FlowDiagram
+                    key={`${activeTemplateId || "none"}::${activeFocus || "none"}`}
                     ref={flowRef}
                     layoutedNodes={layoutResult.layoutedNodes}
                     activeLanes={layoutResult.activeLanes || layoutResult.activePipelineStages}
@@ -817,6 +864,21 @@ function ArchitectureStudio() {
                     selectedId={selectedId}
                     onSelectNode={handleSelectNode}
                     highlightedIds={highlightedIds}
+                    onToggleCategoryExpand={(catId) => {
+                      if (composedGraph?.queryMeta) {
+                        const currentSet = new Set(composedGraph.queryMeta.expandedCategoryIds || ["ui-components", "hooks", "apis"]);
+                        if (currentSet.has(catId)) currentSet.delete(catId);
+                        else currentSet.add(catId);
+                        handleQuery(activeTemplateId || "composed-architecture", activeFocus, null, { expandedCategoryIds: Array.from(currentSet) });
+                      }
+                    }}
+                    onDrillDown={(drillNode) => {
+                      // Double-click on a child node → open composed architecture for that component
+                      const name = drillNode?.name || drillNode?.displayName;
+                      if (name) {
+                        handleQuery("composed-architecture", name);
+                      }
+                    }}
                   />
 
                   {/* ── Floating Right Query History Panel ── */}
@@ -835,7 +897,20 @@ function ArchitectureStudio() {
                 conversationalNotice={conversationalNotice}
                 onClearNotice={() => setConversationalNotice(null)}
                 ambiguousCandidates={ambiguousCandidates}
-                onSelectCandidate={(cand) => handleQuery("execution-flow", cand.name)}
+                onSelectCandidate={(cand) => {
+                  // Phase 7: Apply speculative Gemini result if queryId matches (non-stale);
+                  // silently fall back to local pendingTemplateId on mismatch or cache miss.
+                  let targetTemplateId = pendingTemplateId || "execution-flow";
+                  if (pendingQueryId) {
+                    const specResult = getSpeculativeResult(pendingQueryId);
+                    if (specResult && specResult.templateId) {
+                      targetTemplateId = specResult.templateId;
+                    }
+                  }
+                  setPendingTemplateId(null);
+                  setPendingQueryId(null);
+                  handleQuery(targetTemplateId, cand.id || cand.name);
+                }}
                 onSelectTemplate={(tplId) => handleQuery(tplId, null)}
                 onSearchQuery={async (qStr) => {
                   let activeEngine = queryEngine;

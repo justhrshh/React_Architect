@@ -5,6 +5,10 @@ import {
   Target,
   Presentation,
   Box,
+  GitBranch,
+  Globe,
+  Layers,
+  Cpu,
 } from "lucide-react";
 
 export default function EmptyQueryState({
@@ -31,14 +35,9 @@ export default function EmptyQueryState({
 
   const exploreItems = [
     {
-      id: "execution-flow",
-      title: "Execution Flow",
-      description: "Trace application execution from entry through components.",
-    },
-    {
-      id: "state-flow",
-      title: "State Flow",
-      description: "Visualize Redux, Context, and state propagation.",
+      id: "composed-architecture",
+      title: "Composed Architecture",
+      description: "Inspect building block categories (State, Hooks, UI, APIs, Routes) around a component.",
     },
     {
       id: "component-hierarchy",
@@ -46,9 +45,19 @@ export default function EmptyQueryState({
       description: "Explore parent-child rendering relationships in UI.",
     },
     {
+      id: "execution-flow",
+      title: "Execution Flow",
+      description: "Trace application execution from entry through components.",
+    },
+    {
       id: "navigation-flow",
       title: "Navigation Flow",
       description: "Inspect routes, transitions, and navigation structure.",
+    },
+    {
+      id: "request-lifecycle",
+      title: "Request Lifecycle",
+      description: "Inspect HTTP endpoints, authentication, and security flow.",
     },
   ];
 
@@ -239,76 +248,85 @@ export default function EmptyQueryState({
             )}
 
             {ambiguousCandidates && ambiguousCandidates.length > 0 && (
-              <div className="mt-3 p-4 bg-white/95 border border-indigo-200 rounded-2xl shadow-lg backdrop-blur-md">
-                <div className="flex items-center justify-between mb-2.5">
-                  <div className="flex items-center space-x-2">
-                    <span className="text-indigo-600 text-sm">❓</span>
-                    <span className="text-xs font-bold text-slate-800 tracking-tight">
-                      Multiple entities found. Which one would you like to explore?
-                    </span>
-                  </div>
+              <div className="mt-4 w-full bg-transparent p-0 border-none shadow-none">
+                <div className="flex items-center space-x-2 mb-3 px-1">
+                  <span className="text-indigo-600 text-sm">❓</span>
+                  <span className="text-xs font-bold text-slate-800 tracking-tight">
+                    Multiple entities found. Which one would you like to explore?
+                  </span>
                 </div>
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
-                  {ambiguousCandidates.map((cand) => (
-                    <button
-                      key={cand.id}
-                      type="button"
-                      onClick={() => onSelectCandidate && onSelectCandidate(cand)}
-                      className="flex flex-col items-start p-2.5 bg-indigo-50/50 hover:bg-indigo-100/70 border border-indigo-100 hover:border-indigo-300 rounded-xl transition-all text-left group"
-                    >
-                      <div className="flex items-center justify-between w-full mb-1">
-                        <span className="text-xs font-bold text-slate-900 group-hover:text-indigo-700">
-                          {cand.name}
-                        </span>
-                        <span className="text-[10px] uppercase font-mono px-1.5 py-0.2 bg-white text-indigo-600 rounded border border-indigo-200 font-semibold">
-                          {cand.kind}
-                        </span>
-                      </div>
-                      {cand.file && (
-                        <span className="text-[10px] text-slate-500 truncate max-w-full font-mono">
-                          {cand.file}
-                        </span>
-                      )}
-                      <div className="mt-1.5 text-[10px] text-indigo-600 font-medium">
-                        Match: {Math.round((cand.confidence || 0) * 100)}%
-                      </div>
-                    </button>
-                  ))}
+                <div className="flex flex-col gap-2.5">
+                  {ambiguousCandidates.map((cand) => {
+                    const KindIcon = cand.kind === "component" ? Box : cand.kind === "route" ? GitBranch : cand.kind === "api" ? Globe : Target;
+                    const matchPercent = Math.round((cand.confidence || 0) * 100);
+                    return (
+                      <button
+                        key={cand.id}
+                        type="button"
+                        onClick={() => onSelectCandidate && onSelectCandidate(cand)}
+                        className="w-full bg-gradient-to-r from-[rgba(42,94,250,0.15)] via-[rgba(42,94,250,0.08)] to-transparent hover:from-[rgba(42,94,250,0.25)] hover:via-[rgba(42,94,250,0.14)] rounded-2xl p-3.5 flex items-center justify-between transition-all group text-left cursor-pointer border-none shadow-none"
+                      >
+                        <div className="flex items-center space-x-3 min-w-0">
+                          <div className="w-9 h-9 rounded-full bg-[rgba(42,94,250,0.12)] group-hover:bg-[rgba(42,94,250,0.22)] flex items-center justify-center text-[rgb(42,94,250)] shrink-0 transition-colors">
+                            <KindIcon className="w-4.5 h-4.5" />
+                          </div>
+                          <div className="flex items-center space-x-2.5 min-w-0">
+                            <span className="text-sm font-bold text-slate-900 group-hover:text-[rgb(42,94,250)] transition-colors">
+                              {cand.name}
+                            </span>
+                            <span className="text-[10px] uppercase font-mono px-2.5 py-0.5 bg-white/90 text-[rgb(42,94,250)] rounded-md font-bold shrink-0 border-none shadow-2xs">
+                              {cand.kind}
+                            </span>
+                            {cand.file && (
+                              <span className="text-xs text-slate-500 truncate font-mono hidden sm:inline-block max-w-[280px]">
+                                {cand.file}
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                        <div className="text-xs font-bold text-[rgb(42,94,250)] bg-white/90 px-3 py-1 rounded-full shrink-0 ml-3 border-none shadow-2xs">
+                          Match: {matchPercent}%
+                        </div>
+                      </button>
+                    );
+                  })}
                 </div>
               </div>
             )}
           </div>
 
-          {/* Right Placeholder Cards (Borderless Gradient Pill Cards - rgb(42, 94, 250)) */}
-          <div className="space-y-4">
-            {/* Card 1: Target / Bullseye */}
-            <div className="bg-gradient-to-r from-[rgba(42,94,250,0.15)] via-[rgba(42,94,250,0.08)] to-transparent rounded-2xl p-4 flex items-center space-x-4">
-              <div className="w-10 h-10 rounded-full bg-[rgba(42,94,250,0.12)] flex items-center justify-center text-[rgb(42,94,250)] shrink-0">
-                <Target className="w-5 h-5" />
+          {/* Right Placeholder Cards (Hidden when ambiguous candidates are present) */}
+          {(!ambiguousCandidates || ambiguousCandidates.length === 0) && (
+            <div className="space-y-4">
+              {/* Card 1: Target / Bullseye */}
+              <div className="bg-gradient-to-r from-[rgba(42,94,250,0.15)] via-[rgba(42,94,250,0.08)] to-transparent rounded-2xl p-4 flex items-center space-x-4">
+                <div className="w-10 h-10 rounded-full bg-[rgba(42,94,250,0.12)] flex items-center justify-center text-[rgb(42,94,250)] shrink-0">
+                  <Target className="w-5 h-5" />
+                </div>
+                <div className="space-y-2 flex-1">
+                  <div className="h-2 w-3/4 bg-[rgba(42,94,250,0.25)] rounded-full" />
+                  <div className="h-1.5 w-1/2 bg-[rgba(42,94,250,0.15)] rounded-full" />
+                </div>
               </div>
-              <div className="space-y-2 flex-1">
-                <div className="h-2 w-3/4 bg-[rgba(42,94,250,0.25)] rounded-full" />
-                <div className="h-1.5 w-1/2 bg-[rgba(42,94,250,0.15)] rounded-full" />
-              </div>
-            </div>
 
-            {/* Card 2: Presentation / Board */}
-            <div className="bg-gradient-to-r from-[rgba(42,94,250,0.15)] via-[rgba(42,94,250,0.08)] to-transparent rounded-2xl p-4 flex items-center space-x-4">
-              <div className="w-10 h-10 rounded-full bg-[rgba(42,94,250,0.12)] flex items-center justify-center text-[rgb(42,94,250)] shrink-0">
-                <Presentation className="w-5 h-5" />
+              {/* Card 2: Presentation / Board */}
+              <div className="bg-gradient-to-r from-[rgba(42,94,250,0.15)] via-[rgba(42,94,250,0.08)] to-transparent rounded-2xl p-4 flex items-center space-x-4">
+                <div className="w-10 h-10 rounded-full bg-[rgba(42,94,250,0.12)] flex items-center justify-center text-[rgb(42,94,250)] shrink-0">
+                  <Presentation className="w-5 h-5" />
+                </div>
+                <div className="space-y-2 flex-1">
+                  <div className="h-2 w-2/3 bg-[rgba(42,94,250,0.2)] rounded-full" />
+                  <div className="h-1.5 w-1/3 bg-[rgba(42,94,250,0.12)] rounded-full" />
+                </div>
               </div>
-              <div className="space-y-2 flex-1">
-                <div className="h-2 w-2/3 bg-[rgba(42,94,250,0.2)] rounded-full" />
-                <div className="h-1.5 w-1/3 bg-[rgba(42,94,250,0.12)] rounded-full" />
-              </div>
-            </div>
 
-            {/* Card 3: Large Faded Decorative Base Card */}
-            <div className="h-24 bg-gradient-to-r from-[rgba(42,94,250,0.12)] via-[rgba(42,94,250,0.06)] to-transparent rounded-2xl p-4 flex flex-col justify-end">
-              <div className="h-1.5 w-1/3 bg-[rgba(42,94,250,0.18)] rounded-full mb-1.5" />
-              <div className="h-1.5 w-1/4 bg-[rgba(42,94,250,0.1)] rounded-full" />
+              {/* Card 3: Large Faded Decorative Base Card */}
+              <div className="h-24 bg-gradient-to-r from-[rgba(42,94,250,0.12)] via-[rgba(42,94,250,0.06)] to-transparent rounded-2xl p-4 flex flex-col justify-end">
+                <div className="h-1.5 w-1/3 bg-[rgba(42,94,250,0.18)] rounded-full mb-1.5" />
+                <div className="h-1.5 w-1/4 bg-[rgba(42,94,250,0.1)] rounded-full" />
+              </div>
             </div>
-          </div>
+          )}
         </div>
 
         {/* ── Left Column (Positioned in Front so Top-Right Corner Overlaps Right Cards) ── */}

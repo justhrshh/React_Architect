@@ -99,28 +99,28 @@ export default function QueryBar({
               </span>
             </div>
           </div>
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+          <div className="flex flex-col gap-2">
             {ambiguousCandidates.map((cand) => (
               <button
                 key={cand.id}
                 type="button"
                 onClick={() => onSelectCandidate && onSelectCandidate(cand)}
-                className="flex flex-col items-start p-2.5 bg-slate-900/90 hover:bg-indigo-600/30 border border-slate-800 hover:border-indigo-500/60 rounded-lg transition-all text-left group"
+                className="flex items-center justify-between p-2.5 bg-slate-900/90 hover:bg-indigo-600/30 border-none rounded-lg transition-all text-left w-full group shadow-none"
               >
-                <div className="flex items-center justify-between w-full mb-1">
-                  <span className="text-xs font-bold text-slate-200 group-hover:text-indigo-300">
+                <div className="flex items-center space-x-2.5 min-w-0">
+                  <span className="text-xs font-bold text-slate-200 group-hover:text-indigo-300 shrink-0">
                     {cand.name}
                   </span>
-                  <span className="text-[10px] uppercase font-mono px-1.5 py-0.2 bg-slate-800 text-slate-400 rounded border border-slate-700">
+                  <span className="text-[10px] uppercase font-mono px-2 py-0.5 bg-slate-800 text-slate-400 rounded border-none font-semibold shrink-0">
                     {cand.kind}
                   </span>
+                  {cand.file && (
+                    <span className="text-[10px] text-slate-400 truncate font-mono hidden sm:inline">
+                      {cand.file}
+                    </span>
+                  )}
                 </div>
-                {cand.file && (
-                  <span className="text-[10px] text-slate-400 truncate max-w-full font-mono">
-                    {cand.file}
-                  </span>
-                )}
-                <div className="mt-1.5 text-[10px] text-indigo-400 font-medium">
+                <div className="text-[10px] text-indigo-400 font-medium shrink-0 ml-3">
                   Confidence: {Math.round((cand.confidence || 0) * 100)}%
                 </div>
               </button>

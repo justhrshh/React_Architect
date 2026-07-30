@@ -6,14 +6,14 @@
 
 import { composeExecutionFlow } from "./execution-flow.composer.js";
 import { composeComponentHierarchy } from "./component-hierarchy.composer.js";
-import { composeStateFlow } from "./state-flow.composer.js";
 import { composeNavigationFlow } from "./navigation-flow.composer.js";
 import { composeRequestLifecycle } from "./request-lifecycle.composer.js";
+import { composeComposedArchitecture } from "./composed-architecture.composer.js";
 
 export const GRAPH_TYPE_REGISTRY = {
+  "composed-architecture": composeComposedArchitecture,
   "execution-flow": composeExecutionFlow,
   "component-hierarchy": composeComponentHierarchy,
-  "state-flow": composeStateFlow,
   "navigation-flow": composeNavigationFlow,
   "request-lifecycle": composeRequestLifecycle,
 };

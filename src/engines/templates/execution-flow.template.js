@@ -86,7 +86,7 @@ export default {
   emptyState: {
     heading: "No execution flow detected",
     description: "This project may not have been fully analyzed or the specified focus component was not found.",
-    suggestions: ["State Flow", "Component Hierarchy"],
+    suggestions: ["Composed Architecture", "Component Hierarchy"],
   },
 
   historyLabel: (focus) => (focus ? `Execution Flow — ${focus}` : "Full Application Flow"),
